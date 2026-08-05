@@ -17,10 +17,11 @@ If you want an even cheaper first step, say so and I'll cut the swing watchlist 
 ## What gets built
 
 **1. Scan page (home)** — a "Run scan" button plus today's results:
-- Ranked table: ticker, score, price, and a Trade / No-trade flag against the 60-point threshold.
+- Scans a large universe, not 25 names. The universe is built automatically from the provider's list of active US common stocks, then narrowed by the same liquidity/price gates as your script (min $10 price, min $20M average dollar volume, 55+ bars of history). That typically leaves roughly 1,000–2,000 scoreable tickers.
+- Ranked table of all qualifying tickers, sorted by score, paginated, with search and a Trade / No-trade flag against the 60-point threshold.
 - Expandable row showing the factor breakdown (trend, momentum, volume, relative strength, volatility quality) with the same plain-English reasons your script prints, plus the invalidation line.
 - Top-N picks (default 2) highlighted with the fixed dollar size per pick.
-- Liquidity/price filters applied exactly as in your script (min $10, min $20M average dollar volume, 55+ bars of history).
+
 
 **2. History page** — every past scan kept in the database:
 - Day-by-day top 10 with scores.
