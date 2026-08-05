@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -46,9 +46,8 @@ export function ScoreTable({ rows }: { rows: ScanScoreRow[] }) {
           {rows.map((row) => {
             const isOpen = open === row.id;
             return (
-              <>
+              <Fragment key={row.id}>
                 <tr
-                  key={row.id}
                   onClick={() => setOpen(isOpen ? null : row.id)}
                   className="cursor-pointer border-t border-border transition-colors hover:bg-accent/50"
                 >
@@ -86,7 +85,7 @@ export function ScoreTable({ rows }: { rows: ScanScoreRow[] }) {
                   </td>
                 </tr>
                 {isOpen ? (
-                  <tr key={`${row.id}-detail`} className="border-t border-border bg-secondary/30">
+                  <tr className="border-t border-border bg-secondary/30">
                     <td colSpan={7} className="px-4 py-4">
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {Object.entries(row.factors ?? {}).map(([name, factor]) => (
@@ -116,7 +115,7 @@ export function ScoreTable({ rows }: { rows: ScanScoreRow[] }) {
                     </td>
                   </tr>
                 ) : null}
-              </>
+              </Fragment>
             );
           })}
         </tbody>
