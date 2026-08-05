@@ -244,7 +244,7 @@ export async function runScan(): Promise<{
     close: entry.result!.close,
     sma20: entry.result!.sma20,
     tradeable: entry.result!.score >= minScore,
-    factors: entry.result!.factors,
+    factors: entry.result!.factors as unknown as Record<string, never>,
     invalidation: entry.result!.invalidation,
   }));
   for (let i = 0; i < rows.length; i += 500) {
