@@ -2,6 +2,7 @@
  * Server-only scan + bookkeeping logic. Never import from client code.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Json } from "@/integrations/supabase/types";
 import {
   alpacaBars,
   alpacaUniverse,
