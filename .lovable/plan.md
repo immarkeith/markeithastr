@@ -17,10 +17,11 @@ If you want an even cheaper first step, say so and I'll cut the swing watchlist 
 ## What gets built
 
 **1. Scan page (home)** — a "Run scan" button plus today's results:
-- Ranked table: ticker, score, price, and a Trade / No-trade flag against the 60-point threshold.
+- Scans a large universe, not 25 names. The universe is built automatically from the provider's list of active US common stocks, then narrowed by the same liquidity/price gates as your script (min $10 price, min $20M average dollar volume, 55+ bars of history). That typically leaves roughly 1,000–2,000 scoreable tickers.
+- Ranked table of all qualifying tickers, sorted by score, paginated, with search and a Trade / No-trade flag against the 60-point threshold.
 - Expandable row showing the factor breakdown (trend, momentum, volume, relative strength, volatility quality) with the same plain-English reasons your script prints, plus the invalidation line.
 - Top-N picks (default 2) highlighted with the fixed dollar size per pick.
-- Liquidity/price filters applied exactly as in your script (min $10, min $20M average dollar volume, 55+ bars of history).
+
 
 **2. History page** — every past scan kept in the database:
 - Day-by-day top 10 with scores.
@@ -38,9 +39,13 @@ If you want an even cheaper first step, say so and I'll cut the swing watchlist 
 
 - Scoring is a direct TypeScript port of `score_security` and its five factor functions, including the exact point values, weights (25/25/20/15/15), RSI-14, SMA-20/50, ATR-14, RelVolume, ROC-5, and SPY as market proxy. Python/yfinance cannot run in this app's runtime, so the math is reimplemented rather than executed.
 - Price history is fetched in a server function using your API key stored as a project secret; it never reaches the browser.
-- Lovable Cloud tables: `scan_runs`, `scan_scores` (score + factor JSON per ticker per run), `watchlist_candidates`, `trades`, `ledger_entries`, `settings`. Public read policies plus grants; no user accounts in this phase, so the app is single-operator.
+- **Wide universe without wide cost.** Instead of one request per ticker (which is what makes big universes expensive and slow), the scan uses whole-market daily bars: one request per trading day returns every ticker's open/high/low/close/volume. A one-time backfill of ~70 trading days (~70 requests) fills enough history for SMA-50/RSI-14/ATR-14, then each daily scan needs a single request. Bars are cached in the database, so re-scans and history views cost nothing extra.
+- If your provider has no whole-market endpoint, we fall back to batched per-ticker requests against a ranked shortlist (a few hundred names by dollar volume) with the same caching — still far more than 25, just bounded by your plan's rate limit. I'll confirm which path applies once I know the provider.
+- Scoring runs over the cached bars in the database, so universe size costs compute time, not data calls. Long scans run in chunks with a progress indicator so the request never times out.
+- Lovable Cloud tables: `daily_bars` (cached OHLCV), `scan_runs`, `scan_scores` (score + factor JSON per ticker per run), `watchlist_candidates`, `trades`, `ledger_entries`, `settings`. Public read policies plus grants; no user accounts in this phase, so the app is single-operator.
 - Scans are on-demand via the button. A scheduled daily scan can be added later.
 - No numbers in the UI are simulated: an empty database shows empty states until the first scan.
+
 
 ## First steps after approval
 
