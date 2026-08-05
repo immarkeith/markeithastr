@@ -14,7 +14,304 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          dollars_per_day_trade: number
+          id: number
+          market_proxy: string
+          max_universe: number
+          min_avg_dollar_volume: number
+          min_price: number
+          min_score_to_trade: number
+          num_day_trades: number
+          profit_keep_pct: number
+          provider: string
+          settlement_days: number
+          streak_suggest_days: number
+          swing_dollars: number
+          swing_max_hold_days: number
+          updated_at: string
+          weight_momentum: number
+          weight_relative_strength: number
+          weight_trend: number
+          weight_volatility_quality: number
+          weight_volume: number
+        }
+        Insert: {
+          dollars_per_day_trade?: number
+          id?: number
+          market_proxy?: string
+          max_universe?: number
+          min_avg_dollar_volume?: number
+          min_price?: number
+          min_score_to_trade?: number
+          num_day_trades?: number
+          profit_keep_pct?: number
+          provider?: string
+          settlement_days?: number
+          streak_suggest_days?: number
+          swing_dollars?: number
+          swing_max_hold_days?: number
+          updated_at?: string
+          weight_momentum?: number
+          weight_relative_strength?: number
+          weight_trend?: number
+          weight_volatility_quality?: number
+          weight_volume?: number
+        }
+        Update: {
+          dollars_per_day_trade?: number
+          id?: number
+          market_proxy?: string
+          max_universe?: number
+          min_avg_dollar_volume?: number
+          min_price?: number
+          min_score_to_trade?: number
+          num_day_trades?: number
+          profit_keep_pct?: number
+          provider?: string
+          settlement_days?: number
+          streak_suggest_days?: number
+          swing_dollars?: number
+          swing_max_hold_days?: number
+          updated_at?: string
+          weight_momentum?: number
+          weight_relative_strength?: number
+          weight_trend?: number
+          weight_volatility_quality?: number
+          weight_volume?: number
+        }
+        Relationships: []
+      }
+      daily_bars: {
+        Row: {
+          bar_date: string
+          close: number
+          high: number
+          low: number
+          open: number
+          ticker: string
+          volume: number
+        }
+        Insert: {
+          bar_date: string
+          close: number
+          high: number
+          low: number
+          open: number
+          ticker: string
+          volume: number
+        }
+        Update: {
+          bar_date?: string
+          close?: number
+          high?: number
+          low?: number
+          open?: number
+          ticker?: string
+          volume?: number
+        }
+        Relationships: []
+      }
+      ledger_entries: {
+        Row: {
+          amount: number
+          available_on: string
+          created_at: string
+          entry_date: string
+          id: string
+          kind: string
+          note: string | null
+          trade_id: string | null
+        }
+        Insert: {
+          amount: number
+          available_on?: string
+          created_at?: string
+          entry_date?: string
+          id?: string
+          kind: string
+          note?: string | null
+          trade_id?: string | null
+        }
+        Update: {
+          amount?: number
+          available_on?: string
+          created_at?: string
+          entry_date?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          trade_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_entries_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scan_runs: {
+        Row: {
+          bars_as_of: string | null
+          created_at: string
+          id: string
+          note: string | null
+          run_date: string
+          scored_count: number
+          status: string
+          universe_size: number
+        }
+        Insert: {
+          bars_as_of?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          run_date: string
+          scored_count?: number
+          status?: string
+          universe_size?: number
+        }
+        Update: {
+          bars_as_of?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          run_date?: string
+          scored_count?: number
+          status?: string
+          universe_size?: number
+        }
+        Relationships: []
+      }
+      scan_scores: {
+        Row: {
+          close: number
+          factors: Json
+          id: string
+          invalidation: string | null
+          rank: number
+          run_id: string
+          score: number
+          sma20: number | null
+          ticker: string
+          tradeable: boolean
+        }
+        Insert: {
+          close: number
+          factors?: Json
+          id?: string
+          invalidation?: string | null
+          rank: number
+          run_id: string
+          score: number
+          sma20?: number | null
+          ticker: string
+          tradeable?: boolean
+        }
+        Update: {
+          close?: number
+          factors?: Json
+          id?: string
+          invalidation?: string | null
+          rank?: number
+          run_id?: string
+          score?: number
+          sma20?: number | null
+          ticker?: string
+          tradeable?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_scores_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "scan_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trades: {
+        Row: {
+          created_at: string
+          dollars: number
+          entry_date: string
+          entry_price: number
+          exit_date: string | null
+          exit_price: number | null
+          id: string
+          kept: number | null
+          kind: string
+          profit: number | null
+          status: string
+          ticker: string
+        }
+        Insert: {
+          created_at?: string
+          dollars: number
+          entry_date: string
+          entry_price: number
+          exit_date?: string | null
+          exit_price?: number | null
+          id?: string
+          kept?: number | null
+          kind?: string
+          profit?: number | null
+          status?: string
+          ticker: string
+        }
+        Update: {
+          created_at?: string
+          dollars?: number
+          entry_date?: string
+          entry_price?: number
+          exit_date?: string | null
+          exit_price?: number | null
+          id?: string
+          kept?: number | null
+          kind?: string
+          profit?: number | null
+          status?: string
+          ticker?: string
+        }
+        Relationships: []
+      }
+      watchlist_candidates: {
+        Row: {
+          approved_at: string | null
+          best_pick_ever: boolean
+          hold_until: string | null
+          last_seen_date: string | null
+          status: string
+          streak_days: number
+          ticker: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          best_pick_ever?: boolean
+          hold_until?: string | null
+          last_seen_date?: string | null
+          status?: string
+          streak_days?: number
+          ticker: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          best_pick_ever?: boolean
+          hold_until?: string | null
+          last_seen_date?: string | null
+          status?: string
+          streak_days?: number
+          ticker?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
