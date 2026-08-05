@@ -317,7 +317,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      bar_dates_present: {
+        Args: never
+        Returns: {
+          bar_date: string
+          ticker_count: number
+        }[]
+      }
+      scan_input: {
+        Args: { p_days: number; p_limit: number; p_offset: number }
+        Returns: {
+          bars: Json
+          ticker: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
