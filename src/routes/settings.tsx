@@ -59,7 +59,7 @@ function SettingsPage() {
 
   const mutate = useMutation({
     mutationFn: () => {
-      const patch: Record<string, unknown> = { market_proxy: form.market_proxy };
+      const patch: Record<string, unknown> = { market_proxy: form['market_proxy'] };
       for (const [key] of NUMERIC_FIELDS) patch[key] = Number(form[key]);
       return save({ data: patch as never });
     },
@@ -93,7 +93,7 @@ function SettingsPage() {
           <Label htmlFor="market_proxy">Market proxy</Label>
           <Input
             id="market_proxy"
-            value={form.market_proxy ?? ""}
+            value={form['market_proxy'] ?? ""}
             onChange={(e) => setForm({ ...form, market_proxy: e.target.value.toUpperCase() })}
           />
         </div>
