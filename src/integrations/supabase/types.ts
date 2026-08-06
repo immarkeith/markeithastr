@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
+          auto_run: boolean
           dollars_per_day_trade: number
           id: number
           market_proxy: string
@@ -24,6 +25,7 @@ export type Database = {
           min_price: number
           min_score_to_trade: number
           num_day_trades: number
+          paper_mode: boolean
           profit_keep_pct: number
           provider: string
           settlement_days: number
@@ -38,6 +40,7 @@ export type Database = {
           weight_volume: number
         }
         Insert: {
+          auto_run?: boolean
           dollars_per_day_trade?: number
           id?: number
           market_proxy?: string
@@ -46,6 +49,7 @@ export type Database = {
           min_price?: number
           min_score_to_trade?: number
           num_day_trades?: number
+          paper_mode?: boolean
           profit_keep_pct?: number
           provider?: string
           settlement_days?: number
@@ -60,6 +64,7 @@ export type Database = {
           weight_volume?: number
         }
         Update: {
+          auto_run?: boolean
           dollars_per_day_trade?: number
           id?: number
           market_proxy?: string
@@ -68,6 +73,7 @@ export type Database = {
           min_price?: number
           min_score_to_trade?: number
           num_day_trades?: number
+          paper_mode?: boolean
           profit_keep_pct?: number
           provider?: string
           settlement_days?: number
@@ -245,6 +251,7 @@ export type Database = {
           id: string
           kept: number | null
           kind: string
+          mode: string
           profit: number | null
           status: string
           ticker: string
@@ -259,6 +266,7 @@ export type Database = {
           id?: string
           kept?: number | null
           kind?: string
+          mode?: string
           profit?: number | null
           status?: string
           ticker: string
@@ -273,6 +281,7 @@ export type Database = {
           id?: string
           kept?: number | null
           kind?: string
+          mode?: string
           profit?: number | null
           status?: string
           ticker?: string
