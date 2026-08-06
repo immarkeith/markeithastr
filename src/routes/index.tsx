@@ -4,12 +4,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { MarketStatusBar } from "@/components/MarketStatusBar";
 import { ScoreTable } from "@/components/ScoreTable";
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { latestRunQuery, settingsQuery } from "@/lib/queries";
-import { cacheDay, getBarStatus, runScanNow } from "@/lib/scan.functions";
+import { marketStatus } from "@/lib/market-calendar";
+import { cacheDay, getBarStatus, runCycleNow, runScanNow } from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,6 +37,7 @@ function ScanPage() {
   const barStatusFn = useServerFn(getBarStatus);
   const cacheDayFn = useServerFn(cacheDay);
   const runScanFn = useServerFn(runScanNow);
+  const runCycleFn = useServerFn(runCycleNow);
 
   const status = useQuery({ queryKey: ["bar-status"], queryFn: () => barStatusFn({}) });
   const settings = useQuery(settingsQuery);
@@ -74,6 +77,20 @@ function ScanPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const cycle = useMutation({
+    mutationFn: () => runCycleFn({ data: { force: true } }),
+    onSuccess: async (res) => {
+      if (!res.ran) toast.info(res.reason);
+      else
+        toast.success(
+          `Cycle done — ${res.scan?.scored_count ?? 0} scored, ${res.paper_opened.length} simulated entries, ${res.paper_closed.length} exits.`,
+        );
+      await qc.invalidateQueries();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const market = marketStatus();
   const s = settings.data;
   const scores = latest.data?.scores ?? [];
   const tradeable = scores.filter((r) => r.tradeable);
@@ -81,12 +98,15 @@ function ScanPage() {
 
   return (
     <div className="space-y-8">
+      <MarketStatusBar paperMode={(s as { paper_mode?: boolean } | undefined)?.paper_mode !== false} />
+
       <header className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">Daily rotation scan</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Whole-market daily bars are cached once per trading day, so scans and history cost no
           extra data requests. Scores blend trend, momentum, volume, relative strength and
-          volatility quality.
+          volatility quality. Simulation mode keeps scoring, entries and exits running on paper —
+          no broker orders are placed until you switch it off in Settings.
         </p>
       </header>
 
@@ -129,8 +149,18 @@ function ScanPage() {
           >
             {scan.isPending ? "Scanning…" : "Run scan"}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => cycle.mutate()}
+            disabled={cycle.isPending || loading !== null}
+          >
+            {cycle.isPending ? "Running cycle…" : "Run today's cycle"}
+          </Button>
           <span className="text-xs text-muted-foreground">
-            Data loads one trading day per request to stay inside API limits.
+            Cycle = top up bars, re-score, then apply the simulated entry/exit rules.
+            {market.tradingDay
+              ? ` Session ${market.label.toLowerCase()}.`
+              : " Market is closed today, so the cycle only re-scores."}
           </span>
         </div>
         {loading ? (
