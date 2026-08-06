@@ -49,18 +49,26 @@ function SettingsPage() {
   const { data } = useQuery(settingsQuery);
   const save = useServerFn(saveSettings);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [toggles, setToggles] = useState({ paper_mode: true, auto_run: true });
 
   useEffect(() => {
     if (!data) return;
     const next: Record<string, string> = { market_proxy: String(data.market_proxy) };
     for (const [key] of NUMERIC_FIELDS) next[key] = String((data as Record<string, unknown>)[key]);
     setForm(next);
+    const row = data as Record<string, unknown>;
+    setToggles({
+      paper_mode: row['paper_mode'] !== false,
+      auto_run: row['auto_run'] !== false,
+    });
   }, [data]);
 
   const mutate = useMutation({
     mutationFn: () => {
       const patch: Record<string, unknown> = { market_proxy: form['market_proxy'] };
       for (const [key] of NUMERIC_FIELDS) patch[key] = Number(form[key]);
+      patch['paper_mode'] = toggles.paper_mode;
+      patch['auto_run'] = toggles.auto_run;
       return save({ data: patch as never });
     },
     onSuccess: async () => {
@@ -88,6 +96,40 @@ function SettingsPage() {
         </span>
         .
       </p>
+      <div className="space-y-3 rounded-md border border-border bg-card p-4">
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Operating mode</h2>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={toggles.paper_mode}
+            onChange={(e) => setToggles({ ...toggles, paper_mode: e.target.checked })}
+          />
+          <span>
+            <span className="font-semibold">Simulation (paper) mode</span>
+            <span className="block text-xs text-muted-foreground">
+              Keeps scoring, entries and exits running on paper. No broker orders and no real cash
+              movement. Leave this on until you fund the account.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={toggles.auto_run}
+            onChange={(e) => setToggles({ ...toggles, auto_run: e.target.checked })}
+          />
+          <span>
+            <span className="font-semibold">Automatic daily cycle</span>
+            <span className="block text-xs text-muted-foreground">
+              Runs itself after each trading session's close — skipped on weekends and market
+              holidays.
+            </span>
+          </span>
+        </label>
+      </div>
+
       <div className="grid gap-4 rounded-md border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1">
           <Label htmlFor="market_proxy">Market proxy</Label>
