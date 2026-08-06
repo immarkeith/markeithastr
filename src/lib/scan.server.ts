@@ -348,7 +348,10 @@ export async function openTrade(input: {
   kind: string;
   entry_price: number;
   dollars: number;
+  mode?: string;
 }) {
+  const mode = input.mode === "live" ? "live" : "paper";
+
   const { data, error } = await supabaseAdmin
     .from("trades")
     .insert({
@@ -358,20 +361,25 @@ export async function openTrade(input: {
       entry_price: input.entry_price,
       dollars: input.dollars,
       status: "open",
+      mode,
     })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
 
-  const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
-    kind: "deploy",
-    amount: -Math.abs(input.dollars),
-    trade_id: data!.id,
-    note: `Opened ${input.kind} ${input.ticker.toUpperCase()} @ ${input.entry_price}`,
-  });
-  if (ledgerErr) throw new Error(ledgerErr.message);
-  return { id: data!.id as string };
+  // Simulated trades never touch the real cash ledger.
+  if (mode === "live") {
+    const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
+      kind: "deploy",
+      amount: -Math.abs(input.dollars),
+      trade_id: data!.id,
+      note: `Opened ${input.kind} ${input.ticker.toUpperCase()} @ ${input.entry_price}`,
+    });
+    if (ledgerErr) throw new Error(ledgerErr.message);
+  }
+  return { id: data!.id as string, mode };
 }
+
 
 export async function closeTrade(input: { id: string; exit_price: number }) {
   const s = await loadSettings();
@@ -400,18 +408,208 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
     .eq("id", input.id);
   if (upErr) throw new Error(upErr.message);
 
-  const available = new Date();
-  available.setUTCDate(available.getUTCDate() + Number(s.settlement_days));
-  const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
-    kind: "settle",
-    amount: Number((dollars + kept).toFixed(2)),
-    available_on: available.toISOString().slice(0, 10),
-    trade_id: input.id,
-    note: `Closed ${trade!.ticker} @ ${input.exit_price} (P&L ${profit.toFixed(2)}, kept ${kept.toFixed(2)})`,
-  });
-  if (ledgerErr) throw new Error(ledgerErr.message);
+  if (trade!.mode !== "paper") {
+    const available = new Date();
+    available.setUTCDate(available.getUTCDate() + Number(s.settlement_days));
+    const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
+      kind: "settle",
+      amount: Number((dollars + kept).toFixed(2)),
+      available_on: available.toISOString().slice(0, 10),
+      trade_id: input.id,
+      note: `Closed ${trade!.ticker} @ ${input.exit_price} (P&L ${profit.toFixed(2)}, kept ${kept.toFixed(2)})`,
+    });
+    if (ledgerErr) throw new Error(ledgerErr.message);
+  }
   return { profit: Number(profit.toFixed(2)), kept: Number(kept.toFixed(2)) };
 }
+
+// ---------------------------------------------- paper (simulated) cycle ----
+
+interface CycleResult {
+  ran: boolean;
+  reason: string;
+  market: string;
+  days_cached: number;
+  scan: { scored_count: number; universe_size: number; bars_as_of: string | null } | null;
+  paper_opened: { ticker: string; kind: string; price: number }[];
+  paper_closed: { ticker: string; exit: number; profit: number; why: string }[];
+}
+
+async function latestBarByTicker(tickers: string[]) {
+  if (tickers.length === 0) return new Map<string, { bar_date: string; close: number }>();
+  const { data, error } = await supabaseAdmin
+    .from("daily_bars")
+    .select("ticker, bar_date, close")
+    .in("ticker", tickers)
+    .order("bar_date", { ascending: true });
+  if (error) throw new Error(error.message);
+  const map = new Map<string, { bar_date: string; close: number }>();
+  for (const row of data ?? []) {
+    map.set(row.ticker as string, { bar_date: row.bar_date as string, close: Number(row.close) });
+  }
+  return map;
+}
+
+/**
+ * Simulate the trading rules against cached bars: day trades exit on the next
+ * session (the "sell before 4pm" rule), swings exit when they lose the 20-day
+ * average or run past the max hold.
+ */
+export async function managePaperTrades(): Promise<{
+  opened: CycleResult["paper_opened"];
+  closed: CycleResult["paper_closed"];
+}> {
+  const s = await loadSettings();
+  const opened: CycleResult["paper_opened"] = [];
+  const closed: CycleResult["paper_closed"] = [];
+
+  const { data: openRows, error: openErr } = await supabaseAdmin
+    .from("trades")
+    .select("*")
+    .eq("status", "open")
+    .eq("mode", "paper");
+  if (openErr) throw new Error(openErr.message);
+  const openTrades = openRows ?? [];
+
+  // Latest scan scores give us the SMA20 exit reference.
+  const { data: runRow } = await supabaseAdmin
+    .from("scan_runs")
+    .select("id, bars_as_of")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { data: scoreRows } = runRow
+    ? await supabaseAdmin
+        .from("scan_scores")
+        .select("ticker, rank, score, close, sma20, tradeable, invalidation")
+        .eq("run_id", runRow.id as string)
+        .order("rank", { ascending: true })
+        .limit(50)
+    : { data: [] as any[] };
+  const scores = scoreRows ?? [];
+  const byTicker = new Map(scores.map((r) => [r.ticker as string, r]));
+
+  const bars = await latestBarByTicker(openTrades.map((t) => t.ticker as string));
+
+  for (const trade of openTrades) {
+    const ticker = trade.ticker as string;
+    const bar = bars.get(ticker);
+    const score = byTicker.get(ticker);
+    const price = Number(bar?.close ?? score?.close ?? 0);
+    if (!price) continue;
+    const barDate = bar?.bar_date ?? runRow?.bars_as_of ?? today();
+    const heldDays = Math.max(
+      0,
+      Math.round(
+        (Date.parse(`${barDate}T00:00:00Z`) - Date.parse(`${trade.entry_date}T00:00:00Z`)) / 86400000,
+      ),
+    );
+
+    let why = "";
+    if (trade.kind === "day") {
+      if (heldDays >= 1) why = "day-trade exit before the close";
+    } else {
+      const sma = score?.sma20 === null || score?.sma20 === undefined ? null : Number(score.sma20);
+      if (sma !== null && price < sma) why = "lost the 20-day average";
+      else if (heldDays >= Number(s.swing_max_hold_days)) why = "max hold reached";
+    }
+    if (!why) continue;
+
+    const res = await closeTrade({ id: trade.id as string, exit_price: price });
+    closed.push({ ticker, exit: price, profit: res.profit, why });
+  }
+
+  // Open today's simulated plan.
+  const stillOpen = new Set(
+    openTrades.filter((t) => !closed.some((c) => c.ticker === t.ticker)).map((t) => t.ticker as string),
+  );
+  const plan = scores
+    .filter((r) => r.tradeable)
+    .filter((r) => !stillOpen.has(r.ticker as string))
+    .slice(0, Number(s.num_day_trades));
+  for (const row of plan) {
+    const ticker = row.ticker as string;
+    const price = Number(bars.get(ticker)?.close ?? row.close);
+    if (!price) continue;
+    await openTrade({
+      ticker,
+      kind: "day",
+      entry_price: price,
+      dollars: Number(s.dollars_per_day_trade),
+      mode: "paper",
+    });
+    opened.push({ ticker, kind: "day", price });
+  }
+
+  // Approved swing candidates get a simulated position too.
+  const { data: approved } = await supabaseAdmin
+    .from("watchlist_candidates")
+    .select("ticker")
+    .eq("status", "approved");
+  for (const row of approved ?? []) {
+    const ticker = row.ticker as string;
+    if (stillOpen.has(ticker) || opened.some((o) => o.ticker === ticker)) continue;
+    const score = byTicker.get(ticker);
+    const price = Number(bars.get(ticker)?.close ?? score?.close ?? 0);
+    if (!price) continue;
+    await openTrade({
+      ticker,
+      kind: "swing",
+      entry_price: price,
+      dollars: Number(s.swing_dollars),
+      mode: "paper",
+    });
+    opened.push({ ticker, kind: "swing", price });
+  }
+
+  return { opened, closed };
+}
+
+/**
+ * One full end-of-day cycle: respect the market calendar, top up cached bars,
+ * re-score the universe, then run the simulation. Safe to call repeatedly.
+ */
+export async function runDailyCycle(options: { force?: boolean } = {}): Promise<CycleResult> {
+  const { marketStatus } = await import("./market-calendar");
+  const status = marketStatus();
+  const base: CycleResult = {
+    ran: false,
+    reason: "",
+    market: `${status.label} — ${status.detail}`,
+    days_cached: 0,
+    scan: null,
+    paper_opened: [],
+    paper_closed: [],
+  };
+
+  if (!options.force && !status.tradingDay) {
+    return { ...base, reason: `Market closed (${status.detail}). Nothing to do.` };
+  }
+
+  const missing = await missingDates();
+  let cached = 0;
+  for (const date of missing.slice(-6)) {
+    const res = await cacheOneDay(date);
+    if (res.trading_day) cached += 1;
+  }
+
+  const scan = await runScan();
+  const sim = await managePaperTrades();
+  return {
+    ...base,
+    ran: true,
+    reason: "Cycle complete.",
+    days_cached: cached,
+    scan: {
+      scored_count: scan.scored_count,
+      universe_size: scan.universe_size,
+      bars_as_of: scan.bars_as_of,
+    },
+    paper_opened: sim.opened,
+    paper_closed: sim.closed,
+  };
+}
+
 
 export async function updateSettings(patch: Record<string, unknown>) {
   const { error } = await supabaseAdmin

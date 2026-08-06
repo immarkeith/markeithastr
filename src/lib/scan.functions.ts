@@ -57,6 +57,7 @@ export const createTrade = createServerFn({ method: "POST" })
         kind: z.enum(["day", "swing"]),
         entry_price: z.number().positive(),
         dollars: z.number().positive(),
+        mode: z.enum(["paper", "live"]).default("paper"),
       })
       .parse(input),
   )
@@ -96,6 +97,8 @@ export const saveSettings = createServerFn({ method: "POST" })
         swing_max_hold_days: z.number().int().min(1).max(60).optional(),
         market_proxy: z.string().min(1).max(10).optional(),
         max_universe: z.number().int().min(50).max(3000).optional(),
+        paper_mode: z.boolean().optional(),
+        auto_run: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -103,3 +106,15 @@ export const saveSettings = createServerFn({ method: "POST" })
     const { updateSettings } = await import("./scan.server");
     return updateSettings(data);
   });
+
+export const runCycleNow = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ force: z.boolean().default(false) }).parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const { runDailyCycle } = await import("./scan.server");
+    return runDailyCycle({ force: data.force });
+  });
+
+export const simulateNow = createServerFn({ method: "POST" }).handler(async () => {
+  const { managePaperTrades } = await import("./scan.server");
+  return managePaperTrades();
+});
