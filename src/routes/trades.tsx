@@ -26,6 +26,20 @@ export const Route = createFileRoute("/trades")({
   component: TradesPage,
 });
 
+interface TradeRow {
+  id: string;
+  ticker: string;
+  kind: string;
+  mode?: string;
+  status: string;
+  entry_date: string;
+  entry_price: number;
+  dollars: number;
+  exit_date: string | null;
+  exit_price: number | null;
+  profit: number | null;
+}
+
 function TradesPage() {
   const qc = useQueryClient();
   const trades = useQuery(tradesQuery);
@@ -90,7 +104,7 @@ function TradesPage() {
     available_on: String(e.available_on),
   }));
   const cash = cashSummary(entries);
-  const all = (trades.data ?? []) as (Record<string, any> & { mode?: string })[];
+  const all = (trades.data ?? []) as unknown as TradeRow[];
   const rows = all.filter((t) => (t.mode ?? "paper") !== "paper");
   const paper = all.filter((t) => (t.mode ?? "paper") === "paper");
   const closed = rows.filter((t) => t.status === "closed");
