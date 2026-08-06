@@ -361,20 +361,25 @@ export async function openTrade(input: {
       entry_price: input.entry_price,
       dollars: input.dollars,
       status: "open",
+      mode,
     })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
 
-  const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
-    kind: "deploy",
-    amount: -Math.abs(input.dollars),
-    trade_id: data!.id,
-    note: `Opened ${input.kind} ${input.ticker.toUpperCase()} @ ${input.entry_price}`,
-  });
-  if (ledgerErr) throw new Error(ledgerErr.message);
-  return { id: data!.id as string };
+  // Simulated trades never touch the real cash ledger.
+  if (mode === "live") {
+    const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
+      kind: "deploy",
+      amount: -Math.abs(input.dollars),
+      trade_id: data!.id,
+      note: `Opened ${input.kind} ${input.ticker.toUpperCase()} @ ${input.entry_price}`,
+    });
+    if (ledgerErr) throw new Error(ledgerErr.message);
+  }
+  return { id: data!.id as string, mode };
 }
+
 
 export async function closeTrade(input: { id: string; exit_price: number }) {
   const s = await loadSettings();
