@@ -14,6 +14,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TradesRouteImport } from './routes/trades'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
+import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,12 @@ const WatchlistRoute = WatchlistRouteImport.update({
   path: '/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDailyCycleRoute =
+  ApiPublicHooksDailyCycleRouteImport.update({
+    id: '/api/public/hooks/daily-cycle',
+    path: '/api/public/hooks/daily-cycle',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +54,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
+  '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +62,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
+  '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +71,33 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
+  '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/settings' | '/trades' | '/watchlist'
+  fullPaths:
+    | '/'
+    | '/history'
+    | '/settings'
+    | '/trades'
+    | '/watchlist'
+    | '/api/public/hooks/daily-cycle'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/settings' | '/trades' | '/watchlist'
-  id: '__root__' | '/' | '/history' | '/settings' | '/trades' | '/watchlist'
+  to:
+    | '/'
+    | '/history'
+    | '/settings'
+    | '/trades'
+    | '/watchlist'
+    | '/api/public/hooks/daily-cycle'
+  id:
+    | '__root__'
+    | '/'
+    | '/history'
+    | '/settings'
+    | '/trades'
+    | '/watchlist'
+    | '/api/public/hooks/daily-cycle'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +106,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TradesRoute: typeof TradesRoute
   WatchlistRoute: typeof WatchlistRoute
+  ApiPublicHooksDailyCycleRoute: typeof ApiPublicHooksDailyCycleRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/daily-cycle': {
+      id: '/api/public/hooks/daily-cycle'
+      path: '/api/public/hooks/daily-cycle'
+      fullPath: '/api/public/hooks/daily-cycle'
+      preLoaderRoute: typeof ApiPublicHooksDailyCycleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,17 +162,8 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TradesRoute: TradesRoute,
   WatchlistRoute: WatchlistRoute,
+  ApiPublicHooksDailyCycleRoute: ApiPublicHooksDailyCycleRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
