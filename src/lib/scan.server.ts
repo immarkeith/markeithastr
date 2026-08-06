@@ -348,7 +348,10 @@ export async function openTrade(input: {
   kind: string;
   entry_price: number;
   dollars: number;
+  mode?: string;
 }) {
+  const mode = input.mode === "live" ? "live" : "paper";
+
   const { data, error } = await supabaseAdmin
     .from("trades")
     .insert({
