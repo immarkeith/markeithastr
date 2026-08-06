@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cashSummary, ledgerQuery, money, tradesQuery } from "@/lib/queries";
-import { createTrade, exitTrade, recordFunds } from "@/lib/scan.functions";
+import { createTrade, exitTrade, recordFunds, simulateNow } from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/trades")({
   head: () => ({
@@ -34,7 +34,14 @@ function TradesPage() {
   const closeFn = useServerFn(exitTrade);
   const fundsFn = useServerFn(recordFunds);
 
-  const [form, setForm] = useState({ ticker: "", entry_price: "", dollars: "25", kind: "day" });
+  const simFn = useServerFn(simulateNow);
+  const [form, setForm] = useState({
+    ticker: "",
+    entry_price: "",
+    dollars: "25",
+    kind: "day",
+    mode: "paper",
+  });
   const [deposit, setDeposit] = useState("");
   const [exits, setExits] = useState<Record<string, string>>({});
 
@@ -48,6 +55,7 @@ function TradesPage() {
           kind: form.kind === "swing" ? "swing" : "day",
           entry_price: Number(form.entry_price),
           dollars: Number(form.dollars),
+          mode: form.mode === "live" ? "live" : "paper",
         },
       }),
     onSuccess: async () => {
@@ -82,9 +90,25 @@ function TradesPage() {
     available_on: String(e.available_on),
   }));
   const cash = cashSummary(entries);
-  const rows = trades.data ?? [];
+  const all = (trades.data ?? []) as (Record<string, any> & { mode?: string })[];
+  const rows = all.filter((t) => (t.mode ?? "paper") !== "paper");
+  const paper = all.filter((t) => (t.mode ?? "paper") === "paper");
   const closed = rows.filter((t) => t.status === "closed");
   const realised = closed.reduce((sum, t) => sum + Number(t.profit ?? 0), 0);
+  const paperClosed = paper.filter((t) => t.status === "closed");
+  const paperPnl = paperClosed.reduce((sum, t) => sum + Number(t.profit ?? 0), 0);
+  const paperWins = paperClosed.filter((t) => Number(t.profit ?? 0) > 0).length;
+
+  const sim = useMutation({
+    mutationFn: () => simFn({}),
+    onSuccess: async (res) => {
+      await refresh();
+      toast.success(
+        `Simulation updated — ${res.opened.length} entries, ${res.closed.length} exits.`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   return (
     <div className="space-y-8">
@@ -133,6 +157,18 @@ function TradesPage() {
               />
             </div>
             <div className="space-y-1">
+              <Label htmlFor="mode">Mode</Label>
+              <select
+                id="mode"
+                value={form.mode}
+                onChange={(e) => setForm({ ...form, mode: e.target.value })}
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="paper">paper (simulated)</option>
+                <option value="live">live (real cash)</option>
+              </select>
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="kind">Kind</Label>
               <select
                 id="kind"
@@ -167,11 +203,75 @@ function TradesPage() {
         </div>
       </section>
 
+      <section className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+            Simulated (paper) book
+          </h2>
+          <Button size="sm" variant="secondary" onClick={() => sim.mutate()} disabled={sim.isPending}>
+            {sim.isPending ? "Simulating…" : "Apply rules now"}
+          </Button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <StatTile
+            label="Paper P&L"
+            value={money(paperPnl)}
+            tone={paperPnl >= 0 ? "positive" : "negative"}
+            hint={`${paperClosed.length} closed`}
+          />
+          <StatTile
+            label="Win rate"
+            value={paperClosed.length ? `${Math.round((paperWins / paperClosed.length) * 100)}%` : "—"}
+            hint="simulated only"
+          />
+          <StatTile
+            label="Open simulations"
+            value={`${paper.filter((t) => t.status === "open").length}`}
+            hint="no orders sent"
+          />
+        </div>
+        {paper.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Run today's cycle on the Scan page to start the simulated book.
+          </p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {paper.slice(0, 12).map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center gap-2 tabular-nums">
+                <span className="font-semibold">{t.ticker}</span>
+                <span className="text-xs uppercase text-muted-foreground">{t.kind}</span>
+                <span className="text-muted-foreground">
+                  in ${Number(t.entry_price).toFixed(2)} {t.entry_date}
+                </span>
+                {t.status === "closed" ? (
+                  <>
+                    <span className="text-muted-foreground">
+                      out ${Number(t.exit_price).toFixed(2)} {t.exit_date}
+                    </span>
+                    <span
+                      className={
+                        Number(t.profit ?? 0) >= 0 ? "text-success" : "text-destructive"
+                      }
+                    >
+                      {money(Number(t.profit ?? 0))}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-primary">open</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section className="space-y-3">
-        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Trade log</h2>
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+          Live trade log
+        </h2>
         {rows.length === 0 ? (
           <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            No trades logged yet.
+            No live trades logged yet — the simulated book above is running instead.
           </p>
         ) : (
           <div className="overflow-hidden rounded-md border border-border">
