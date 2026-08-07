@@ -603,6 +603,8 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
 
   const scan = await runScan();
   const sim = await managePaperTrades();
+  const { generateInsights } = await import("./notify.server");
+  await generateInsights(status.nyDate);
   return {
     ...base,
     ran: true,
