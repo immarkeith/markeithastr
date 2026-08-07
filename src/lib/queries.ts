@@ -137,3 +137,46 @@ export const money = (n: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+export interface NotificationRow {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  ticker: string | null;
+  severity: string;
+  action: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export const notificationsQuery = queryOptions({
+  queryKey: ["notifications"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as NotificationRow[];
+  },
+  refetchInterval: 60_000,
+});
+
+export interface ThemeSignalRow {
+  id: string;
+  label: string;
+  change5d: number;
+  members: number;
+  weakest: string | null;
+  strongest: string | null;
+}
+
+export const themeSignalsQuery = queryOptions({
+  queryKey: ["theme-signals"],
+  queryFn: async (): Promise<ThemeSignalRow[]> => {
+    const { getThemeSignals } = await import("@/lib/scan.functions");
+    return getThemeSignals();
+  },
+});
