@@ -35,6 +35,8 @@ export interface Settings {
   exit_buffer_minutes: number;
   preopen_recheck_minutes: number;
   notify_push: boolean;
+  auto_run: boolean;
+  paper_mode: boolean;
 }
 
 export const HISTORY_DAYS = 70;
