@@ -118,3 +118,100 @@ export const simulateNow = createServerFn({ method: "POST" }).handler(async () =
   const { managePaperTrades } = await import("./scan.server");
   return managePaperTrades();
 });
+
+export const runPreOpen = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ force: z.boolean().default(false) }).parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const { runPreOpenEntries } = await import("./scan.server");
+    return runPreOpenEntries({ force: data.force });
+  });
+
+export const runPreClose = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ force: z.boolean().default(false) }).parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const { runPreCloseExits } = await import("./scan.server");
+    return runPreCloseExits({ force: data.force });
+  });
+
+export const getPushKey = createServerFn({ method: "GET" }).handler(async () => {
+  const { pushPublicKey } = await import("./notify.server");
+  return { public_key: pushPublicKey() };
+});
+
+export const savePushDevice = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        endpoint: z.string().url().max(1000),
+        p256dh: z.string().min(10).max(400),
+        auth: z.string().min(4).max(200),
+        label: z.string().max(200).default(""),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("push_subscriptions")
+      .upsert(
+        {
+          endpoint: data.endpoint,
+          p256dh: data.p256dh,
+          auth: data.auth,
+          label: data.label,
+          failures: 0,
+        },
+        { onConflict: "endpoint" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const removePushDevice = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ endpoint: z.string().url().max(1000) }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("push_subscriptions").delete().eq("endpoint", data.endpoint);
+    return { ok: true };
+  });
+
+export const sendTestPush = createServerFn({ method: "POST" }).handler(async () => {
+  const { pushToDevices } = await import("./notify.server");
+  return pushToDevices({
+    title: "ASTR test alert",
+    body: "Push notifications are working on this device.",
+    url: "/notifications",
+    tag: "test",
+  });
+});
+
+export const markNotificationsRead = createServerFn({ method: "POST" }).handler(async () => {
+  const { markAllRead } = await import("./notify.server");
+  return markAllRead();
+});
+
+export const refreshInsights = createServerFn({ method: "POST" }).handler(async () => {
+  const { generateInsights } = await import("./notify.server");
+  const { marketStatus } = await import("./market-calendar");
+  const created = await generateInsights(marketStatus().nyDate);
+  return { created };
+});
+
+export const getThemeSignals = createServerFn({ method: "GET" }).handler(async () => {
+  const { themeSignals } = await import("./notify.server");
+  return themeSignals();
+});
+
+export const runStrategyLab = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        sessions: z.number().int().min(3).max(40).default(12),
+        universe: z.number().int().min(50).max(1500).default(400),
+      })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data }) => {
+    const { backtestStrategies } = await import("./strategy.server");
+    return backtestStrategies(data.sessions, data.universe);
+  });

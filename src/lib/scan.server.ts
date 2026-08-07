@@ -32,6 +32,11 @@ export interface Settings {
   swing_max_hold_days: number;
   market_proxy: string;
   max_universe: number;
+  exit_buffer_minutes: number;
+  preopen_recheck_minutes: number;
+  notify_push: boolean;
+  auto_run: boolean;
+  paper_mode: boolean;
 }
 
 export const HISTORY_DAYS = 70;
@@ -455,10 +460,13 @@ async function latestBarByTicker(tickers: string[]) {
  * session (the "sell before 4pm" rule), swings exit when they lose the 20-day
  * average or run past the max hold.
  */
-export async function managePaperTrades(): Promise<{
+export async function managePaperTrades(
+  options: { phase?: "both" | "exit" | "entry" } = {},
+): Promise<{
   opened: CycleResult["paper_opened"];
   closed: CycleResult["paper_closed"];
 }> {
+  const phase = options.phase ?? "both";
   const s = await loadSettings();
   const opened: CycleResult["paper_opened"] = [];
   const closed: CycleResult["paper_closed"] = [];
@@ -491,7 +499,7 @@ export async function managePaperTrades(): Promise<{
 
   const bars = await latestBarByTicker(openTrades.map((t) => t.ticker as string));
 
-  for (const trade of openTrades) {
+  for (const trade of phase === "entry" ? [] : openTrades) {
     const ticker = trade.ticker as string;
     const bar = bars.get(ticker);
     const score = byTicker.get(ticker);
@@ -518,6 +526,8 @@ export async function managePaperTrades(): Promise<{
     const res = await closeTrade({ id: trade.id as string, exit_price: price });
     closed.push({ ticker, exit: price, profit: res.profit, why });
   }
+
+  if (phase === "exit") return { opened, closed };
 
   // Open today's simulated plan.
   const stillOpen = new Set(
@@ -595,6 +605,8 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
 
   const scan = await runScan();
   const sim = await managePaperTrades();
+  const { generateInsights } = await import("./notify.server");
+  await generateInsights(status.nyDate);
   return {
     ...base,
     ran: true,
@@ -618,4 +630,131 @@ export async function updateSettings(patch: Record<string, unknown>) {
     .eq("id", 1);
   if (error) throw new Error(error.message);
   return { ok: true };
+}
+
+// ------------------------------------------------- intraday timed passes ----
+
+export interface TimedPassResult {
+  ran: boolean;
+  reason: string;
+  market: string;
+  ny_time: string;
+  opened: CycleResult["paper_opened"];
+  closed: CycleResult["paper_closed"];
+  scan: { scored_count: number; bars_as_of: string | null } | null;
+  insights: number;
+}
+
+/**
+ * Pre-close pass: sells the simulated day positions a few minutes before the
+ * bell so the cash is clear for the T+1 rule.
+ */
+export async function runPreCloseExits(options: { force?: boolean } = {}): Promise<TimedPassResult> {
+  const { marketStatus } = await import("./market-calendar");
+  const { notify } = await import("./notify.server");
+  const s = await loadSettings();
+  const status = marketStatus();
+  const buffer = Math.max(1, Number(s.exit_buffer_minutes ?? 8));
+  const base: TimedPassResult = {
+    ran: false,
+    reason: "",
+    market: `${status.label} — ${status.detail}`,
+    ny_time: status.nyTime,
+    opened: [],
+    closed: [],
+    scan: null,
+    insights: 0,
+  };
+
+  if (!options.force) {
+    if (!status.tradingDay) return { ...base, reason: `Market closed (${status.detail}).` };
+    const left = status.minutesToClose ?? 0;
+    if (left > buffer) {
+      return { ...base, reason: `Too early — exits run inside the last ${buffer} minutes.` };
+    }
+    if (left < 0) return { ...base, reason: "Session already closed." };
+  }
+
+  const sim = await managePaperTrades({ phase: "exit" });
+  for (const exit of sim.closed) {
+    await notify({
+      kind: "exit",
+      title: `Sold ${exit.ticker} @ $${exit.exit.toFixed(2)} (${exit.profit >= 0 ? "+" : ""}$${exit.profit.toFixed(2)})`,
+      body: `Closed ${buffer} minutes before the bell — ${exit.why}. Cash clears under the T+1 rule.`,
+      ticker: exit.ticker,
+      severity: exit.profit >= 0 ? "good" : "bad",
+      action: "Simulated exit",
+      dedupe_key: `exit:${exit.ticker}:${status.nyDate}`,
+    });
+  }
+  if (sim.closed.length === 0) {
+    return { ...base, ran: true, reason: "Nothing open to sell." };
+  }
+  return { ...base, ran: true, reason: `Closed ${sim.closed.length} position(s).`, closed: sim.closed };
+}
+
+/**
+ * Pre-open / just-after-open pass: refresh the data, rebuild every score and
+ * re-rank, then only buy if the candidate still qualifies and is still best.
+ */
+export async function runPreOpenEntries(options: { force?: boolean } = {}): Promise<TimedPassResult> {
+  const { marketStatus } = await import("./market-calendar");
+  const { notify, generateInsights } = await import("./notify.server");
+  const s = await loadSettings();
+  const status = marketStatus();
+  const base: TimedPassResult = {
+    ran: false,
+    reason: "",
+    market: `${status.label} — ${status.detail}`,
+    ny_time: status.nyTime,
+    opened: [],
+    closed: [],
+    scan: null,
+    insights: 0,
+  };
+
+  if (!options.force) {
+    if (!status.tradingDay) return { ...base, reason: `Market closed (${status.detail}).` };
+    const wait = Math.max(0, Number(s.preopen_recheck_minutes ?? 5));
+    if ((status.minutesToOpen ?? 0) > 0) {
+      return { ...base, reason: "Waiting for the opening bell." };
+    }
+    const sinceOpen = (status.minutesToClose ?? 0) > 0 ? 390 - (status.minutesToClose ?? 0) : 0;
+    if (sinceOpen < wait) {
+      return { ...base, reason: `Re-check runs ${wait} minutes after the open.` };
+    }
+  }
+
+  // 1. Download the latest bars we're missing.
+  const missing = await missingDates();
+  for (const date of missing.slice(-3)) await cacheOneDay(date);
+
+  // 2. Rebuild every indicator and re-rank the whole universe.
+  const scan = await runScan();
+
+  // 3. Buy only what still qualifies and still ranks best.
+  const sim = await managePaperTrades({ phase: "entry" });
+  for (const entry of sim.opened) {
+    await notify({
+      kind: "entry",
+      title: `Bought ${entry.ticker} @ $${entry.price.toFixed(2)} (${entry.kind})`,
+      body: `Re-checked after the open against ${scan.scored_count} scored names — still qualified and still the best available.`,
+      ticker: entry.ticker,
+      severity: "good",
+      action: "Simulated entry",
+      dedupe_key: `entry:${entry.ticker}:${status.nyDate}`,
+    });
+  }
+  const insights = await generateInsights(status.nyDate);
+
+  return {
+    ...base,
+    ran: true,
+    reason: sim.opened.length
+      ? `Opened ${sim.opened.length} position(s) after the re-check.`
+      : "Re-check done — nothing met the requirements, so nothing was bought.",
+    opened: sim.opened,
+    scan: { scored_count: scan.scored_count, bars_as_of: scan.bars_as_of },
+    insights,
+  };
 }

@@ -11,10 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as LabRouteImport } from './routes/lab'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TradesRouteImport } from './routes/trades'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
+import { Route as ApiPublicHooksPrecloseRouteImport } from './routes/api/public/hooks/preclose'
+import { Route as ApiPublicHooksPreopenRouteImport } from './routes/api/public/hooks/preopen'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,6 +28,16 @@ const IndexRoute = IndexRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LabRoute = LabRouteImport.update({
+  id: '/lab',
+  path: '/lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -47,66 +61,104 @@ const ApiPublicHooksDailyCycleRoute =
     path: '/api/public/hooks/daily-cycle',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksPrecloseRoute = ApiPublicHooksPrecloseRouteImport.update({
+  id: '/api/public/hooks/preclose',
+  path: '/api/public/hooks/preclose',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksPreopenRoute = ApiPublicHooksPreopenRouteImport.update({
+  id: '/api/public/hooks/preopen',
+  path: '/api/public/hooks/preopen',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
+  '/lab': typeof LabRoute
+  '/notifications': typeof NotificationsRoute
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
+  '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
+  '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
+  '/lab': typeof LabRoute
+  '/notifications': typeof NotificationsRoute
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
+  '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
+  '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
+  '/lab': typeof LabRoute
+  '/notifications': typeof NotificationsRoute
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
+  '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
+  '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/history'
+    | '/lab'
+    | '/notifications'
     | '/settings'
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
+    | '/api/public/hooks/preclose'
+    | '/api/public/hooks/preopen'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/history'
+    | '/lab'
+    | '/notifications'
     | '/settings'
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
+    | '/api/public/hooks/preclose'
+    | '/api/public/hooks/preopen'
   id:
     | '__root__'
     | '/'
     | '/history'
+    | '/lab'
+    | '/notifications'
     | '/settings'
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
+    | '/api/public/hooks/preclose'
+    | '/api/public/hooks/preopen'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HistoryRoute: typeof HistoryRoute
+  LabRoute: typeof LabRoute
+  NotificationsRoute: typeof NotificationsRoute
   SettingsRoute: typeof SettingsRoute
   TradesRoute: typeof TradesRoute
   WatchlistRoute: typeof WatchlistRoute
   ApiPublicHooksDailyCycleRoute: typeof ApiPublicHooksDailyCycleRoute
+  ApiPublicHooksPrecloseRoute: typeof ApiPublicHooksPrecloseRoute
+  ApiPublicHooksPreopenRoute: typeof ApiPublicHooksPreopenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -123,6 +175,20 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lab': {
+      id: '/lab'
+      path: '/lab'
+      fullPath: '/lab'
+      preLoaderRoute: typeof LabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -153,16 +219,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksDailyCycleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/preclose': {
+      id: '/api/public/hooks/preclose'
+      path: '/api/public/hooks/preclose'
+      fullPath: '/api/public/hooks/preclose'
+      preLoaderRoute: typeof ApiPublicHooksPrecloseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/preopen': {
+      id: '/api/public/hooks/preopen'
+      path: '/api/public/hooks/preopen'
+      fullPath: '/api/public/hooks/preopen'
+      preLoaderRoute: typeof ApiPublicHooksPreopenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HistoryRoute: HistoryRoute,
+  LabRoute: LabRoute,
+  NotificationsRoute: NotificationsRoute,
   SettingsRoute: SettingsRoute,
   TradesRoute: TradesRoute,
   WatchlistRoute: WatchlistRoute,
   ApiPublicHooksDailyCycleRoute: ApiPublicHooksDailyCycleRoute,
+  ApiPublicHooksPrecloseRoute: ApiPublicHooksPrecloseRoute,
+  ApiPublicHooksPreopenRoute: ApiPublicHooksPreopenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
