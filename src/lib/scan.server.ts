@@ -525,6 +525,8 @@ export async function managePaperTrades(
     closed.push({ ticker, exit: price, profit: res.profit, why });
   }
 
+  if (phase === "exit") return { opened, closed };
+
   // Open today's simulated plan.
   const stillOpen = new Set(
     openTrades.filter((t) => !closed.some((c) => c.ticker === t.ticker)).map((t) => t.ticker as string),
