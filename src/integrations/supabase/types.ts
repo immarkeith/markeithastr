@@ -18,14 +18,17 @@ export type Database = {
         Row: {
           auto_run: boolean
           dollars_per_day_trade: number
+          exit_buffer_minutes: number
           id: number
           market_proxy: string
           max_universe: number
           min_avg_dollar_volume: number
           min_price: number
           min_score_to_trade: number
+          notify_push: boolean
           num_day_trades: number
           paper_mode: boolean
+          preopen_recheck_minutes: number
           profit_keep_pct: number
           provider: string
           settlement_days: number
@@ -42,14 +45,17 @@ export type Database = {
         Insert: {
           auto_run?: boolean
           dollars_per_day_trade?: number
+          exit_buffer_minutes?: number
           id?: number
           market_proxy?: string
           max_universe?: number
           min_avg_dollar_volume?: number
           min_price?: number
           min_score_to_trade?: number
+          notify_push?: boolean
           num_day_trades?: number
           paper_mode?: boolean
+          preopen_recheck_minutes?: number
           profit_keep_pct?: number
           provider?: string
           settlement_days?: number
@@ -66,14 +72,17 @@ export type Database = {
         Update: {
           auto_run?: boolean
           dollars_per_day_trade?: number
+          exit_buffer_minutes?: number
           id?: number
           market_proxy?: string
           max_universe?: number
           min_avg_dollar_volume?: number
           min_price?: number
           min_score_to_trade?: number
+          notify_push?: boolean
           num_day_trades?: number
           paper_mode?: boolean
+          preopen_recheck_minutes?: number
           profit_keep_pct?: number
           provider?: string
           settlement_days?: number
@@ -159,6 +168,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          action: string | null
+          body: string
+          created_at: string
+          dedupe_key: string | null
+          id: string
+          kind: string
+          meta: Json
+          pushed_at: string | null
+          read_at: string | null
+          severity: string
+          ticker: string | null
+          title: string
+        }
+        Insert: {
+          action?: string | null
+          body: string
+          created_at?: string
+          dedupe_key?: string | null
+          id?: string
+          kind: string
+          meta?: Json
+          pushed_at?: string | null
+          read_at?: string | null
+          severity?: string
+          ticker?: string | null
+          title: string
+        }
+        Update: {
+          action?: string | null
+          body?: string
+          created_at?: string
+          dedupe_key?: string | null
+          id?: string
+          kind?: string
+          meta?: Json
+          pushed_at?: string | null
+          read_at?: string | null
+          severity?: string
+          ticker?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          failures: number
+          id: string
+          label: string | null
+          last_sent_at: string | null
+          p256dh: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          failures?: number
+          id?: string
+          label?: string | null
+          last_sent_at?: string | null
+          p256dh: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          failures?: number
+          id?: string
+          label?: string | null
+          last_sent_at?: string | null
+          p256dh?: string
+        }
+        Relationships: []
       }
       scan_runs: {
         Row: {
