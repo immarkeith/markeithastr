@@ -32,6 +32,9 @@ export interface Settings {
   swing_max_hold_days: number;
   market_proxy: string;
   max_universe: number;
+  exit_buffer_minutes: number;
+  preopen_recheck_minutes: number;
+  notify_push: boolean;
 }
 
 export const HISTORY_DAYS = 70;
