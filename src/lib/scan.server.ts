@@ -497,7 +497,7 @@ export async function managePaperTrades(
 
   const bars = await latestBarByTicker(openTrades.map((t) => t.ticker as string));
 
-  for (const trade of openTrades) {
+  for (const trade of phase === "entry" ? [] : openTrades) {
     const ticker = trade.ticker as string;
     const bar = bars.get(ticker);
     const score = byTicker.get(ticker);
