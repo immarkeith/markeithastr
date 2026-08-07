@@ -458,10 +458,13 @@ async function latestBarByTicker(tickers: string[]) {
  * session (the "sell before 4pm" rule), swings exit when they lose the 20-day
  * average or run past the max hold.
  */
-export async function managePaperTrades(): Promise<{
+export async function managePaperTrades(
+  options: { phase?: "both" | "exit" | "entry" } = {},
+): Promise<{
   opened: CycleResult["paper_opened"];
   closed: CycleResult["paper_closed"];
 }> {
+  const phase = options.phase ?? "both";
   const s = await loadSettings();
   const opened: CycleResult["paper_opened"] = [];
   const closed: CycleResult["paper_closed"] = [];
