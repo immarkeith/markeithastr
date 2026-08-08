@@ -17,6 +17,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TradesRouteImport } from './routes/trades'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
+import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksPrecloseRouteImport } from './routes/api/public/hooks/preclose'
 import { Route as ApiPublicHooksPreopenRouteImport } from './routes/api/public/hooks/preopen'
 
@@ -61,6 +62,11 @@ const ApiPublicHooksDailyCycleRoute =
     path: '/api/public/hooks/daily-cycle',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksHealthRoute = ApiPublicHooksHealthRouteImport.update({
+  id: '/api/public/hooks/health',
+  path: '/api/public/hooks/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksPrecloseRoute = ApiPublicHooksPrecloseRouteImport.update({
   id: '/api/public/hooks/preclose',
   path: '/api/public/hooks/preclose',
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
+  '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
 }
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
+  '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
 }
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
+  '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
 }
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
+    | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
   fileRoutesByTo: FileRoutesByTo
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
+    | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
   id:
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
+    | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
   fileRoutesById: FileRoutesById
@@ -157,6 +169,7 @@ export interface RootRouteChildren {
   TradesRoute: typeof TradesRoute
   WatchlistRoute: typeof WatchlistRoute
   ApiPublicHooksDailyCycleRoute: typeof ApiPublicHooksDailyCycleRoute
+  ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
   ApiPublicHooksPrecloseRoute: typeof ApiPublicHooksPrecloseRoute
   ApiPublicHooksPreopenRoute: typeof ApiPublicHooksPreopenRoute
 }
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksDailyCycleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/health': {
+      id: '/api/public/hooks/health'
+      path: '/api/public/hooks/health'
+      fullPath: '/api/public/hooks/health'
+      preLoaderRoute: typeof ApiPublicHooksHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/preclose': {
       id: '/api/public/hooks/preclose'
       path: '/api/public/hooks/preclose'
@@ -245,19 +265,10 @@ const rootRouteChildren: RootRouteChildren = {
   TradesRoute: TradesRoute,
   WatchlistRoute: WatchlistRoute,
   ApiPublicHooksDailyCycleRoute: ApiPublicHooksDailyCycleRoute,
+  ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
   ApiPublicHooksPrecloseRoute: ApiPublicHooksPrecloseRoute,
   ApiPublicHooksPreopenRoute: ApiPublicHooksPreopenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

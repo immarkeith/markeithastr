@@ -215,3 +215,88 @@ export const runStrategyLab = createServerFn({ method: "POST" })
     const { backtestStrategies } = await import("./strategy.server");
     return backtestStrategies(data.sessions, data.universe);
   });
+
+// ------------------------------------------------- prices, trades, health ----
+
+export const getLatestPrice = createServerFn({ method: "GET" })
+  .inputValidator((input) => z.object({ ticker: z.string().min(1).max(10) }).parse(input))
+  .handler(async ({ data }) => {
+    const { latestClose } = await import("./scan.server");
+    return latestClose(data.ticker);
+  });
+
+export const cancelOpenTrade = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { cancelTrade } = await import("./scan.server");
+    return cancelTrade(data);
+  });
+
+export const checkDataKey = createServerFn({ method: "GET" }).handler(async () => {
+  const { verifyProviderKey } = await import("./market-data.server");
+  const { loadSettings } = await import("./scan.server");
+  const settings = await loadSettings();
+  return verifyProviderKey(settings.provider as "polygon" | "alpaca");
+});
+
+export const runHealthNow = createServerFn({ method: "POST" }).handler(async () => {
+  const { runHealthCheck } = await import("./health.server");
+  return runHealthCheck();
+});
+
+// ------------------------------------------------------------- strategies ----
+
+export const getStrategies = createServerFn({ method: "GET" }).handler(async () => {
+  const { listStrategies } = await import("./strategies.server");
+  return listStrategies();
+});
+
+export const useStrategy = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { activateStrategy } = await import("./strategies.server");
+    return activateStrategy(data.id);
+  });
+
+export const toggleStrategy = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ enabled: z.boolean() }).parse(input))
+  .handler(async ({ data }) => {
+    const { setStrategyEnabled } = await import("./strategies.server");
+    return setStrategyEnabled(data.enabled);
+  });
+
+export const saveStrategy = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({ name: z.string().min(2).max(60), description: z.string().max(500).default("") })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { saveCurrentStrategy } = await import("./strategies.server");
+    return saveCurrentStrategy(data.name, data.description);
+  });
+
+export const removeStrategy = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { deleteStrategy } = await import("./strategies.server");
+    return deleteStrategy(data.id);
+  });
+
+export const saveNotifyPrefs = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        notify_push: z.boolean().optional(),
+        notify_day_pick: z.boolean().optional(),
+        notify_swing: z.boolean().optional(),
+        notify_theme: z.boolean().optional(),
+        notify_trades: z.boolean().optional(),
+        notify_health: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { updateSettings } = await import("./scan.server");
+    return updateSettings(data as Record<string, unknown>);
+  });
