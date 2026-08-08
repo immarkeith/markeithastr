@@ -180,3 +180,34 @@ export const themeSignalsQuery = queryOptions({
     return getThemeSignals();
   },
 });
+
+export const strategiesQuery = queryOptions({
+  queryKey: ["strategies"],
+  queryFn: async () => {
+    const { getStrategies } = await import("@/lib/scan.functions");
+    return getStrategies();
+  },
+});
+
+export interface HealthCheckRow {
+  id: string;
+  checked_at: string;
+  ok: boolean;
+  issues: string[];
+  repairs: string[];
+  note: string | null;
+}
+
+export const healthQuery = queryOptions({
+  queryKey: ["health"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("health_checks")
+      .select("*")
+      .order("checked_at", { ascending: false })
+      .limit(20);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as HealthCheckRow[];
+  },
+  refetchInterval: 120_000,
+});

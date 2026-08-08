@@ -94,8 +94,61 @@ export async function pushToDevices(payload: {
   return { sent, failed, devices: subs.length };
 }
 
+/** Notification categories the user can switch on and off individually. */
+export const NOTIFY_CATEGORIES = [
+  {
+    column: "notify_day_pick",
+    label: "1-day buy picks",
+    hint: "The confirmed best-scoring name to buy for a single session.",
+    kinds: ["day-buy"],
+  },
+  {
+    column: "notify_swing",
+    label: "Longer-term hold ideas",
+    hint: "Swing candidates that keep ranking top-10 without ever being the single best pick.",
+    kinds: ["swing-hold"],
+  },
+  {
+    column: "notify_theme",
+    label: "Group / sector rotation",
+    hint: 'Warnings like "pizza names are weak, look at burgers instead".',
+    kinds: ["theme-weak", "theme-strong"],
+  },
+  {
+    column: "notify_trades",
+    label: "Entries & exits",
+    hint: "Every simulated or live entry and exit the rules take.",
+    kinds: ["entry", "exit", "paper-entry", "paper-exit", "trade"],
+  },
+  {
+    column: "notify_health",
+    label: "App health & data problems",
+    hint: "Stale price data, rejected data keys, or a cycle that failed to run.",
+    kinds: ["health"],
+  },
+] as const;
+
+function categoryColumn(kind: string): string | null {
+  for (const cat of NOTIFY_CATEGORIES) {
+    if ((cat.kinds as readonly string[]).some((k) => kind === k || kind.startsWith(k))) {
+      return cat.column;
+    }
+  }
+  return null;
+}
+
 /** Insert a feed item (deduped) and push it to the phone. */
 export async function notify(input: NewNotification): Promise<boolean> {
+  const column = categoryColumn(input.kind);
+  if (column) {
+    const { data: prefs } = await supabaseAdmin
+      .from("app_settings")
+      .select(column)
+      .eq("id", 1)
+      .maybeSingle();
+    if ((prefs as Record<string, boolean> | null)?.[column] === false) return false;
+  }
+
   const row = {
     kind: input.kind,
     title: input.title,
