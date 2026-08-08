@@ -95,6 +95,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -120,6 +126,7 @@ function RootShell({ children }: { children: ReactNode }) {
 const NAV = [
   { to: "/", label: "Scan" },
   { to: "/notifications", label: "Alerts" },
+  { to: "/strategy", label: "Strategy" },
   { to: "/lab", label: "Lab" },
   { to: "/history", label: "History" },
   { to: "/watchlist", label: "Watchlist" },
@@ -133,21 +140,23 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
-        <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-            <Link to="/" className="flex items-baseline gap-2">
-              <span className="text-lg font-bold tracking-[0.2em] text-primary">ASTR</span>
-              <span className="hidden text-xs uppercase tracking-widest text-muted-foreground sm:inline">
-                daily rotation desk
-              </span>
-            </Link>
-            <nav className="flex flex-1 flex-wrap items-center gap-1">
+        <header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+          <div className="mx-auto max-w-6xl px-4 pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <Link to="/" className="flex items-baseline gap-2">
+                <span className="text-lg font-extrabold tracking-[0.18em] text-primary">ASTR</span>
+                <span className="hidden text-[11px] uppercase tracking-widest text-muted-foreground sm:inline">
+                  rotation desk
+                </span>
+              </Link>
+            </div>
+            <nav className="no-scrollbar -mx-1 mt-2 flex items-center gap-1 overflow-x-auto pb-2">
               {NAV.map((item) => (
                 <Link
                   key={item.to}
                   to={item.to}
                   activeOptions={{ exact: item.to === "/" }}
-                  className="rounded px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[status=active]:bg-primary/15 data-[status=active]:text-primary"
+                  className="shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground data-[status=active]:bg-primary data-[status=active]:text-primary-foreground"
                 >
                   {item.label}
                 </Link>
@@ -156,7 +165,7 @@ function RootComponent() {
           </div>
         </header>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <main className="mx-auto max-w-6xl px-4 py-8">
+        <main className="mx-auto max-w-6xl px-4 pb-16 pt-6">
           <Outlet />
         </main>
       </div>
