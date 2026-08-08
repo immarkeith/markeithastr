@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
+          active_strategy_id: string | null
           auto_run: boolean
           dollars_per_day_trade: number
           exit_buffer_minutes: number
@@ -25,13 +26,19 @@ export type Database = {
           min_avg_dollar_volume: number
           min_price: number
           min_score_to_trade: number
+          notify_day_pick: boolean
+          notify_health: boolean
           notify_push: boolean
+          notify_swing: boolean
+          notify_theme: boolean
+          notify_trades: boolean
           num_day_trades: number
           paper_mode: boolean
           preopen_recheck_minutes: number
           profit_keep_pct: number
           provider: string
           settlement_days: number
+          strategy_enabled: boolean
           streak_suggest_days: number
           swing_dollars: number
           swing_max_hold_days: number
@@ -43,6 +50,7 @@ export type Database = {
           weight_volume: number
         }
         Insert: {
+          active_strategy_id?: string | null
           auto_run?: boolean
           dollars_per_day_trade?: number
           exit_buffer_minutes?: number
@@ -52,13 +60,19 @@ export type Database = {
           min_avg_dollar_volume?: number
           min_price?: number
           min_score_to_trade?: number
+          notify_day_pick?: boolean
+          notify_health?: boolean
           notify_push?: boolean
+          notify_swing?: boolean
+          notify_theme?: boolean
+          notify_trades?: boolean
           num_day_trades?: number
           paper_mode?: boolean
           preopen_recheck_minutes?: number
           profit_keep_pct?: number
           provider?: string
           settlement_days?: number
+          strategy_enabled?: boolean
           streak_suggest_days?: number
           swing_dollars?: number
           swing_max_hold_days?: number
@@ -70,6 +84,7 @@ export type Database = {
           weight_volume?: number
         }
         Update: {
+          active_strategy_id?: string | null
           auto_run?: boolean
           dollars_per_day_trade?: number
           exit_buffer_minutes?: number
@@ -79,13 +94,19 @@ export type Database = {
           min_avg_dollar_volume?: number
           min_price?: number
           min_score_to_trade?: number
+          notify_day_pick?: boolean
+          notify_health?: boolean
           notify_push?: boolean
+          notify_swing?: boolean
+          notify_theme?: boolean
+          notify_trades?: boolean
           num_day_trades?: number
           paper_mode?: boolean
           preopen_recheck_minutes?: number
           profit_keep_pct?: number
           provider?: string
           settlement_days?: number
+          strategy_enabled?: boolean
           streak_suggest_days?: number
           swing_dollars?: number
           swing_max_hold_days?: number
@@ -125,6 +146,33 @@ export type Database = {
           open?: number
           ticker?: string
           volume?: number
+        }
+        Relationships: []
+      }
+      health_checks: {
+        Row: {
+          checked_at: string
+          id: string
+          issues: Json
+          note: string | null
+          ok: boolean
+          repairs: Json
+        }
+        Insert: {
+          checked_at?: string
+          id?: string
+          issues?: Json
+          note?: string | null
+          ok?: boolean
+          repairs?: Json
+        }
+        Update: {
+          checked_at?: string
+          id?: string
+          issues?: Json
+          note?: string | null
+          ok?: boolean
+          repairs?: Json
         }
         Relationships: []
       }
@@ -326,6 +374,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      strategies: {
+        Row: {
+          builtin: boolean
+          created_at: string
+          description: string
+          id: string
+          name: string
+          params: Json
+        }
+        Insert: {
+          builtin?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          name: string
+          params?: Json
+        }
+        Update: {
+          builtin?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          name?: string
+          params?: Json
+        }
+        Relationships: []
       }
       trades: {
         Row: {
