@@ -385,6 +385,57 @@ export async function openTrade(input: {
   return { id: data!.id as string, mode };
 }
 
+/** Most recent cached close for a ticker — used to prefill the entry price. */
+export async function latestClose(
+  ticker: string,
+): Promise<{ ticker: string; close: number | null; bar_date: string | null }> {
+  const symbol = ticker.trim().toUpperCase();
+  const { data, error } = await supabaseAdmin
+    .from("daily_bars")
+    .select("bar_date, close")
+    .eq("ticker", symbol)
+    .order("bar_date", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const row = data?.[0];
+  return {
+    ticker: symbol,
+    close: row ? Number(row.close) : null,
+    bar_date: row ? (row.bar_date as string) : null,
+  };
+}
+
+/**
+ * Cancel a trade that was opened by mistake. Nothing is sold — the record is
+ * marked cancelled and any cash that was set aside for it is returned.
+ */
+export async function cancelTrade(input: { id: string }) {
+  const { data: trade, error } = await supabaseAdmin
+    .from("trades")
+    .select("*")
+    .eq("id", input.id)
+    .single();
+  if (error) throw new Error(error.message);
+  if (trade!.status !== "open") throw new Error("Only an open trade can be cancelled.");
+
+  const { error: upErr } = await supabaseAdmin
+    .from("trades")
+    .update({ status: "cancelled", exit_date: today(), profit: 0, kept: 0 })
+    .eq("id", input.id);
+  if (upErr) throw new Error(upErr.message);
+
+  if (trade!.mode !== "paper") {
+    const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
+      kind: "cancel",
+      amount: Math.abs(Number(trade!.dollars)),
+      trade_id: input.id,
+      note: `Cancelled ${trade!.ticker} — cash returned, nothing was traded`,
+    });
+    if (ledgerErr) throw new Error(ledgerErr.message);
+  }
+  return { ok: true, ticker: trade!.ticker as string };
+}
+
 
 export async function closeTrade(input: { id: string; exit_price: number }) {
   const s = await loadSettings();
