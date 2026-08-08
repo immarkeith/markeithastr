@@ -108,8 +108,10 @@ export async function polygonGroupedDay(date: string): Promise<BarRow[]> {
 const ALPACA_DATA = "https://data.alpaca.markets";
 
 function alpacaHeaders(): Record<string, string> {
-  // Alpaca market data accepts a single-token broker key via Authorization,
-  // or key/secret pair. We support "KEY_ID:SECRET" in one secret value.
+  // Market data is the same feed for live and paper accounts, so live keys are
+  // preferred, then paper, then a combined "KEY_ID:SECRET" fallback value.
+  const creds = alpacaLiveCreds() ?? alpacaPaperCreds();
+  if (creds) return { "APCA-API-KEY-ID": creds.id, "APCA-API-SECRET-KEY": creds.secret };
   const raw = apiKey();
   if (raw.includes(":")) {
     const [id, secret] = raw.split(":");
@@ -117,6 +119,41 @@ function alpacaHeaders(): Record<string, string> {
   }
   return { Authorization: `Bearer ${raw}` };
 }
+
+/**
+ * Cheap credential check used by the health monitor and the UI, so a bad key
+ * shows a plain-language message instead of a raw 401 body.
+ */
+export async function verifyProviderKey(
+  provider: Provider,
+): Promise<{ ok: boolean; detail: string }> {
+  try {
+    if (provider === "polygon") {
+      await getJson(
+        `https://api.polygon.io/v3/reference/tickers?limit=1&apiKey=${encodeURIComponent(apiKey())}`,
+      );
+      return { ok: true, detail: "Polygon key accepted." };
+    }
+    await getJson(`${ALPACA_DATA}/v2/stocks/AAPL/bars?timeframe=1Day&limit=1`, alpacaHeaders());
+    return {
+      ok: true,
+      detail: alpacaLiveCreds() ? "Alpaca live key accepted." : "Alpaca paper key accepted.",
+    };
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : String(error);
+    if (raw.includes("401") || raw.includes("403") || /unknown api key/i.test(raw)) {
+      return {
+        ok: false,
+        detail:
+          provider === "polygon"
+            ? "Polygon rejected the saved key. It is either wrong, expired, or on a plan without daily bars."
+            : "Alpaca rejected the saved key/secret pair.",
+      };
+    }
+    return { ok: false, detail: raw.slice(0, 200) };
+  }
+}
+
 
 /** Active, tradable US equities from Alpaca's assets list. */
 export async function alpacaUniverse(limit: number): Promise<string[]> {
