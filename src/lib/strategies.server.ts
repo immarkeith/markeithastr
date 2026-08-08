@@ -64,7 +64,11 @@ export async function activateStrategy(id: string) {
     const value = params[key];
     if (typeof value === "number" && Number.isFinite(value)) patch[key] = value;
   }
-  const { error: upErr } = await supabaseAdmin.from("app_settings").update(patch).eq("id", 1);
+  const { error: upErr } = await supabaseAdmin
+    .from("app_settings")
+    .update(patch as never)
+    .eq("id", 1);
+
   if (upErr) throw new Error(upErr.message);
   return { ok: true, name: data!.name as string };
 }
