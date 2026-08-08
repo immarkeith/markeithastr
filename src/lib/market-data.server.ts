@@ -22,10 +22,25 @@ export interface BarRow {
 }
 
 function apiKey(): string {
-  const key = process.env["MARKET_DATA_API_KEY"];
+  const key = process.env["MARKET_DATA_API_KEY"]?.trim();
   if (!key) throw new Error("MARKET_DATA_API_KEY is not configured.");
   return key;
 }
+
+/** Live (real-money) Alpaca credentials, kept strictly separate from paper. */
+function alpacaLiveCreds(): { id: string; secret: string } | null {
+  const id = process.env["ALPACA_LIVE_KEY_ID"]?.trim();
+  const secret = process.env["ALPACA_LIVE_SECRET_KEY"]?.trim();
+  return id && secret ? { id, secret } : null;
+}
+
+/** Paper (simulated) Alpaca credentials — never used for real orders. */
+function alpacaPaperCreds(): { id: string; secret: string } | null {
+  const id = process.env["ALPACA_PAPER_KEY_ID"]?.trim();
+  const secret = process.env["ALPACA_PAPER_SECRET_KEY"]?.trim();
+  return id && secret ? { id, secret } : null;
+}
+
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
