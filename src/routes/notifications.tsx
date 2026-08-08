@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { notificationsQuery, themeSignalsQuery } from "@/lib/queries";
+import { healthQuery, notificationsQuery, settingsQuery, themeSignalsQuery } from "@/lib/queries";
 import {
   getPushKey,
   markNotificationsRead,
   refreshInsights,
   removePushDevice,
+  runHealthNow,
+  saveNotifyPrefs,
   savePushDevice,
   sendTestPush,
 } from "@/lib/scan.functions";
@@ -35,6 +37,34 @@ export const Route = createFileRoute("/notifications")({
   component: NotificationsPage,
 });
 
+const NOTIFY_TYPES = [
+  {
+    column: "notify_day_pick",
+    label: "1-day buy picks",
+    hint: "The confirmed best-scoring name to buy for a single session.",
+  },
+  {
+    column: "notify_swing",
+    label: "Longer-term hold ideas",
+    hint: "Names that keep ranking top-10 — the classic swing setup.",
+  },
+  {
+    column: "notify_theme",
+    label: "Group / sector rotation",
+    hint: 'Warnings like "pizza names are weak, look at burgers instead".',
+  },
+  {
+    column: "notify_trades",
+    label: "Entries & exits",
+    hint: "Every buy and sell the rules take, simulated or live.",
+  },
+  {
+    column: "notify_health",
+    label: "App health & data problems",
+    hint: "Stale prices, a rejected data key, or a cycle that failed.",
+  },
+] as const;
+
 const SEVERITY: Record<string, string> = {
   good: "border-success/40 bg-success/5",
   bad: "border-destructive/40 bg-destructive/5",
@@ -52,6 +82,11 @@ function NotificationsPage() {
   const testPush = useServerFn(sendTestPush);
   const markRead = useServerFn(markNotificationsRead);
   const refresh = useServerFn(refreshInsights);
+
+  const prefsFn = useServerFn(saveNotifyPrefs);
+  const healthFn = useServerFn(runHealthNow);
+  const { data: settings } = useQuery(settingsQuery);
+  const { data: health } = useQuery(healthQuery);
 
   const [permission, setPermission] = useState<string>("default");
   const [supported, setSupported] = useState(true);
@@ -109,6 +144,32 @@ function NotificationsPage() {
       await qc.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
+
+  const prefs = useMutation({
+    mutationFn: (patch: Record<string, boolean>) => prefsFn({ data: patch }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["settings"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const healthRun = useMutation({
+    mutationFn: () => healthFn(),
+    onSuccess: async (res) => {
+      await qc.invalidateQueries({ queryKey: ["health"] });
+      await qc.invalidateQueries({ queryKey: ["notifications"] });
+      toast[res.ok ? "success" : "error"](
+        res.ok
+          ? `All checks passed.${res.repairs.length ? ` Fixed: ${res.repairs.join(" ")}` : ""}`
+          : res.issues[0] ?? "Problems found.",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const settingsRow = (settings ?? {}) as Record<string, unknown>;
+  const pushOn = settingsRow["notify_push"] !== false;
+  const lastHealth = health?.[0];
 
   const items = feed ?? [];
   const unread = items.filter((n) => !n.read_at).length;
@@ -168,6 +229,86 @@ function NotificationsPage() {
               </Button>
             </div>
           </>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+          What I get notified about
+        </h2>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={pushOn}
+            onChange={(e) => prefs.mutate({ notify_push: e.target.checked })}
+          />
+          <span>
+            <span className="font-semibold">Send to my phone</span>
+            <span className="block text-xs text-muted-foreground">
+              Off keeps everything in the feed below but sends no push.
+            </span>
+          </span>
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {NOTIFY_TYPES.map((t) => (
+            <label key={t.column} className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={settingsRow[t.column] !== false}
+                onChange={(e) => prefs.mutate({ [t.column]: e.target.checked })}
+              />
+              <span>
+                <span className="font-semibold">{t.label}</span>
+                <span className="block text-xs text-muted-foreground">{t.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+            Self-check
+          </h2>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => healthRun.mutate()}
+            disabled={healthRun.isPending}
+          >
+            {healthRun.isPending ? "Checking…" : "Run check now"}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Runs by itself every 15 minutes while the market is open (hourly otherwise): checks the
+          data key, tops up missing prices, re-runs a missed scan and settles day trades left open.
+        </p>
+        {lastHealth ? (
+          <div className="space-y-1 text-sm">
+            <p>
+              <span className={lastHealth.ok ? "text-success" : "text-destructive"}>
+                {lastHealth.ok ? "Healthy" : "Problems found"}
+              </span>{" "}
+              <span className="text-xs text-muted-foreground">
+                {new Date(lastHealth.checked_at).toLocaleString()} · {lastHealth.note}
+              </span>
+            </p>
+            {(lastHealth.issues ?? []).map((i, idx) => (
+              <p key={idx} className="text-xs text-destructive">
+                • {i}
+              </p>
+            ))}
+            {(lastHealth.repairs ?? []).map((r, idx) => (
+              <p key={idx} className="text-xs text-success">
+                • fixed: {r}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No checks recorded yet.</p>
         )}
       </section>
 
