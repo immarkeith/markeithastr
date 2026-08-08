@@ -14,6 +14,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as StrategyRouteImport } from './routes/strategy'
 import { Route as TradesRouteImport } from './routes/trades'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
@@ -44,6 +45,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StrategyRoute = StrategyRouteImport.update({
+  id: '/strategy',
+  path: '/strategy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TradesRoute = TradesRouteImport.update({
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
   '/settings': typeof SettingsRoute
+  '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
   '/settings': typeof SettingsRoute
+  '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
   '/settings': typeof SettingsRoute
+  '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/notifications'
     | '/settings'
+    | '/strategy'
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/notifications'
     | '/settings'
+    | '/strategy'
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/notifications'
     | '/settings'
+    | '/strategy'
     | '/trades'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   LabRoute: typeof LabRoute
   NotificationsRoute: typeof NotificationsRoute
   SettingsRoute: typeof SettingsRoute
+  StrategyRoute: typeof StrategyRoute
   TradesRoute: typeof TradesRoute
   WatchlistRoute: typeof WatchlistRoute
   ApiPublicHooksDailyCycleRoute: typeof ApiPublicHooksDailyCycleRoute
@@ -209,6 +222,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/strategy': {
+      id: '/strategy'
+      path: '/strategy'
+      fullPath: '/strategy'
+      preLoaderRoute: typeof StrategyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/trades': {
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   LabRoute: LabRoute,
   NotificationsRoute: NotificationsRoute,
   SettingsRoute: SettingsRoute,
+  StrategyRoute: StrategyRoute,
   TradesRoute: TradesRoute,
   WatchlistRoute: WatchlistRoute,
   ApiPublicHooksDailyCycleRoute: ApiPublicHooksDailyCycleRoute,
