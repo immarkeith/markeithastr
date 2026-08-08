@@ -9,7 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cashSummary, ledgerQuery, money, tradesQuery } from "@/lib/queries";
-import { createTrade, exitTrade, recordFunds, simulateNow } from "@/lib/scan.functions";
+import {
+  cancelOpenTrade,
+  createTrade,
+  exitTrade,
+  getLatestPrice,
+  recordFunds,
+  simulateNow,
+} from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/trades")({
   head: () => ({
@@ -49,6 +56,8 @@ function TradesPage() {
   const fundsFn = useServerFn(recordFunds);
 
   const simFn = useServerFn(simulateNow);
+  const priceFn = useServerFn(getLatestPrice);
+  const cancelFn = useServerFn(cancelOpenTrade);
   const [form, setForm] = useState({
     ticker: "",
     entry_price: "",
@@ -88,6 +97,36 @@ function TradesPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const cancel = useMutation({
+    mutationFn: (id: string) => cancelFn({ data: { id } }),
+    onSuccess: async (res) => {
+      await refresh();
+      toast.success(`${res.ticker} cancelled — nothing was traded.`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [priceLoading, setPriceLoading] = useState(false);
+
+  async function fillLatestPrice() {
+    const ticker = form.ticker.trim().toUpperCase();
+    if (!ticker) return;
+    setPriceLoading(true);
+    try {
+      const res = await priceFn({ data: { ticker } });
+      if (res.close === null) {
+        toast.info(`No cached price for ${ticker} yet — type the price you paid.`);
+      } else {
+        setForm((f) => ({ ...f, ticker, entry_price: res.close!.toFixed(2) }));
+        toast.success(`${ticker} last recorded close $${res.close.toFixed(2)} (${res.bar_date}).`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not fetch the price.");
+    } finally {
+      setPriceLoading(false);
+    }
+  }
 
   const funds = useMutation({
     mutationFn: () => fundsFn({ data: { amount: Number(deposit), note: "manual adjustment" } }),
@@ -149,17 +188,37 @@ function TradesPage() {
                 id="ticker"
                 value={form.ticker}
                 onChange={(e) => setForm({ ...form, ticker: e.target.value })}
+                onBlur={() => {
+                  if (form.ticker && !form.entry_price) void fillLatestPrice();
+                }}
                 placeholder="AAPL"
               />
             </div>
             <div className="space-y-1">
               <Label htmlFor="entry">Entry price</Label>
-              <Input
-                id="entry"
-                inputMode="decimal"
-                value={form.entry_price}
-                onChange={(e) => setForm({ ...form, entry_price: e.target.value })}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="entry"
+                  inputMode="decimal"
+                  placeholder="auto"
+                  value={form.entry_price}
+                  onChange={(e) => setForm({ ...form, entry_price: e.target.value })}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="shrink-0"
+                  disabled={!form.ticker || priceLoading}
+                  onClick={() => void fillLatestPrice()}
+                >
+                  {priceLoading ? "…" : "Last"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                "Last" fills the most recent recorded close — overwrite it with the price you
+                actually paid.
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="dollars">Dollars</Label>
@@ -270,8 +329,21 @@ function TradesPage() {
                       {money(Number(t.profit ?? 0))}
                     </span>
                   </>
+                ) : t.status === "cancelled" ? (
+                  <span className="text-muted-foreground">cancelled</span>
                 ) : (
-                  <span className="text-primary">open</span>
+                  <>
+                    <span className="text-primary">open</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs"
+                      disabled={cancel.isPending}
+                      onClick={() => cancel.mutate(t.id)}
+                    >
+                      Cancel
+                    </Button>
+                  </>
                 )}
               </li>
             ))}
@@ -339,9 +411,19 @@ function TradesPage() {
                           >
                             Close
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={cancel.isPending}
+                            onClick={() => cancel.mutate(t.id)}
+                          >
+                            Cancel
+                          </Button>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">closed {t.exit_date}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {t.status} {t.exit_date}
+                        </span>
                       )}
                     </td>
                   </tr>
