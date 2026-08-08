@@ -53,7 +53,10 @@ function SettingsPage() {
 
   useEffect(() => {
     if (!data) return;
-    const next: Record<string, string> = { market_proxy: String(data.market_proxy) };
+    const next: Record<string, string> = {
+      market_proxy: String(data.market_proxy),
+      provider: String(data.provider),
+    };
     for (const [key] of NUMERIC_FIELDS) next[key] = String((data as Record<string, unknown>)[key]);
     setForm(next);
     const row = data as Record<string, unknown>;
@@ -65,7 +68,10 @@ function SettingsPage() {
 
   const mutate = useMutation({
     mutationFn: () => {
-      const patch: Record<string, unknown> = { market_proxy: form['market_proxy'] };
+      const patch: Record<string, unknown> = {
+        market_proxy: form['market_proxy'],
+        provider: form['provider'] === "alpaca" ? "alpaca" : "polygon",
+      };
       for (const [key] of NUMERIC_FIELDS) patch[key] = Number(form[key]);
       patch['paper_mode'] = toggles.paper_mode;
       patch['auto_run'] = toggles.auto_run;
@@ -131,6 +137,18 @@ function SettingsPage() {
       </div>
 
       <div className="grid gap-4 rounded-md border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-1">
+          <Label htmlFor="provider">Data provider</Label>
+          <select
+            id="provider"
+            value={form['provider'] ?? "polygon"}
+            onChange={(e) => setForm({ ...form, provider: e.target.value })}
+            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="polygon">Polygon (whole-market, cheapest)</option>
+            <option value="alpaca">Alpaca (live/paper keys)</option>
+          </select>
+        </div>
         <div className="space-y-1">
           <Label htmlFor="market_proxy">Market proxy</Label>
           <Input
