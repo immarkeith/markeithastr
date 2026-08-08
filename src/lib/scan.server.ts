@@ -580,7 +580,14 @@ export async function managePaperTrades(
 
   if (phase === "exit") return { opened, closed };
 
+  // Strategy switched off on the Strategy page: keep scoring and managing
+  // exits, but take no new entries.
+  if ((s as unknown as { strategy_enabled?: boolean }).strategy_enabled === false) {
+    return { opened, closed };
+  }
+
   // Open today's simulated plan.
+
   const stillOpen = new Set(
     openTrades.filter((t) => !closed.some((c) => c.ticker === t.ticker)).map((t) => t.ticker as string),
   );
