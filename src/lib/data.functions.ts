@@ -32,11 +32,10 @@ export const fetchLatestRun = createServerFn({ method: "GET" })
       .limit(1);
     if (error) throw new Error(error.message);
     const run = data?.[0] ?? null;
-    if (!run) return { run: null, scores: [] as unknown[] };
     const { data: scores, error: scoreErr } = await db
       .from("scan_scores")
       .select("*")
-      .eq("run_id", run.id)
+      .eq("run_id", run?.id ?? "00000000-0000-0000-0000-000000000000")
       .order("rank", { ascending: true })
       .limit(50);
     if (scoreErr) throw new Error(scoreErr.message);
@@ -54,19 +53,19 @@ export const fetchRunHistory = createServerFn({ method: "GET" })
       .limit(30);
     if (error) throw new Error(error.message);
     const runs = data ?? [];
-    if (runs.length === 0) return { runs, scores: [] as unknown[] };
     const { data: scores, error: scoreErr } = await db
       .from("scan_scores")
       .select("*")
       .in(
         "run_id",
-        runs.map((r) => r.id),
+        runs.length > 0 ? runs.map((r) => r.id) : ["00000000-0000-0000-0000-000000000000"],
       )
       .lte("rank", 10)
       .order("rank", { ascending: true });
     if (scoreErr) throw new Error(scoreErr.message);
     return { runs, scores: scores ?? [] };
   });
+
 
 export const fetchWatchlist = createServerFn({ method: "GET" })
   .middleware([requireGate])
