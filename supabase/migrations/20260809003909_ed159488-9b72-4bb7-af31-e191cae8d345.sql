@@ -1,0 +1,1 @@
+UPDATE public.app_settings SET provider = 'alpaca', updated_at = now() WHERE id = 1;
