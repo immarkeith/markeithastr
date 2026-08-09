@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { requireGate } from "./gate-middleware";
+
 export const getBarStatus = createServerFn({ method: "GET" }).handler(async () => {
   const { barCoverage, missingDates } = await import("./scan.server");
   const coverage = await barCoverage();
@@ -15,18 +17,21 @@ export const getBarStatus = createServerFn({ method: "GET" }).handler(async () =
 });
 
 export const cacheDay = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ date: z.string() }).parse(input))
   .handler(async ({ data }) => {
     const { cacheOneDay } = await import("./scan.server");
     return cacheOneDay(data.date);
   });
 
-export const runScanNow = createServerFn({ method: "POST" }).handler(async () => {
+export const runScanNow = createServerFn({ method: "POST" })
+  .middleware([requireGate]).handler(async () => {
   const { runScan } = await import("./scan.server");
   return runScan();
 });
 
 export const setWatchlist = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z
       .object({
@@ -41,6 +46,7 @@ export const setWatchlist = createServerFn({ method: "POST" })
   });
 
 export const recordFunds = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z.object({ amount: z.number(), note: z.string().max(200).default("") }).parse(input),
   )
@@ -50,6 +56,7 @@ export const recordFunds = createServerFn({ method: "POST" })
   });
 
 export const createTrade = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z
       .object({
@@ -67,6 +74,7 @@ export const createTrade = createServerFn({ method: "POST" })
   });
 
 export const exitTrade = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z.object({ id: z.string().uuid(), exit_price: z.number().positive() }).parse(input),
   )
@@ -76,6 +84,7 @@ export const exitTrade = createServerFn({ method: "POST" })
   });
 
 export const saveSettings = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z
       .object({
@@ -108,18 +117,21 @@ export const saveSettings = createServerFn({ method: "POST" })
   });
 
 export const runCycleNow = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ force: z.boolean().default(false) }).parse(input ?? {}))
   .handler(async ({ data }) => {
     const { runDailyCycle } = await import("./scan.server");
     return runDailyCycle({ force: data.force });
   });
 
-export const simulateNow = createServerFn({ method: "POST" }).handler(async () => {
+export const simulateNow = createServerFn({ method: "POST" })
+  .middleware([requireGate]).handler(async () => {
   const { managePaperTrades } = await import("./scan.server");
   return managePaperTrades();
 });
 
 export const runPreOpen = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ force: z.boolean().default(false) }).parse(input ?? {}))
   .handler(async ({ data }) => {
     const { runPreOpenEntries } = await import("./scan.server");
@@ -127,6 +139,7 @@ export const runPreOpen = createServerFn({ method: "POST" })
   });
 
 export const runPreClose = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ force: z.boolean().default(false) }).parse(input ?? {}))
   .handler(async ({ data }) => {
     const { runPreCloseExits } = await import("./scan.server");
@@ -139,6 +152,7 @@ export const getPushKey = createServerFn({ method: "GET" }).handler(async () => 
 });
 
 export const savePushDevice = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z
       .object({
@@ -168,6 +182,7 @@ export const savePushDevice = createServerFn({ method: "POST" })
   });
 
 export const removePushDevice = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ endpoint: z.string().url().max(1000) }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -175,7 +190,8 @@ export const removePushDevice = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const sendTestPush = createServerFn({ method: "POST" }).handler(async () => {
+export const sendTestPush = createServerFn({ method: "POST" })
+  .middleware([requireGate]).handler(async () => {
   const { pushToDevices } = await import("./notify.server");
   return pushToDevices({
     title: "ASTR test alert",
@@ -190,7 +206,8 @@ export const markNotificationsRead = createServerFn({ method: "POST" }).handler(
   return markAllRead();
 });
 
-export const refreshInsights = createServerFn({ method: "POST" }).handler(async () => {
+export const refreshInsights = createServerFn({ method: "POST" })
+  .middleware([requireGate]).handler(async () => {
   const { generateInsights } = await import("./notify.server");
   const { marketStatus } = await import("./market-calendar");
   const created = await generateInsights(marketStatus().nyDate);
@@ -203,6 +220,7 @@ export const getThemeSignals = createServerFn({ method: "GET" }).handler(async (
 });
 
 export const runStrategyLab = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z
       .object({
@@ -226,6 +244,7 @@ export const getLatestPrice = createServerFn({ method: "GET" })
   });
 
 export const cancelOpenTrade = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { cancelTrade } = await import("./scan.server");
@@ -239,7 +258,8 @@ export const checkDataKey = createServerFn({ method: "GET" }).handler(async () =
   return verifyProviderKey(settings.provider as "polygon" | "alpaca");
 });
 
-export const runHealthNow = createServerFn({ method: "POST" }).handler(async () => {
+export const runHealthNow = createServerFn({ method: "POST" })
+  .middleware([requireGate]).handler(async () => {
   const { runHealthCheck } = await import("./health.server");
   return runHealthCheck();
 });
@@ -252,6 +272,7 @@ export const getStrategies = createServerFn({ method: "GET" }).handler(async () 
 });
 
 export const useStrategy = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { activateStrategy } = await import("./strategies.server");
@@ -259,6 +280,7 @@ export const useStrategy = createServerFn({ method: "POST" })
   });
 
 export const toggleStrategy = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ enabled: z.boolean() }).parse(input))
   .handler(async ({ data }) => {
     const { setStrategyEnabled } = await import("./strategies.server");
@@ -266,6 +288,7 @@ export const toggleStrategy = createServerFn({ method: "POST" })
   });
 
 export const saveStrategy = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z
       .object({ name: z.string().min(2).max(60), description: z.string().max(500).default("") })
@@ -277,6 +300,7 @@ export const saveStrategy = createServerFn({ method: "POST" })
   });
 
 export const removeStrategy = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { deleteStrategy } = await import("./strategies.server");
@@ -284,6 +308,7 @@ export const removeStrategy = createServerFn({ method: "POST" })
   });
 
 export const saveNotifyPrefs = createServerFn({ method: "POST" })
+  .middleware([requireGate])
   .inputValidator((input) =>
     z
       .object({
