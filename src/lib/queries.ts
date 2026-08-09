@@ -156,13 +156,9 @@ export interface HealthCheckRow {
 export const healthQuery = queryOptions({
   queryKey: ["health"],
   queryFn: async () => {
-    const { data, error } = await supabase
-      .from("health_checks")
-      .select("*")
-      .order("checked_at", { ascending: false })
-      .limit(20);
-    if (error) throw new Error(error.message);
-    return (data ?? []) as unknown as HealthCheckRow[];
+    const rows = await fetchHealthChecks();
+    return (rows ?? []) as unknown as HealthCheckRow[];
   },
   refetchInterval: 120_000,
 });
+
