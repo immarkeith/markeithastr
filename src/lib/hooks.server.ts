@@ -11,17 +11,29 @@ function digest(value: string): Buffer {
 
 async function expectedToken(): Promise<string | null> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin
-    .from("hook_tokens")
-    .select("token")
-    .eq("id", 1)
-    .maybeSingle();
+  const db = supabaseAdmin as unknown as {
+    from: (table: string) => {
+      select: (cols: string) => {
+        eq: (
+          col: string,
+          value: number,
+        ) => {
+          maybeSingle: () => Promise<{
+            data: { token: string } | null;
+            error: { message: string } | null;
+          }>;
+        };
+      };
+    };
+  };
+  const { data, error } = await db.from("hook_tokens").select("token").eq("id", 1).maybeSingle();
   if (error) {
     console.error("hook token lookup failed:", error.message);
     return null;
   }
-  return (data as { token: string } | null)?.token ?? null;
+  return data?.token ?? null;
 }
+
 
 /** Returns a 401 Response when the caller did not present the hook secret. */
 export async function rejectUnauthorizedHook(request: Request): Promise<Response | null> {
