@@ -1,13 +1,16 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import {
+  fetchHealthChecks,
   fetchLatestRun,
   fetchLedger,
+  fetchNotifications,
   fetchRunHistory,
   fetchSettings,
   fetchTrades,
   fetchWatchlist,
 } from "@/lib/data.functions";
+
 
 export interface ScanScoreRow {
   id: string;
