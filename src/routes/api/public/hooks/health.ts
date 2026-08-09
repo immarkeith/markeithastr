@@ -9,13 +9,9 @@ export const Route = createFileRoute("/api/public/hooks/health")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const token = request.headers.get("apikey") ?? "";
-        if (!token) {
-          return new Response(JSON.stringify({ error: "Missing apikey header" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
+        const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
+        const denied = await rejectUnauthorizedHook(request);
+        if (denied) return denied;
         try {
           const { runHealthCheck } = await import("@/lib/health.server");
           return Response.json(await runHealthCheck());

@@ -201,10 +201,13 @@ export const sendTestPush = createServerFn({ method: "POST" })
   });
 });
 
-export const markNotificationsRead = createServerFn({ method: "POST" }).handler(async () => {
-  const { markAllRead } = await import("./notify.server");
-  return markAllRead();
-});
+export const markNotificationsRead = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .handler(async () => {
+    const { markAllRead } = await import("./notify.server");
+    return markAllRead();
+  });
+
 
 export const refreshInsights = createServerFn({ method: "POST" })
   .middleware([requireGate]).handler(async () => {

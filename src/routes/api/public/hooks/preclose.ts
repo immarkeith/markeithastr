@@ -5,9 +5,9 @@ export const Route = createFileRoute("/api/public/hooks/preclose")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        if (!request.headers.get("apikey")) {
-          return new Response(JSON.stringify({ error: "Missing apikey header" }), { status: 401 });
-        }
+        const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
+        const denied = await rejectUnauthorizedHook(request);
+        if (denied) return denied;
         try {
           const { runPreCloseExits, loadSettings } = await import("@/lib/scan.server");
           const settings = await loadSettings();
