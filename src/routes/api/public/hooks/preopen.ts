@@ -5,9 +5,9 @@ export const Route = createFileRoute("/api/public/hooks/preopen")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        if (!request.headers.get("apikey")) {
-          return new Response(JSON.stringify({ error: "Missing apikey header" }), { status: 401 });
-        }
+        const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
+        const denied = await rejectUnauthorizedHook(request);
+        if (denied) return denied;
         try {
           const { runPreOpenEntries, loadSettings } = await import("@/lib/scan.server");
           const settings = await loadSettings();
