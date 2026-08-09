@@ -16,6 +16,7 @@ import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StrategyRouteImport } from './routes/strategy'
 import { Route as TradesRouteImport } from './routes/trades'
+import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
@@ -57,6 +58,11 @@ const TradesRoute = TradesRouteImport.update({
   path: '/trades',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UnlockRoute = UnlockRouteImport.update({
+  id: '/unlock',
+  path: '/unlock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WatchlistRoute = WatchlistRouteImport.update({
   id: '/watchlist',
   path: '/watchlist',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
+  '/unlock': typeof UnlockRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
+  '/unlock': typeof UnlockRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
+  '/unlock': typeof UnlockRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/strategy'
     | '/trades'
+    | '/unlock'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/health'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/strategy'
     | '/trades'
+    | '/unlock'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/health'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/strategy'
     | '/trades'
+    | '/unlock'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/health'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   StrategyRoute: typeof StrategyRoute
   TradesRoute: typeof TradesRoute
+  UnlockRoute: typeof UnlockRoute
   WatchlistRoute: typeof WatchlistRoute
   ApiPublicHooksDailyCycleRoute: typeof ApiPublicHooksDailyCycleRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TradesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/unlock': {
+      id: '/unlock'
+      path: '/unlock'
+      fullPath: '/unlock'
+      preLoaderRoute: typeof UnlockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/watchlist': {
       id: '/watchlist'
       path: '/watchlist'
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   StrategyRoute: StrategyRoute,
   TradesRoute: TradesRoute,
+  UnlockRoute: UnlockRoute,
   WatchlistRoute: WatchlistRoute,
   ApiPublicHooksDailyCycleRoute: ApiPublicHooksDailyCycleRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
@@ -293,3 +314,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

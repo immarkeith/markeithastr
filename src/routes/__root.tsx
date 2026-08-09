@@ -6,13 +6,17 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { gateStatus, lockSite } from "@/lib/gate.functions";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+
 
 function NotFoundComponent() {
   return (
@@ -103,6 +107,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
   }),
+  beforeLoad: async ({ location }) => {
+    if (location.pathname.startsWith("/unlock") || location.pathname.startsWith("/api/")) return;
+    const gate = await gateStatus();
+    if (!gate.unlocked) throw redirect({ to: "/unlock" });
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -136,6 +145,8 @@ const NAV = [
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  const lock = useServerFn(lockSite);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -149,6 +160,15 @@ function RootComponent() {
                   rotation desk
                 </span>
               </Link>
+              <button
+                onClick={async () => {
+                  await lock();
+                  await router.navigate({ to: "/unlock" });
+                }}
+                className="rounded-full border border-border px-3 py-1 text-[11px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Lock
+              </button>
             </div>
             <nav className="no-scrollbar -mx-1 mt-2 flex items-center gap-1 overflow-x-auto pb-2">
               {NAV.map((item) => (

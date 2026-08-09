@@ -287,29 +287,58 @@ function NotificationsPage() {
           data key, tops up missing prices, re-runs a missed scan and settles day trades left open.
         </p>
         {lastHealth ? (
-          <div className="space-y-1 text-sm">
-            <p>
-              <span className={lastHealth.ok ? "text-success" : "text-destructive"}>
-                {lastHealth.ok ? "Healthy" : "Problems found"}
-              </span>{" "}
-              <span className="text-xs text-muted-foreground">
-                {new Date(lastHealth.checked_at).toLocaleString()} · {lastHealth.note}
-              </span>
-            </p>
-            {(lastHealth.issues ?? []).map((i, idx) => (
-              <p key={idx} className="text-xs text-destructive">
-                • {i}
+          <div className="space-y-3 text-sm">
+            <div className="space-y-1">
+              <p>
+                <span className={lastHealth.ok ? "text-success" : "text-destructive"}>
+                  {lastHealth.ok ? "Healthy" : "Problems found"}
+                </span>{" "}
+                <span className="text-xs text-muted-foreground">
+                  {new Date(lastHealth.checked_at).toLocaleString()} · {lastHealth.note}
+                </span>
               </p>
-            ))}
-            {(lastHealth.repairs ?? []).map((r, idx) => (
-              <p key={idx} className="text-xs text-success">
-                • fixed: {r}
+              {(lastHealth.issues ?? []).map((i, idx) => (
+                <p key={idx} className="text-xs text-destructive">
+                  • {i}
+                </p>
+              ))}
+              {(lastHealth.repairs ?? []).map((r, idx) => (
+                <p key={idx} className="text-xs text-success">
+                  • fixed: {r}
+                </p>
+              ))}
+            </div>
+            <div className="space-y-1 border-t border-border/60 pt-3">
+              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                Recent checks
               </p>
-            ))}
+              <ul className="space-y-1">
+                {(health ?? []).map((row) => (
+                  <li key={row.id} className="flex items-baseline justify-between gap-3 text-xs">
+                    <span className="text-muted-foreground">
+                      {new Date(row.checked_at).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className={row.ok ? "text-success" : "text-destructive"}>
+                      {row.ok
+                        ? (row.repairs ?? []).length > 0
+                          ? `fixed ${(row.repairs ?? []).length}`
+                          : "nothing wrong"
+                        : `${(row.issues ?? []).length} problem${(row.issues ?? []).length === 1 ? "" : "s"}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No checks recorded yet.</p>
         )}
+
       </section>
 
       <section className="space-y-2">
