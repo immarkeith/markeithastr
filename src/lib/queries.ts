@@ -109,16 +109,12 @@ export interface NotificationRow {
 export const notificationsQuery = queryOptions({
   queryKey: ["notifications"],
   queryFn: async () => {
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (error) throw new Error(error.message);
-    return (data ?? []) as unknown as NotificationRow[];
+    const rows = await fetchNotifications();
+    return (rows ?? []) as unknown as NotificationRow[];
   },
   refetchInterval: 60_000,
 });
+
 
 export interface ThemeSignalRow {
   id: string;
