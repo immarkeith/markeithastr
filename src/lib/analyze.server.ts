@@ -10,40 +10,8 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { HISTORY_DAYS, loadSettings, scoreConfig, volumeShare } from "./scan.server";
+import type { AnalyzeFactor, AnalyzeResult } from "./analyze-types";
 import { scoreSecurity, snapshot, type Bar } from "./scoring";
-
-export interface AnalyzeFactor {
-  key: string;
-  weighted_points: number;
-  weight: number;
-  pct: number;
-  reasons: string[];
-  verdict: "helped" | "hurt" | "neutral";
-}
-
-export interface AnalyzeResult {
-  ticker: string;
-  sessions: number;
-  score: number | null;
-  band: "Strong" | "Good" | "Neutral" | "Weak" | "Avoid" | "Ineligible";
-  min_score: number;
-  meets_min: boolean;
-  close: number | null;
-  sma20: number | null;
-  factors: AnalyzeFactor[];
-  helped: string[];
-  hurt: string[];
-  failed: string[];
-  invalidation: string | null;
-  monitored: boolean;
-  watchlist_status: string | null;
-  market_roc5: number;
-  bars_as_of: string | null;
-  source: "cache" | "live";
-  peers: { ticker: string; rank: number; score: number }[];
-  peer_run_date: string | null;
-  would_rank: number | null;
-}
 
 function bandFor(score: number, minScore: number): AnalyzeResult["band"] {
   if (score >= minScore + 15) return "Strong";

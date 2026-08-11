@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { analyzeStock, requestMonitoredStock } from "@/lib/analyze.functions";
-import type { AnalyzeResult } from "@/lib/analyze.server";
+import type { AnalyzeResult } from "@/lib/analyze-types";
 import { FACTOR_LABELS } from "@/lib/scoring";
 
 export const Route = createFileRoute("/analyze")({
@@ -139,12 +139,12 @@ function ResultCard({
         <StatTile
           label="Last close"
           value={result.close === null ? "—" : `$${result.close.toFixed(2)}`}
-          hint={result.sma20 === null ? undefined : `SMA20 $${result.sma20.toFixed(2)}`}
+          hint={result.sma20 === null ? "—" : `SMA20 $${result.sma20.toFixed(2)}`}
         />
         <StatTile
           label="Would rank"
           value={result.would_rank === null ? "—" : `#${result.would_rank}`}
-          hint={result.peer_run_date ? `vs scan ${result.peer_run_date}` : undefined}
+          hint={result.peer_run_date ? `vs scan ${result.peer_run_date}` : "no scan yet"}
           tone="accent"
         />
       </div>
