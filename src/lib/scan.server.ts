@@ -767,12 +767,21 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
     return { ...base, reason: `Market closed (${status.detail}). Nothing to do.` };
   }
 
-  const missing = await missingDates();
+  // Thin or fragmented history can never produce a score (each indicator needs
+  // 55 clean sessions), so rebuild the whole window in one ranged pass first.
+  const coverage = await barCoverage();
   let cached = 0;
-  for (const date of missing.slice(-6)) {
-    const res = await cacheOneDay(date);
-    if (res.trading_day) cached += 1;
+  if (coverage.length < 55 || Number(coverage[0]?.ticker_count ?? 0) < 100) {
+    const back = await backfillHistory();
+    cached = back.days_stored;
+  } else {
+    const missing = await missingDates();
+    for (const date of missing.slice(-6)) {
+      const res = await cacheOneDay(date);
+      if (res.trading_day) cached += 1;
+    }
   }
+
 
   const scan = await runScan();
   const sim = await managePaperTrades();
