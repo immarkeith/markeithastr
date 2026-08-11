@@ -42,11 +42,12 @@ async function call(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<any> {
-  const res = await fetch(`${base(mode)}${path}`, {
+  const requestInit: RequestInit = {
     method: init.method ?? "GET",
     headers: headers(mode),
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-  });
+  };
+  if (init.body !== undefined) requestInit.body = JSON.stringify(init.body);
+  const res = await fetch(`${base(mode)}${path}`, requestInit);
   const text = await res.text();
   if (!res.ok) {
     throw new Error(`Alpaca ${mode} ${path} failed [${res.status}]: ${text.slice(0, 300)}`);
