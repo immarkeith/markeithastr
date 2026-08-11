@@ -820,6 +820,7 @@ export async function managePaperTrades(
     if (activeMode === "live" && cashLeft < want) {
       // Full stake or nothing: if yesterday's sale has not settled yet, sit out
       // today rather than buying a smaller partial position.
+      const { notify } = await import("./notify.server");
       await notify({
         kind: "trade",
         title: `Sat out — waiting on settled cash`,
