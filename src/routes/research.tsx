@@ -175,7 +175,7 @@ function ResearchPage() {
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
             {proposed.map((c) => {
-              const ev = c.evidence as Record<string, Leg | number | undefined>;
+              const ev = c.evidence;
               return (
                 <article key={c.id} className="space-y-3 rounded-md border border-border bg-card p-4">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -194,12 +194,12 @@ function ResearchPage() {
                     <Signed value={Number(c.expected_improvement ?? 0)} />
                   </p>
                   <div className="space-y-1 rounded-md border border-border/60 p-2">
-                    <LegLine label="Discovery block" leg={ev.in_sample as Leg} />
-                    <LegLine label="Confirmation block" leg={ev.out_of_sample as Leg} />
-                    <LegLine label="Confirmation, first half" leg={ev.first_half as Leg} />
-                    <LegLine label="Confirmation, second half" leg={ev.second_half as Leg} />
-                    <LegLine label="Market-up days" leg={ev.up_market as Leg} />
-                    <LegLine label="Market-down days" leg={ev.down_market as Leg} />
+                    <LegLine label="Discovery block" leg={ev.in_sample} />
+                    <LegLine label="Confirmation block" leg={ev.out_of_sample} />
+                    <LegLine label="Confirmation, first half" leg={ev.first_half} />
+                    <LegLine label="Confirmation, second half" leg={ev.second_half} />
+                    <LegLine label="Market-up days" leg={ev.up_market} />
+                    <LegLine label="Market-down days" leg={ev.down_market} />
                   </div>
                   {c.warnings.length > 0 && (
                     <ul className="list-disc space-y-1 pl-4 text-xs text-warning">
