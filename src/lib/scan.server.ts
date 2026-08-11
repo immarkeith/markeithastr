@@ -1243,4 +1243,3 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
     insights,
   };
 }
-}
