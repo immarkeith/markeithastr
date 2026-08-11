@@ -53,6 +53,6 @@ Push notifications when the level changes up or down, and when a day fails the s
 
 ## Suggestions worth considering
 
-- **Cap the ladder at 4 stocks/day** for now; beyond that a $25 stake spreads thin and each extra name adds broker rounding noise. Easy to raise later.
+- **Cap the ladder at 4 stocks/day** for now; beyond that a $20 stake spreads thin and each extra name adds broker rounding noise. Easy to raise later.
 - **Add a manual override switch** on the Strategy page ("hold current level") so you can freeze scaling during a period you don't want it moving.
 - **Log every level change** in a small history list so you can see whether scaling up actually helped, rather than guessing.
