@@ -118,6 +118,9 @@ export const saveSettings = createServerFn({ method: "POST" })
         max_universe: z.number().int().min(50).max(3000).optional(),
         paper_mode: z.boolean().optional(),
         auto_run: z.boolean().optional(),
+        exit_buffer_minutes: z.number().int().min(1).max(60).optional(),
+        preopen_recheck_minutes: z.number().int().min(0).max(120).optional(),
+        hold_qualifying_positions: z.boolean().optional(),
       })
       .parse(input),
   )

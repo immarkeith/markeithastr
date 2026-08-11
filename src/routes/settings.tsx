@@ -42,6 +42,8 @@ const NUMERIC_FIELDS = [
   ["swing_dollars", "Swing position dollars"],
   ["swing_max_hold_days", "Swing max hold days"],
   ["max_universe", "Max universe size"],
+  ["preopen_recheck_minutes", "Post-open score delay (minutes after 09:30)"],
+  ["exit_buffer_minutes", "Sell buffer before the close (minutes)"],
   ["ml_train_days", "Model: training sessions"],
   ["ml_test_days", "Model: test sessions per fold"],
   ["ml_trees", "Model: number of trees"],
@@ -60,7 +62,9 @@ function SettingsPage() {
     auto_run: true,
     ml_enabled: true,
     research_auto: true,
+    hold_qualifying_positions: true,
   });
+
 
   useEffect(() => {
     if (!data) return;
@@ -77,6 +81,7 @@ function SettingsPage() {
       auto_run: row['auto_run'] !== false,
       ml_enabled: row['ml_enabled'] !== false,
       research_auto: row['research_auto'] !== false,
+      hold_qualifying_positions: row['hold_qualifying_positions'] !== false,
     });
   }, [data]);
 
@@ -92,6 +97,7 @@ function SettingsPage() {
       patch['auto_run'] = toggles.auto_run;
       patch['ml_enabled'] = toggles.ml_enabled;
       patch['research_auto'] = toggles.research_auto;
+      patch['hold_qualifying_positions'] = toggles.hold_qualifying_positions;
       return save({ data: patch as never });
     },
     onSuccess: async () => {
@@ -149,6 +155,24 @@ function SettingsPage() {
             <span className="block text-xs text-muted-foreground">
               Runs itself after each trading session's close — skipped on weekends and market
               holidays.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={toggles.hold_qualifying_positions}
+            onChange={(e) =>
+              setToggles({ ...toggles, hold_qualifying_positions: e.target.checked })
+            }
+          />
+          <span>
+            <span className="font-semibold">Hold qualifying positions overnight</span>
+            <span className="block text-xs text-muted-foreground">
+              ON: if the pre-close score still ranks a holding at the top of the eligible list, it
+              is carried into the next session instead of being sold and rebought. OFF: everything
+              is sold inside the close buffer every day.
             </span>
           </span>
         </label>
