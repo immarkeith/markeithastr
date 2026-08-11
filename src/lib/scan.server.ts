@@ -654,9 +654,12 @@ export async function managePaperTrades(
     const ticker = trade.ticker as string;
     const bar = bars.get(ticker);
     const score = byTicker.get(ticker);
-    const price = Number(bar?.close ?? score?.close ?? 0);
+    // Last resort is the entry price itself: a day trade must never stay open
+    // just because that symbol dropped out of the cached universe.
+    const price = Number(bar?.close ?? score?.close ?? trade.entry_price ?? 0);
     if (!price) continue;
     const barDate = bar?.bar_date ?? runRow?.bars_as_of ?? today();
+
     const heldDays = Math.max(
       0,
       Math.round(
