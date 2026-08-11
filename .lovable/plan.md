@@ -5,8 +5,9 @@ Make the desk size itself to the account: never fully stop while it can afford a
 ## The rules it will follow
 
 **Required capital for a level**
-`($25 x stocks per day) + $10 cushion`
-1 stock -> $35, 2 -> $60, 3 -> $85, 4 -> $110.
+`($20 x stocks per day) + $10 cushion`
+1 stock -> $30, 2 -> $50, 3 -> $70, 4 -> $90. Your $50 already supports 2 stocks/day.
+
 
 **Capital used for the decision**
 Settled/available cash **plus** the Saved profit balance. Saved profit still never gets invested automatically — it only counts as cushion. You can release it into the stake pool manually if you ever want to.
@@ -16,11 +17,12 @@ Settled/available cash **plus** the Saved profit balance. Saved profit still nev
 - A day only counts as stable if the cushion still holds **after** that day's trades close.
 - Any day that fails resets the counter to 0.
 - On the 5th stable day the stock count increases and a fresh 5-day period starts for the tier above.
-- Position size stays $25 per stock; count grows first, size only grows back toward $25 if it had been reduced.
+- Position size stays $20 per stock; count grows first, size only grows back toward $20 if it had been reduced.
 
 **Scaling down**
-- Reduce the stock count first, keeping $25 each: 3 -> 2 -> 1.
-- Only at 1 stock/day does the size step down: $25 -> $20 -> $15 -> $10. Never below $10.
+- Reduce the stock count first, keeping $20 each: 3 -> 2 -> 1.
+- Only at 1 stock/day does the size step down: $20 -> $15 -> $10. Never below $10.
+
 - A drop only triggers after the account stays under the threshold for 2 consecutive trading days, so one bad day doesn't shrink the desk.
 - The most recently added allocation is always the one removed.
 - If capital can't support even $10, it holds (no trades) but keeps scoring and waits, then re-enters as soon as $10 clears.
@@ -30,7 +32,7 @@ Settled/available cash **plus** the Saved profit balance. Saved profit still nev
 ## What you'll see
 
 A new **Capital ladder** panel on the Trades page:
-- Current level (e.g. "1 stock/day at $25")
+- Current level (e.g. "2 stocks/day at $20")
 - Current capital vs required capital
 - Cushion remaining
 - "3 of 5 stable days toward 2 stocks/day" progress bar
@@ -51,6 +53,6 @@ Push notifications when the level changes up or down, and when a day fails the s
 
 ## Suggestions worth considering
 
-- **Cap the ladder at 4 stocks/day** for now; beyond that a $25 stake spreads thin and each extra name adds broker rounding noise. Easy to raise later.
+- **Cap the ladder at 4 stocks/day** for now; beyond that a $20 stake spreads thin and each extra name adds broker rounding noise. Easy to raise later.
 - **Add a manual override switch** on the Strategy page ("hold current level") so you can freeze scaling during a period you don't want it moving.
 - **Log every level change** in a small history list so you can see whether scaling up actually helped, rather than guessing.
