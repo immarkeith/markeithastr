@@ -828,7 +828,7 @@ export async function managePaperTrades(
         ticker,
         severity: "info",
         action: "No trade",
-        dedupeKey: `cash-wait-${today()}`,
+        dedupe_key: `cash-wait-${today()}`,
       });
       return;
     }
