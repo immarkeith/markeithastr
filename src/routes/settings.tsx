@@ -62,7 +62,9 @@ function SettingsPage() {
     auto_run: true,
     ml_enabled: true,
     research_auto: true,
+    hold_qualifying_positions: true,
   });
+
 
   useEffect(() => {
     if (!data) return;
