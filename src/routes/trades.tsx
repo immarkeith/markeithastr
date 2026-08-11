@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { CapitalLadder } from "@/components/CapitalLadder";
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -189,6 +190,8 @@ function TradesPage() {
         />
         <StatTile label="Open positions" value={`${rows.filter((t) => t.status === "open").length}`} />
       </section>
+
+      <CapitalLadder />
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-3 rounded-md border border-border bg-card p-4 lg:col-span-2">

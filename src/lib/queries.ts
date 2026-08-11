@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import {
+  fetchCapitalLadder,
   fetchHealthChecks,
   fetchLatestRun,
   fetchLedger,
@@ -168,3 +169,8 @@ export const healthQuery = queryOptions({
   refetchInterval: 120_000,
 });
 
+
+export const capitalLadderQuery = queryOptions({
+  queryKey: ["capital-ladder"],
+  queryFn: () => fetchCapitalLadder(),
+});

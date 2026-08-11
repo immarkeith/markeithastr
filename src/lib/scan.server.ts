@@ -713,6 +713,29 @@ async function availableCash(): Promise<number> {
 }
 
 /**
+ * Capital used for scaling decisions: settled cash PLUS banked profit. Saved
+ * profit counts as cushion but is never invested automatically — it only moves
+ * into the stake pool if the owner releases it.
+ */
+export async function scalingCapital(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from("ledger_entries")
+    .select("amount, available_on, kind");
+  if (error) throw new Error(error.message);
+  const day = today();
+  let sum = 0;
+  for (const row of data ?? []) {
+    if (String(row.kind) === "reserve") {
+      sum += Number(row.amount);
+      continue;
+    }
+    if (String(row.available_on) <= day) sum += Number(row.amount);
+  }
+  return Number(sum.toFixed(2));
+}
+
+
+/**
  * Run the trading rules: day trades exit on the next session (the "sell before
  * 4pm" rule), swings exit when they lose the 20-day average or run past the max
  * hold. Operates on the paper book while simulation mode is on, and on the real
@@ -798,7 +821,19 @@ export async function managePaperTrades(
     closed.push({ ticker, exit: price, profit: res.profit, why });
   }
 
+  // Re-size the desk once per trading day, AFTER the day's exits have settled
+  // into the ledger, so today's result is part of the stability decision.
+  if (phase !== "entry") {
+    try {
+      const { applyLadder } = await import("./capital.server");
+      await applyLadder(await scalingCapital(), today());
+    } catch (error) {
+      console.error("capital ladder failed:", error instanceof Error ? error.message : error);
+    }
+  }
+
   if (phase === "exit") return { opened, closed };
+
 
   // Strategy switched off on the Strategy page: keep scoring and managing
   // exits, but take no new entries.
@@ -843,15 +878,24 @@ export async function managePaperTrades(
     opened.push({ ticker, kind, price: res.entry_price ?? price });
   }
 
+  // Position count and stake come from the capital ladder, which scales with the
+  // account instead of using the fixed settings values.
+  const { loadLadder } = await import("./capital.server");
+  const ladder = await loadLadder();
+  const perTrade = Number(ladder.position_dollars);
+  const slots = Number(ladder.stocks_per_day);
+
+
   const plan = scores
     .filter((r) => r.tradeable)
     .filter((r) => !stillOpen.has(r.ticker as string))
-    .slice(0, Number(s.num_day_trades));
+    .slice(0, Math.max(0, slots));
   for (const row of plan) {
     const ticker = row.ticker as string;
     const price = Number(bars.get(ticker)?.close ?? row.close);
-    await tryOpen(ticker, "day", price, Number(s.dollars_per_day_trade));
+    await tryOpen(ticker, "day", price, perTrade);
   }
+
 
   // Approved swing candidates get a position too.
   const { data: approved } = await supabaseAdmin
