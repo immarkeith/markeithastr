@@ -878,12 +878,13 @@ export async function managePaperTrades(
     opened.push({ ticker, kind, price: res.entry_price ?? price });
   }
 
-  // Position count and stake come from the capital ladder, not from the fixed
-  // settings values (those now act as the starting/maximum level).
+  // Position count and stake come from the capital ladder, which scales with the
+  // account instead of using the fixed settings values.
   const { loadLadder } = await import("./capital.server");
   const ladder = await loadLadder();
-  const perTrade = Math.min(Number(ladder.position_dollars), Number(s.dollars_per_day_trade));
-  const slots = Math.min(Number(ladder.stocks_per_day), Number(s.num_day_trades));
+  const perTrade = Number(ladder.position_dollars);
+  const slots = Number(ladder.stocks_per_day);
+
 
   const plan = scores
     .filter((r) => r.tradeable)
