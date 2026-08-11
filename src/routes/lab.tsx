@@ -37,14 +37,44 @@ export const Route = createFileRoute("/lab")({
 
 function LabPage() {
   const run = useServerFn(runStrategyLab);
+  const walkForward = useServerFn(runWalkForwardNow);
+  const predict = useServerFn(runPredictLatest);
+  const history = useServerFn(getModelHistory);
   const [sessions, setSessions] = useState("12");
   const [universe, setUniverse] = useState("400");
+  const [mlUniverse, setMlUniverse] = useState("300");
 
   const test = useMutation({
     mutationFn: () =>
       run({ data: { sessions: Number(sessions) || 12, universe: Number(universe) || 400 } }),
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const models = useQuery({ queryKey: ["model-history"], queryFn: () => history() });
+
+  const wf = useMutation({
+    mutationFn: () => walkForward({ data: { universe: Number(mlUniverse) || 300, folds: 4 } }),
+    onSuccess: async (res) => {
+      const best = [...res.systems].sort((a, b) => b.avg_return_pct - a.avg_return_pct)[0];
+      toast.success(
+        best
+          ? `${res.folds} fold(s) tested — best out-of-sample: ${best.label}.`
+          : "Not enough history to complete a fold.",
+      );
+      await models.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const live = useMutation({
+    mutationFn: () => predict({ data: { universe: Number(mlUniverse) || 300 } }),
+    onSuccess: (res) =>
+      res.rows.length === 0
+        ? toast.info("Not enough completed history to train on yet — load more market data.")
+        : toast.success(`Predicted ${res.rows.length} names for ${res.as_of}.`),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const result = test.data;
   const ranked = [...(result?.results ?? [])].sort(
