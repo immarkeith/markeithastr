@@ -319,7 +319,7 @@ export async function runWalkForward(
   options: { universe?: number; folds?: number; save?: boolean } = {},
 ): Promise<WalkForwardResult> {
   const s = await loadSettings();
-  const dataset = await buildDataset({ universe: options.universe });
+  const dataset = await buildDataset(options.universe === undefined ? {} : { universe: options.universe });
   const params = forestParams(s);
   const key = targetKey(s);
   const trainDays = Math.max(20, Number(s.ml_train_days ?? 40));
@@ -623,7 +623,7 @@ export async function predictLatest(
   options: { universe?: number } = {},
 ): Promise<{ as_of: string | null; rows: LivePrediction[]; trained_rows: number }> {
   const s = await loadSettings();
-  const dataset = await buildDataset({ universe: options.universe });
+  const dataset = await buildDataset(options.universe === undefined ? {} : { universe: options.universe });
   const labelled = dataset.rows.filter((r) => r.forward_return !== null);
   if (labelled.length < 200) return { as_of: dataset.as_of, rows: [], trained_rows: labelled.length };
 
