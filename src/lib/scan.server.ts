@@ -878,15 +878,23 @@ export async function managePaperTrades(
     opened.push({ ticker, kind, price: res.entry_price ?? price });
   }
 
+  // Position count and stake come from the capital ladder, not from the fixed
+  // settings values (those now act as the starting/maximum level).
+  const { loadLadder } = await import("./capital.server");
+  const ladder = await loadLadder();
+  const perTrade = Math.min(Number(ladder.position_dollars), Number(s.dollars_per_day_trade));
+  const slots = Math.min(Number(ladder.stocks_per_day), Number(s.num_day_trades));
+
   const plan = scores
     .filter((r) => r.tradeable)
     .filter((r) => !stillOpen.has(r.ticker as string))
-    .slice(0, Number(s.num_day_trades));
+    .slice(0, Math.max(0, slots));
   for (const row of plan) {
     const ticker = row.ticker as string;
     const price = Number(bars.get(ticker)?.close ?? row.close);
-    await tryOpen(ticker, "day", price, Number(s.dollars_per_day_trade));
+    await tryOpen(ticker, "day", price, perTrade);
   }
+
 
   // Approved swing candidates get a position too.
   const { data: approved } = await supabaseAdmin
