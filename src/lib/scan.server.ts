@@ -483,14 +483,31 @@ export async function openTrade(input: {
   mode?: string;
 }) {
   const mode = input.mode === "live" ? "live" : "paper";
+  const ticker = input.ticker.toUpperCase();
+  let entryPrice = input.entry_price;
+  let orderNote = "";
+
+  // Live mode sends a real market order to the broker and records the actual
+  // fill, not the price we guessed from cached bars.
+  if (mode === "live") {
+    const { buyNotional } = await import("./broker.server");
+    const fill = await buyNotional("live", ticker, input.dollars);
+    if (fill.status !== "filled" || !fill.filled_price) {
+      throw new Error(
+        `Broker did not fill ${ticker} (status ${fill.status}). Nothing was recorded.`,
+      );
+    }
+    entryPrice = fill.filled_price;
+    orderNote = ` order ${fill.order_id} (${fill.filled_qty} sh)`;
+  }
 
   const { data, error } = await supabaseAdmin
     .from("trades")
     .insert({
-      ticker: input.ticker.toUpperCase(),
+      ticker,
       kind: input.kind,
       entry_date: today(),
-      entry_price: input.entry_price,
+      entry_price: entryPrice,
       dollars: input.dollars,
       status: "open",
       mode,
@@ -505,11 +522,11 @@ export async function openTrade(input: {
       kind: "deploy",
       amount: -Math.abs(input.dollars),
       trade_id: data!.id,
-      note: `Opened ${input.kind} ${input.ticker.toUpperCase()} @ ${input.entry_price}`,
+      note: `Bought ${input.kind} ${ticker} @ ${entryPrice}${orderNote}`,
     });
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
-  return { id: data!.id as string, mode };
+  return { id: data!.id as string, mode, entry_price: entryPrice };
 }
 
 /** Most recent cached close for a ticker — used to prefill the entry price. */
