@@ -694,15 +694,19 @@ async function latestBarByTicker(tickers: string[]) {
   return map;
 }
 
-/** Settled cash currently available for real orders. */
+/**
+ * Settled cash currently available for real orders. Banked profit ("reserve"
+ * rows) is deliberately excluded so the stake never compounds.
+ */
 async function availableCash(): Promise<number> {
   const { data, error } = await supabaseAdmin
     .from("ledger_entries")
-    .select("amount, available_on");
+    .select("amount, available_on, kind");
   if (error) throw new Error(error.message);
   const day = today();
   let sum = 0;
   for (const row of data ?? []) {
+    if (String(row.kind) === "reserve") continue;
     if (String(row.available_on) <= day) sum += Number(row.amount);
   }
   return Number(sum.toFixed(2));
