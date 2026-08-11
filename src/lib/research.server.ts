@@ -543,13 +543,26 @@ export async function runResearch(
   };
 }
 
+export interface Evidence {
+  in_sample: Leg;
+  out_of_sample: Leg;
+  first_half: Leg;
+  second_half: Leg;
+  up_market: Leg;
+  down_market: Leg;
+  baseline_in: Leg;
+  baseline_out: Leg;
+  sessions: number;
+  tickers: number;
+}
+
 export interface CandidateRow {
   id: string;
   name: string;
   hypothesis: string;
   change_summary: string;
   params: CandidateParams;
-  evidence: Record<string, unknown>;
+  evidence: Evidence;
   warnings: string[];
   expected_improvement: number | null;
   robustness: number | null;
