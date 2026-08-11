@@ -678,10 +678,25 @@ async function latestBarByTicker(tickers: string[]) {
   return map;
 }
 
+/** Settled cash currently available for real orders. */
+async function availableCash(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from("ledger_entries")
+    .select("amount, available_on");
+  if (error) throw new Error(error.message);
+  const day = today();
+  let sum = 0;
+  for (const row of data ?? []) {
+    if (String(row.available_on) <= day) sum += Number(row.amount);
+  }
+  return Number(sum.toFixed(2));
+}
+
 /**
- * Simulate the trading rules against cached bars: day trades exit on the next
- * session (the "sell before 4pm" rule), swings exit when they lose the 20-day
- * average or run past the max hold.
+ * Run the trading rules: day trades exit on the next session (the "sell before
+ * 4pm" rule), swings exit when they lose the 20-day average or run past the max
+ * hold. Operates on the paper book while simulation mode is on, and on the real
+ * broker account once it is switched off.
  */
 export async function managePaperTrades(
   options: { phase?: "both" | "exit" | "entry" } = {},
@@ -691,6 +706,7 @@ export async function managePaperTrades(
 }> {
   const phase = options.phase ?? "both";
   const s = await loadSettings();
+  const activeMode = s.paper_mode === false ? "live" : "paper";
   const opened: CycleResult["paper_opened"] = [];
   const closed: CycleResult["paper_closed"] = [];
 
@@ -698,7 +714,7 @@ export async function managePaperTrades(
     .from("trades")
     .select("*")
     .eq("status", "open")
-    .eq("mode", "paper");
+    .eq("mode", activeMode);
   if (openErr) throw new Error(openErr.message);
   const openTrades = openRows ?? [];
 
