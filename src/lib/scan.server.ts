@@ -666,10 +666,19 @@ export async function managePaperTrades(
         (Date.parse(`${barDate}T00:00:00Z`) - Date.parse(`${trade.entry_date}T00:00:00Z`)) / 86400000,
       ),
     );
+    // A day trade is measured against the calendar, not against how fresh the
+    // cached bar happens to be.
+    const calendarDays = Math.max(
+      0,
+      Math.round(
+        (Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${trade.entry_date}T00:00:00Z`)) / 86400000,
+      ),
+    );
 
     let why = "";
     if (trade.kind === "day") {
-      if (heldDays >= 1) why = "day-trade exit before the close";
+      if (Math.max(heldDays, calendarDays) >= 1) why = "day-trade exit before the close";
+
     } else {
       const sma = score?.sma20 === null || score?.sma20 === undefined ? null : Number(score.sma20);
       if (sma !== null && price < sma) why = "lost the 20-day average";
