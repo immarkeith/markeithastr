@@ -81,6 +81,7 @@ function SettingsPage() {
       auto_run: row['auto_run'] !== false,
       ml_enabled: row['ml_enabled'] !== false,
       research_auto: row['research_auto'] !== false,
+      hold_qualifying_positions: row['hold_qualifying_positions'] !== false,
     });
   }, [data]);
 
@@ -96,6 +97,7 @@ function SettingsPage() {
       patch['auto_run'] = toggles.auto_run;
       patch['ml_enabled'] = toggles.ml_enabled;
       patch['research_auto'] = toggles.research_auto;
+      patch['hold_qualifying_positions'] = toggles.hold_qualifying_positions;
       return save({ data: patch as never });
     },
     onSuccess: async () => {
