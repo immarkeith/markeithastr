@@ -162,6 +162,24 @@ function SettingsPage() {
           <input
             type="checkbox"
             className="mt-1"
+            checked={toggles.hold_qualifying_positions}
+            onChange={(e) =>
+              setToggles({ ...toggles, hold_qualifying_positions: e.target.checked })
+            }
+          />
+          <span>
+            <span className="font-semibold">Hold qualifying positions overnight</span>
+            <span className="block text-xs text-muted-foreground">
+              ON: if the pre-close score still ranks a holding at the top of the eligible list, it
+              is carried into the next session instead of being sold and rebought. OFF: everything
+              is sold inside the close buffer every day.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
             checked={toggles.research_auto}
             onChange={(e) => setToggles({ ...toggles, research_auto: e.target.checked })}
           />
