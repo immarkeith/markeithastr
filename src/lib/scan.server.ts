@@ -37,6 +37,18 @@ export interface Settings {
   notify_push: boolean;
   auto_run: boolean;
   paper_mode: boolean;
+  ml_enabled: boolean;
+  ml_target: string;
+  ml_train_days: number;
+  ml_test_days: number;
+  ml_trees: number;
+  ml_combine_weight: number;
+  ml_holding_days: number;
+  ml_min_return_pct: number;
+  ml_retrain: string;
+  research_auto: boolean;
+  bt_fee_pct: number;
+  bt_slippage_bps: number;
 }
 
 export const HISTORY_DAYS = 70;
