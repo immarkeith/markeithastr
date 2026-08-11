@@ -27,7 +27,7 @@ Settled/available cash **plus** the Saved profit balance. Saved profit still nev
 - The most recently added allocation is always the one removed.
 - If capital can't support even $10, it holds (no trades) but keeps scoring and waits, then re-enters as soon as $10 clears.
 
-**Recovery** uses the same 5-day stability rule — a single profitable day never restores a higher level.
+**Recovery** uses the same 5-day stability rule at every single step — size steps and stock steps alike — so a single profitable day never restores a higher level. Each step needs the required capital for *that* step held for 5 consecutive trading days: $15 at 1 stock needs $25, $20 at 1 stock needs $30, 2 stocks needs $50, and so on.
 
 ## What you'll see
 
