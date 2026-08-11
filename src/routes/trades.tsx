@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -172,7 +172,12 @@ function TradesPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold tracking-tight">Trades &amp; cash</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-2xl font-bold tracking-tight">Trades &amp; cash</h1>
+        <Link to="/analyze" className="text-sm text-primary underline-offset-4 hover:underline">
+          Analyze a stock →
+        </Link>
+      </div>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile label="Cash available" value={money(cash.available)} tone="accent" hint="stake pool" />
