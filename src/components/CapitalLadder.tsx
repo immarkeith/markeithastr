@@ -114,14 +114,12 @@ export function CapitalLadder() {
         <div className="space-y-1 border-t border-border pt-3">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Level changes</p>
           {data.events.slice(0, 5).map((e) => (
-            <p key={String(e['id'])} className="text-xs text-muted-foreground">
-              <span className="tabular-nums">{String(e['event_date'])}</span> —{" "}
-              <span
-                className={String(e['direction']) === "up" ? "text-success" : "text-destructive"}
-              >
-                {String(e['direction']) === "up" ? "scaled up" : "scaled down"}
+            <p key={e.id} className="text-xs text-muted-foreground">
+              <span className="tabular-nums">{e.event_date}</span> —{" "}
+              <span className={e.direction === "up" ? "text-success" : "text-destructive"}>
+                {e.direction === "up" ? "scaled up" : "scaled down"}
               </span>{" "}
-              to {String(e['to_stocks'])} × ${String(e['to_dollars'])}
+              to {e.to_stocks} × ${e.to_dollars}
             </p>
           ))}
         </div>

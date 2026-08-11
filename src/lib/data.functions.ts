@@ -164,6 +164,13 @@ export const fetchCapitalLadder = createServerFn({ method: "GET" })
       breach_days: state.breach_days,
       hold_level: state.hold_level,
       below_requirement: capital < requiredCapital(view.step),
-      events: (events ?? []) as unknown as Array<Record<string, unknown>>,
+      events: (events ?? []) as unknown as Array<{
+        id: string;
+        event_date: string;
+        direction: string;
+        to_stocks: number;
+        to_dollars: number;
+        note: string | null;
+      }>,
     };
   });
