@@ -138,6 +138,7 @@ const NAV = [
   { to: "/strategy", label: "Strategy" },
   { to: "/lab", label: "Lab" },
   { to: "/research", label: "Research" },
+  { to: "/history", label: "History" },
   { to: "/watchlist", label: "Watchlist" },
   { to: "/trades", label: "Trades" },
   { to: "/settings", label: "Settings" },

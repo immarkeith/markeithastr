@@ -806,7 +806,8 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
 
   // Between the buy and the sell there is idle time — spend it on research and
   // model work. Both are advisory only: neither can change the live strategy.
-  if (s.ml_enabled) {
+  const settings = await loadSettings();
+  if (settings.ml_enabled) {
     try {
       const { gradePredictions, predictLatest } = await import("./ml.server");
       await gradePredictions();
