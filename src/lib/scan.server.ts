@@ -550,8 +550,9 @@ export async function latestClose(
 }
 
 /**
- * Cancel a trade that was opened by mistake. Nothing is sold — the record is
- * marked cancelled and any cash that was set aside for it is returned.
+ * Cancel a trade that was opened by mistake. Any still-open broker order for
+ * that symbol is pulled first; the record is marked cancelled and cash set
+ * aside for it is returned.
  */
 export async function cancelTrade(input: { id: string }) {
   const { data: trade, error } = await supabaseAdmin
@@ -561,6 +562,15 @@ export async function cancelTrade(input: { id: string }) {
     .single();
   if (error) throw new Error(error.message);
   if (trade!.status !== "open") throw new Error("Only an open trade can be cancelled.");
+
+  if (trade!.mode === "live") {
+    const { cancelOpenOrders } = await import("./broker.server");
+    try {
+      await cancelOpenOrders("live", trade!.ticker as string);
+    } catch (err) {
+      console.error("cancel order failed:", err instanceof Error ? err.message : err);
+    }
+  }
 
   const { error: upErr } = await supabaseAdmin
     .from("trades")
@@ -593,14 +603,31 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
 
   const dollars = Number(trade!.dollars);
   const entry = Number(trade!.entry_price);
-  const profit = dollars * (input.exit_price / entry - 1);
+  let exitPrice = input.exit_price;
+  let orderNote = "";
+
+  // Live mode actually sells the position and records the real fill.
+  if (trade!.mode === "live") {
+    const { sellPosition } = await import("./broker.server");
+    const fill = await sellPosition("live", trade!.ticker as string);
+    if (fill?.filled_price) {
+      exitPrice = fill.filled_price;
+      orderNote = ` order ${fill.order_id}`;
+    } else if (fill && fill.status !== "filled") {
+      throw new Error(
+        `Broker did not fill the sell for ${trade!.ticker} (status ${fill.status}). Trade left open.`,
+      );
+    }
+  }
+
+  const profit = dollars * (exitPrice / entry - 1);
   const kept = profit > 0 ? profit * Number(s.profit_keep_pct) : profit;
 
   const { error: upErr } = await supabaseAdmin
     .from("trades")
     .update({
       exit_date: today(),
-      exit_price: input.exit_price,
+      exit_price: exitPrice,
       profit: Number(profit.toFixed(2)),
       kept: Number(kept.toFixed(2)),
       status: "closed",
@@ -616,12 +643,13 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
       amount: Number((dollars + kept).toFixed(2)),
       available_on: available.toISOString().slice(0, 10),
       trade_id: input.id,
-      note: `Closed ${trade!.ticker} @ ${input.exit_price} (P&L ${profit.toFixed(2)}, kept ${kept.toFixed(2)})`,
+      note: `Sold ${trade!.ticker} @ ${exitPrice}${orderNote} (P&L ${profit.toFixed(2)}, kept ${kept.toFixed(2)})`,
     });
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
   return { profit: Number(profit.toFixed(2)), kept: Number(kept.toFixed(2)) };
 }
+
 
 // ---------------------------------------------- paper (simulated) cycle ----
 
