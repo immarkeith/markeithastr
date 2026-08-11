@@ -33,7 +33,10 @@ export interface Settings {
   market_proxy: string;
   max_universe: number;
   exit_buffer_minutes: number;
+  /** Minutes after the 09:30 open before the authoritative rescore + buys. */
   preopen_recheck_minutes: number;
+  /** Keep a still-top-ranked position overnight instead of sell-and-rebuy. */
+  hold_qualifying_positions: boolean;
   notify_push: boolean;
   auto_run: boolean;
   paper_mode: boolean;
