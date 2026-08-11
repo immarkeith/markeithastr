@@ -213,10 +213,11 @@ export async function backfillHistory(days = HISTORY_DAYS): Promise<{
 
   let all: BarRow[] = [];
   let feed = s.provider;
+  let existing: string[] = [];
   if (s.provider === "alpaca") {
     const { alpacaFeed } = await import("./market-data.server");
     feed = `alpaca:${await alpacaFeed()}` as Settings["provider"];
-    const existing = await cachedTickers();
+    existing = await cachedTickers();
     const universe =
       existing.length >= 100 ? existing : await alpacaUniverse(Math.max(50, Number(s.max_universe)));
     all = await alpacaBars(universe, from, to);
@@ -235,7 +236,11 @@ export async function backfillHistory(days = HISTORY_DAYS): Promise<{
   const dates = [...byDate.keys()].sort();
   const newest = dates[dates.length - 1]!;
   const chosen = new Set(liquidityPrefilter(byDate.get(newest)!, s, share).map((r) => r.ticker));
+  // A quiet session must not shrink a universe we already track: names already
+  // in the cache stay in, and the scan's own gates still decide what's scoreable.
+  for (const ticker of existing) chosen.add(ticker);
   if (chosen.size === 0) return { days_stored: 0, tickers: 0, rows: 0, feed, from, to };
+
 
   let rowCount = 0;
   for (const date of dates) {
