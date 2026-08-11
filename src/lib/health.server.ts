@@ -103,8 +103,26 @@ export async function runHealthCheck(): Promise<HealthResult> {
     }
   }
   if (lastRun && Number(lastRun.scored_count ?? 0) === 0) {
-    issues.push("The last scan scored zero names — check the liquidity gates in Settings.");
+    // A zero-score scan is usually stale/thin data rather than bad settings, so
+    // try once more now that the history has been repaired.
+    let recovered = false;
+    if (key.ok && missing.length === 0) {
+      try {
+        const res = await runScan();
+        if (res.scored_count > 0) {
+          repairs.push(`Rescored the market after an empty scan (${res.scored_count} names).`);
+          recovered = true;
+        }
+      } catch (error) {
+        issues.push(`Rescore after an empty scan failed: ${(error as Error).message}`);
+        recovered = true;
+      }
+    }
+    if (!recovered) {
+      issues.push("The last scan scored zero names — check the liquidity gates in Settings.");
+    }
   }
+
 
   // 4. Simulated positions that should have been closed already.
   const { data: stale } = await supabaseAdmin
