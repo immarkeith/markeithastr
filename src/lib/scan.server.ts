@@ -786,11 +786,32 @@ export async function managePaperTrades(
     return { opened, closed };
   }
 
-  // Open today's simulated plan.
+  // Open today's plan. In live mode every entry is limited by the settled cash
+  // actually sitting in the account, so it can never overspend.
+  let cashLeft = activeMode === "live" ? await availableCash() : Number.POSITIVE_INFINITY;
 
   const stillOpen = new Set(
     openTrades.filter((t) => !closed.some((c) => c.ticker === t.ticker)).map((t) => t.ticker as string),
   );
+
+  async function tryOpen(ticker: string, kind: "day" | "swing", price: number, want: number) {
+    if (!price) return;
+    let dollars = want;
+    if (activeMode === "live") {
+      dollars = Math.min(want, cashLeft);
+      if (dollars < 1) return;
+    }
+    const res = await openTrade({
+      ticker,
+      kind,
+      entry_price: price,
+      dollars: Number(dollars.toFixed(2)),
+      mode: activeMode,
+    });
+    if (activeMode === "live") cashLeft = Number((cashLeft - dollars).toFixed(2));
+    opened.push({ ticker, kind, price: res.entry_price ?? price });
+  }
+
   const plan = scores
     .filter((r) => r.tradeable)
     .filter((r) => !stillOpen.has(r.ticker as string))
@@ -798,18 +819,10 @@ export async function managePaperTrades(
   for (const row of plan) {
     const ticker = row.ticker as string;
     const price = Number(bars.get(ticker)?.close ?? row.close);
-    if (!price) continue;
-    await openTrade({
-      ticker,
-      kind: "day",
-      entry_price: price,
-      dollars: Number(s.dollars_per_day_trade),
-      mode: "paper",
-    });
-    opened.push({ ticker, kind: "day", price });
+    await tryOpen(ticker, "day", price, Number(s.dollars_per_day_trade));
   }
 
-  // Approved swing candidates get a simulated position too.
+  // Approved swing candidates get a position too.
   const { data: approved } = await supabaseAdmin
     .from("watchlist_candidates")
     .select("ticker")
@@ -819,15 +832,7 @@ export async function managePaperTrades(
     if (stillOpen.has(ticker) || opened.some((o) => o.ticker === ticker)) continue;
     const score = byTicker.get(ticker);
     const price = Number(bars.get(ticker)?.close ?? score?.close ?? 0);
-    if (!price) continue;
-    await openTrade({
-      ticker,
-      kind: "swing",
-      entry_price: price,
-      dollars: Number(s.swing_dollars),
-      mode: "paper",
-    });
-    opened.push({ ticker, kind: "swing", price });
+    await tryOpen(ticker, "swing", price, Number(s.swing_dollars));
   }
 
   return { opened, closed };
