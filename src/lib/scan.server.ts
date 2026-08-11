@@ -911,7 +911,12 @@ export async function managePaperTrades(
   const { loadLadder } = await import("./capital.server");
   const ladder = await loadLadder();
   const perTrade = Number(ladder.position_dollars);
-  const slots = Number(ladder.stocks_per_day);
+  // Anything carried over from yesterday still occupies a slot and its capital,
+  // so today only fills what is genuinely free.
+  const carried = openTrades.filter(
+    (t) => t.kind === "day" && stillOpen.has(t.ticker as string),
+  ).length;
+  const slots = Math.max(0, Number(ladder.stocks_per_day) - carried);
 
 
   const plan = scores
@@ -938,7 +943,7 @@ export async function managePaperTrades(
     await tryOpen(ticker, "swing", price, Number(s.swing_dollars));
   }
 
-  return { opened, closed };
+  return { opened, closed, held };
 }
 
 /**
