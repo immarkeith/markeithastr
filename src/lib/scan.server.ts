@@ -1043,13 +1043,29 @@ export interface TimedPassResult {
   ny_time: string;
   opened: CycleResult["paper_opened"];
   closed: CycleResult["paper_closed"];
+  held: { ticker: string; rank: number; score: number }[];
   scan: { scored_count: number; bars_as_of: string | null } | null;
   insights: number;
 }
 
+/** Most recent completed regular session strictly before `date`. */
+function previousTradingDay(date: string): string {
+  const { isTradingDay } = require("./market-calendar") as typeof import("./market-calendar");
+  let cursor = date;
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(`${cursor}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    cursor = d.toISOString().slice(0, 10);
+    if (isTradingDay(cursor)) return cursor;
+  }
+  return cursor;
+}
+
 /**
- * Pre-close pass: sells the simulated day positions a few minutes before the
- * bell so the cash is clear for the T+1 rule.
+ * Pre-close pass: re-scores the universe, then sells the day positions a few
+ * minutes before the bell so the cash clears under T+1 — except a name that is
+ * still the top-ranked eligible pick, which is carried overnight instead of
+ * being sold and rebought in the morning.
  */
 export async function runPreCloseExits(options: { force?: boolean } = {}): Promise<TimedPassResult> {
   const { marketStatus } = await import("./market-calendar");
@@ -1064,6 +1080,7 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
     ny_time: status.nyTime,
     opened: [],
     closed: [],
+    held: [],
     scan: null,
     insights: 0,
   };
@@ -1077,7 +1094,20 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
     if (left < 0) return { ...base, reason: "Session already closed." };
   }
 
-  const sim = await managePaperTrades({ phase: "exit" });
+  // Fresh pre-close score decides whether each holding still qualifies.
+  let scan: { scored_count: number; bars_as_of: string | null } | null = null;
+  try {
+    const missing = await missingDates();
+    for (const date of missing.slice(-3)) await cacheOneDay(date);
+    const res = await runScan();
+    scan = { scored_count: res.scored_count, bars_as_of: res.bars_as_of };
+  } catch (error) {
+    // A failed pre-close score must never trap a position: fall through to the
+    // exits using the last good ranking.
+    console.error("pre-close rescore failed:", error instanceof Error ? error.message : error);
+  }
+
+  const sim = await managePaperTrades({ phase: "exit", keepQualifying: true });
   for (const exit of sim.closed) {
     await notify({
       kind: "exit",
@@ -1089,21 +1119,41 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
       dedupe_key: `exit:${exit.ticker}:${status.nyDate}`,
     });
   }
-  if (sim.closed.length === 0) {
-    return { ...base, ran: true, reason: "Nothing open to sell." };
+  for (const hold of sim.held) {
+    await notify({
+      kind: "trade",
+      title: `Holding ${hold.ticker} overnight — still ranked #${hold.rank}`,
+      body: `The pre-close score still puts ${hold.ticker} at the top of the eligible list (${hold.score.toFixed(1)} pts), so it was not sold just to be bought back tomorrow.`,
+      ticker: hold.ticker,
+      severity: "info",
+      action: s.paper_mode === false ? "Live hold" : "Simulated hold",
+      dedupe_key: `hold:${hold.ticker}:${status.nyDate}`,
+    });
   }
-  return { ...base, ran: true, reason: `Closed ${sim.closed.length} position(s).`, closed: sim.closed };
+  const parts: string[] = [];
+  if (sim.closed.length) parts.push(`closed ${sim.closed.length}`);
+  if (sim.held.length) parts.push(`held ${sim.held.length}`);
+  return {
+    ...base,
+    ran: true,
+    reason: parts.length ? `Pre-close pass — ${parts.join(", ")} position(s).` : "Nothing open to sell.",
+    closed: sim.closed,
+    held: sim.held,
+    scan,
+  };
 }
 
 /**
- * Pre-open / just-after-open pass: refresh the data, rebuild every score and
- * re-rank, then only buy if the candidate still qualifies and is still best.
+ * Post-open pass (default 09:32 ET): refresh the data, rebuild every score and
+ * re-rank, then buy the day's allocation from that fresh ranking. This score —
+ * not yesterday's — is the authority for new purchases.
  */
 export async function runPreOpenEntries(options: { force?: boolean } = {}): Promise<TimedPassResult> {
-  const { marketStatus } = await import("./market-calendar");
+  const { marketStatus, nyParts, OPEN_MINUTES } = await import("./market-calendar");
   const { notify, generateInsights } = await import("./notify.server");
   const s = await loadSettings();
   const status = marketStatus();
+  const wait = Math.max(0, Number(s.preopen_recheck_minutes ?? 2));
   const base: TimedPassResult = {
     ran: false,
     reason: "",
@@ -1111,19 +1161,25 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
     ny_time: status.nyTime,
     opened: [],
     closed: [],
+    held: [],
     scan: null,
     insights: 0,
   };
 
   if (!options.force) {
     if (!status.tradingDay) return { ...base, reason: `Market closed (${status.detail}).` };
-    const wait = Math.max(0, Number(s.preopen_recheck_minutes ?? 5));
-    if ((status.minutesToOpen ?? 0) > 0) {
-      return { ...base, reason: "Waiting for the opening bell." };
-    }
-    const sinceOpen = (status.minutesToClose ?? 0) > 0 ? 390 - (status.minutesToClose ?? 0) : 0;
+    const sinceOpen = nyParts().minutes - OPEN_MINUTES;
     if (sinceOpen < wait) {
-      return { ...base, reason: `Re-check runs ${wait} minutes after the open.` };
+      return {
+        ...base,
+        reason:
+          sinceOpen < 0
+            ? "Waiting for the opening bell."
+            : `Score runs ${wait} minute(s) after the open.`,
+      };
+    }
+    if ((status.minutesToClose ?? 0) <= Math.max(1, Number(s.exit_buffer_minutes ?? 8))) {
+      return { ...base, reason: "Too late in the session for a new entry." };
     }
   }
 
@@ -1133,14 +1189,40 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
 
   // 2. Rebuild every indicator and re-rank the whole universe.
   const scan = await runScan();
+  const scanInfo = { scored_count: scan.scored_count, bars_as_of: scan.bars_as_of };
 
-  // 3. Buy only what still qualifies and still ranks best.
+  // 3. Stale or empty data is never treated as a valid new score.
+  const required = previousTradingDay(status.nyDate);
+  const stale =
+    scan.scored_count === 0 || !scan.bars_as_of || String(scan.bars_as_of) < required;
+  if (stale) {
+    const detail =
+      scan.scored_count === 0
+        ? "the feed returned nothing scoreable"
+        : `newest data is ${scan.bars_as_of ?? "missing"}, expected ${required} or later`;
+    await notify({
+      kind: "health",
+      title: "No purchase — market data is stale",
+      body: `The ${wait}-minute post-open score could not be trusted (${detail}), so no buy was placed. It will retry on the next pass.`,
+      severity: "bad",
+      action: "No trade",
+      dedupe_key: `stale-open:${status.nyDate}`,
+    });
+    return {
+      ...base,
+      ran: true,
+      reason: `Stale data — no purchase (${detail}).`,
+      scan: scanInfo,
+    };
+  }
+
+  // 4. Buy the day's allocation from the fresh ranking.
   const sim = await managePaperTrades({ phase: "entry" });
   for (const entry of sim.opened) {
     await notify({
       kind: "entry",
       title: `Bought ${entry.ticker} @ $${entry.price.toFixed(2)} (${entry.kind})`,
-      body: `Re-checked after the open against ${scan.scored_count} scored names — still qualified and still the best available.`,
+      body: `Scored ${wait} minute(s) after the open against ${scan.scored_count} names — highest-ranked eligible stock on today's fresh data.`,
       ticker: entry.ticker,
       severity: "good",
       action: s.paper_mode === false ? "Live entry" : "Simulated entry",
@@ -1153,10 +1235,12 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
     ...base,
     ran: true,
     reason: sim.opened.length
-      ? `Opened ${sim.opened.length} position(s) after the re-check.`
-      : "Re-check done — nothing met the requirements, so nothing was bought.",
+      ? `Opened ${sim.opened.length} position(s) on the post-open score.`
+      : "Post-open score done — nothing met the requirements, so nothing was bought.",
     opened: sim.opened,
-    scan: { scored_count: scan.scored_count, bars_as_of: scan.bars_as_of },
+    held: sim.held,
+    scan: scanInfo,
     insights,
   };
+}
 }
