@@ -5,8 +5,9 @@ Make the desk size itself to the account: never fully stop while it can afford a
 ## The rules it will follow
 
 **Required capital for a level**
-`($25 x stocks per day) + $10 cushion`
-1 stock -> $35, 2 -> $60, 3 -> $85, 4 -> $110.
+`($20 x stocks per day) + $10 cushion`
+1 stock -> $30, 2 -> $50, 3 -> $70, 4 -> $90. Your $50 already supports 2 stocks/day.
+
 
 **Capital used for the decision**
 Settled/available cash **plus** the Saved profit balance. Saved profit still never gets invested automatically — it only counts as cushion. You can release it into the stake pool manually if you ever want to.
