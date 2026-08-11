@@ -1192,7 +1192,7 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
   const scanInfo = { scored_count: scan.scored_count, bars_as_of: scan.bars_as_of };
 
   // 3. Stale or empty data is never treated as a valid new score.
-  const required = previousTradingDay(status.nyDate);
+  const required = await previousTradingDay(status.nyDate);
   const stale =
     scan.scored_count === 0 || !scan.bars_as_of || String(scan.bars_as_of) < required;
   if (stale) {
