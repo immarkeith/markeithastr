@@ -42,6 +42,8 @@ const NUMERIC_FIELDS = [
   ["swing_dollars", "Swing position dollars"],
   ["swing_max_hold_days", "Swing max hold days"],
   ["max_universe", "Max universe size"],
+  ["preopen_recheck_minutes", "Post-open score delay (minutes after 09:30)"],
+  ["exit_buffer_minutes", "Sell buffer before the close (minutes)"],
   ["ml_train_days", "Model: training sessions"],
   ["ml_test_days", "Model: test sessions per fold"],
   ["ml_trees", "Model: number of trees"],
