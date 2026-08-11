@@ -860,13 +860,13 @@ export async function managePaperTrades(
     }
   }
 
-  if (phase === "exit") return { opened, closed };
+  if (phase === "exit") return { opened, closed, held };
 
 
   // Strategy switched off on the Strategy page: keep scoring and managing
   // exits, but take no new entries.
   if ((s as unknown as { strategy_enabled?: boolean }).strategy_enabled === false) {
-    return { opened, closed };
+    return { opened, closed, held };
   }
 
   // Open today's plan. In live mode every entry is limited by the settled cash
