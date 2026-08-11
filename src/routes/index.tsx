@@ -134,23 +134,19 @@ function ScanPage() {
 
       <section className="space-y-3 rounded-md border border-border bg-card p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={loadMarketData} disabled={loading !== null}>
-            {loading
-              ? `Loading ${loading.done}/${loading.total}…`
+          <Button onClick={loadMarketData} disabled={busy}>
+            {busy
+              ? "Loading history…"
               : `Load market data${(status.data?.missing.length ?? 0) > 0 ? ` (${status.data?.missing.length} days)` : ""}`}
           </Button>
           <Button
             variant="secondary"
             onClick={() => scan.mutate()}
-            disabled={scan.isPending || loading !== null}
+            disabled={scan.isPending || busy}
           >
             {scan.isPending ? "Scanning…" : "Run scan"}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => cycle.mutate()}
-            disabled={cycle.isPending || loading !== null}
-          >
+          <Button variant="outline" onClick={() => cycle.mutate()} disabled={cycle.isPending || busy}>
             {cycle.isPending ? "Running cycle…" : "Run today's cycle"}
           </Button>
           <span className="text-xs text-muted-foreground">
@@ -160,10 +156,9 @@ function ScanPage() {
               : " Market is closed today, so the cycle only re-scores."}
           </span>
         </div>
-        {loading ? (
-          <Progress value={(loading.done / Math.max(1, loading.total)) * 100} className="h-1.5" />
-        ) : null}
+        {busy ? <Progress value={undefined} className="h-1.5" /> : null}
       </section>
+
 
       {plan.length > 0 ? (
         <section className="space-y-3">
