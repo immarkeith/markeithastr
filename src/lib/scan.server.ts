@@ -977,7 +977,7 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
       body: `Closed ${buffer} minutes before the bell — ${exit.why}. Cash clears under the T+1 rule.`,
       ticker: exit.ticker,
       severity: exit.profit >= 0 ? "good" : "bad",
-      action: "Simulated exit",
+      action: s.paper_mode === false ? "Live exit" : "Simulated exit",
       dedupe_key: `exit:${exit.ticker}:${status.nyDate}`,
     });
   }
@@ -1035,7 +1035,7 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
       body: `Re-checked after the open against ${scan.scored_count} scored names — still qualified and still the best available.`,
       ticker: entry.ticker,
       severity: "good",
-      action: "Simulated entry",
+      action: s.paper_mode === false ? "Live entry" : "Simulated entry",
       dedupe_key: `entry:${entry.ticker}:${status.nyDate}`,
     });
   }
