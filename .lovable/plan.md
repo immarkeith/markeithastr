@@ -17,7 +17,7 @@ Settled/available cash **plus** the Saved profit balance. Saved profit still nev
 - A day only counts as stable if the cushion still holds **after** that day's trades close.
 - Any day that fails resets the counter to 0.
 - On the 5th stable day the stock count increases and a fresh 5-day period starts for the tier above.
-- Position size stays $20 per stock; count grows first, size only grows back toward $20 if it had been reduced.
+- Recovery is the exact reverse of the way down: **position size is restored before stock count**. If the size was reduced, the ladder first climbs $10 -> $15 -> $20 at 1 stock/day, one step per completed 5-day stable period, and only once it is back at 1 stock x $20 does it start adding stocks again (2, then 3, then 4).
 
 **Scaling down**
 - Reduce the stock count first, keeping $20 each: 3 -> 2 -> 1.
