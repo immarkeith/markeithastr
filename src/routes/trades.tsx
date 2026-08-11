@@ -173,9 +173,15 @@ function TradesPage() {
     <div className="space-y-8">
       <h1 className="text-2xl font-bold tracking-tight">Trades &amp; cash</h1>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Cash available" value={money(cash.available)} tone="accent" />
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <StatTile label="Cash available" value={money(cash.available)} tone="accent" hint="stake pool" />
         <StatTile label="Unsettled" value={money(cash.pending)} hint="clears after settlement" />
+        <StatTile
+          label="Saved profit"
+          value={money(cash.saved)}
+          tone={cash.saved >= 0 ? "positive" : "negative"}
+          hint="banked, never reinvested"
+        />
         <StatTile
           label="Realised P&L"
           value={money(realised)}

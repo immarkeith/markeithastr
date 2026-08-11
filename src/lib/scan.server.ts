@@ -638,13 +638,29 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
   if (trade!.mode !== "paper") {
     const available = new Date();
     available.setUTCDate(available.getUTCDate() + Number(s.settlement_days));
-    const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
-      kind: "settle",
-      amount: Number((dollars + kept).toFixed(2)),
-      available_on: available.toISOString().slice(0, 10),
-      trade_id: input.id,
-      note: `Sold ${trade!.ticker} @ ${exitPrice}${orderNote} (P&L ${profit.toFixed(2)}, kept ${kept.toFixed(2)})`,
-    });
+    const availableOn = available.toISOString().slice(0, 10);
+    // The stake comes back to the tradeable pool once it settles. Any profit is
+    // banked separately as "saved profit" so the desk keeps risking the same
+    // fixed stake instead of compounding.
+    const rows: Array<{ kind: string; amount: number; available_on: string; trade_id: string; note: string }> = [
+      {
+        kind: "settle",
+        amount: Number((dollars + Math.min(profit, 0)).toFixed(2)),
+        available_on: availableOn,
+        trade_id: input.id,
+        note: `Sold ${trade!.ticker} @ ${exitPrice}${orderNote} (P&L ${profit.toFixed(2)})`,
+      },
+    ];
+    if (kept > 0) {
+      rows.push({
+        kind: "reserve",
+        amount: Number(kept.toFixed(2)),
+        available_on: availableOn,
+        trade_id: input.id,
+        note: `Saved profit from ${trade!.ticker} (not reinvested)`,
+      });
+    }
+    const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert(rows);
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
   return { profit: Number(profit.toFixed(2)), kept: Number(kept.toFixed(2)) };
@@ -678,15 +694,19 @@ async function latestBarByTicker(tickers: string[]) {
   return map;
 }
 
-/** Settled cash currently available for real orders. */
+/**
+ * Settled cash currently available for real orders. Banked profit ("reserve"
+ * rows) is deliberately excluded so the stake never compounds.
+ */
 async function availableCash(): Promise<number> {
   const { data, error } = await supabaseAdmin
     .from("ledger_entries")
-    .select("amount, available_on");
+    .select("amount, available_on, kind");
   if (error) throw new Error(error.message);
   const day = today();
   let sum = 0;
   for (const row of data ?? []) {
+    if (String(row.kind) === "reserve") continue;
     if (String(row.available_on) <= day) sum += Number(row.amount);
   }
   return Number(sum.toFixed(2));
@@ -796,10 +816,21 @@ export async function managePaperTrades(
 
   async function tryOpen(ticker: string, kind: "day" | "swing", price: number, want: number) {
     if (!price) return;
-    let dollars = want;
-    if (activeMode === "live") {
-      dollars = Math.min(want, cashLeft);
-      if (dollars < 1) return;
+    const dollars = want;
+    if (activeMode === "live" && cashLeft < want) {
+      // Full stake or nothing: if yesterday's sale has not settled yet, sit out
+      // today rather than buying a smaller partial position.
+      const { notify } = await import("./notify.server");
+      await notify({
+        kind: "trade",
+        title: `Sat out — waiting on settled cash`,
+        body: `${ticker} was today's pick, but only ${cashLeft.toFixed(2)} of the ${want.toFixed(2)} stake has cleared. It will buy once the money settles.`,
+        ticker,
+        severity: "info",
+        action: "No trade",
+        dedupe_key: `cash-wait-${today()}`,
+      });
+      return;
     }
     const res = await openTrade({
       ticker,
