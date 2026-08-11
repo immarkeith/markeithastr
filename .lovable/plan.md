@@ -17,11 +17,12 @@ Settled/available cash **plus** the Saved profit balance. Saved profit still nev
 - A day only counts as stable if the cushion still holds **after** that day's trades close.
 - Any day that fails resets the counter to 0.
 - On the 5th stable day the stock count increases and a fresh 5-day period starts for the tier above.
-- Position size stays $25 per stock; count grows first, size only grows back toward $25 if it had been reduced.
+- Position size stays $20 per stock; count grows first, size only grows back toward $20 if it had been reduced.
 
 **Scaling down**
-- Reduce the stock count first, keeping $25 each: 3 -> 2 -> 1.
-- Only at 1 stock/day does the size step down: $25 -> $20 -> $15 -> $10. Never below $10.
+- Reduce the stock count first, keeping $20 each: 3 -> 2 -> 1.
+- Only at 1 stock/day does the size step down: $20 -> $15 -> $10. Never below $10.
+
 - A drop only triggers after the account stays under the threshold for 2 consecutive trading days, so one bad day doesn't shrink the desk.
 - The most recently added allocation is always the one removed.
 - If capital can't support even $10, it holds (no trades) but keeps scoring and waits, then re-enters as soon as $10 clears.
