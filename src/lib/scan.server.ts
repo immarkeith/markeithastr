@@ -105,9 +105,9 @@ async function replaceDay(date: string, rows: BarRow[]): Promise<number> {
   return rows.length;
 }
 
-function liquidityPrefilter(rows: BarRow[], s: Settings): BarRow[] {
+function liquidityPrefilter(rows: BarRow[], s: Settings, share = 1): BarRow[] {
   const minPrice = Number(s.min_price);
-  const minDollar = Number(s.min_avg_dollar_volume);
+  const minDollar = Number(s.min_avg_dollar_volume) * share;
   const proxy = s.market_proxy.toUpperCase();
   const kept = rows.filter(
     (r) => r.ticker === proxy || (r.close >= minPrice && r.close * r.volume >= minDollar * 0.6),
@@ -122,9 +122,23 @@ function liquidityPrefilter(rows: BarRow[], s: Settings): BarRow[] {
   return top;
 }
 
+/** Tickers already in the cache — keeps the stored universe stable day to day. */
+export async function cachedTickers(): Promise<string[]> {
+  const { data, error } = await supabaseAdmin
+    .from("daily_bars")
+    .select("ticker")
+    .order("ticker", { ascending: true })
+    .limit(100000);
+  if (error) throw new Error(error.message);
+  return [...new Set((data ?? []).map((r) => r.ticker as string))];
+}
+
 /**
  * Cache bars for one trading day. On Polygon this is a single whole-market
- * request; on Alpaca it batches the active-equity shortlist.
+ * request; on Alpaca it batches symbols. Once a universe exists in the cache we
+ * keep topping up the SAME symbols, otherwise every day would store a
+ * different shortlist and no ticker would ever build up enough history to
+ * score.
  */
 export async function cacheOneDay(date: string): Promise<{
   date: string;
@@ -132,18 +146,92 @@ export async function cacheOneDay(date: string): Promise<{
   trading_day: boolean;
 }> {
   const s = await loadSettings();
+  const share = await volumeShare(s);
   let rows: BarRow[];
+  let keepExisting = false;
   if (s.provider === "alpaca") {
-    const universe = await alpacaUniverse(Math.max(50, Number(s.max_universe)));
+    const existing = await cachedTickers();
+    const universe =
+      existing.length >= 100
+        ? existing
+        : await alpacaUniverse(Math.max(50, Number(s.max_universe)));
+    keepExisting = existing.length >= 100;
     rows = (await alpacaBars(universe, date, date)).filter((r) => r.bar_date === date);
   } else {
     rows = await polygonGroupedDay(date);
   }
   if (rows.length === 0) return { date, stored: 0, trading_day: false };
-  const kept = liquidityPrefilter(rows, s);
+  const kept = keepExisting ? rows : liquidityPrefilter(rows, s, share);
   const stored = await replaceDay(date, kept);
   return { date, stored, trading_day: true };
 }
+
+/**
+ * Build the whole history window in as few data requests as possible: one
+ * ranged request per symbol batch instead of one per batch per day. The stored
+ * universe is chosen from the most recent session's liquidity and then kept for
+ * every day in the window, so each ticker ends up with a continuous series the
+ * scanner can actually score.
+ */
+export async function backfillHistory(days = HISTORY_DAYS): Promise<{
+  days_stored: number;
+  tickers: number;
+  rows: number;
+  feed: string;
+  from: string | null;
+  to: string | null;
+}> {
+  const s = await loadSettings();
+  const share = await volumeShare(s);
+  const end = new Date();
+  end.setUTCDate(end.getUTCDate() - 1);
+  const window = recentWeekdays(days, end);
+  const from = window[0] ?? null;
+  const to = window[window.length - 1] ?? null;
+  if (!from || !to) return { days_stored: 0, tickers: 0, rows: 0, feed: "n/a", from, to };
+
+  let all: BarRow[] = [];
+  let feed = s.provider;
+  if (s.provider === "alpaca") {
+    const { alpacaFeed } = await import("./market-data.server");
+    feed = `alpaca:${await alpacaFeed()}` as Settings["provider"];
+    const existing = await cachedTickers();
+    const universe =
+      existing.length >= 100 ? existing : await alpacaUniverse(Math.max(50, Number(s.max_universe)));
+    all = await alpacaBars(universe, from, to);
+  } else {
+    for (const date of window) all.push(...(await polygonGroupedDay(date)));
+  }
+  if (all.length === 0) return { days_stored: 0, tickers: 0, rows: 0, feed, from, to };
+
+  // Pick the universe once, from the newest session we actually received.
+  const byDate = new Map<string, BarRow[]>();
+  for (const row of all) {
+    const list = byDate.get(row.bar_date);
+    if (list) list.push(row);
+    else byDate.set(row.bar_date, [row]);
+  }
+  const dates = [...byDate.keys()].sort();
+  const newest = dates[dates.length - 1]!;
+  const chosen = new Set(liquidityPrefilter(byDate.get(newest)!, s, share).map((r) => r.ticker));
+  if (chosen.size === 0) return { days_stored: 0, tickers: 0, rows: 0, feed, from, to };
+
+  let rowCount = 0;
+  for (const date of dates) {
+    const rows = byDate.get(date)!.filter((r) => chosen.has(r.ticker));
+    if (rows.length === 0) continue;
+    rowCount += await replaceDay(date, rows);
+  }
+  return {
+    days_stored: dates.length,
+    tickers: chosen.size,
+    rows: rowCount,
+    feed,
+    from: dates[0] ?? from,
+    to: newest,
+  };
+}
+
 
 // ------------------------------------------------------------------ scan ----
 
