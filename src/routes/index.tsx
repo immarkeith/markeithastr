@@ -48,7 +48,7 @@ function ScanPage() {
   async function loadMarketData() {
     setBusy(true);
     try {
-      const res = await loadHistoryFn({ data: { days: 70 } });
+      const res = await loadHistoryFn({ data: { days: 160 } });
       if (res.days_stored === 0) {
         toast.error("No bars came back from the data feed — check the key in Settings.");
       } else {

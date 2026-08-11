@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as ResearchRouteImport } from './routes/research'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StrategyRouteImport } from './routes/strategy'
 import { Route as TradesRouteImport } from './routes/trades'
@@ -41,6 +42,11 @@ const LabRoute = LabRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResearchRoute = ResearchRouteImport.update({
+  id: '/research',
+  path: '/research',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
+  '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
+  '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
+  '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trades': typeof TradesRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/lab'
     | '/notifications'
+    | '/research'
     | '/settings'
     | '/strategy'
     | '/trades'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/lab'
     | '/notifications'
+    | '/research'
     | '/settings'
     | '/strategy'
     | '/trades'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/lab'
     | '/notifications'
+    | '/research'
     | '/settings'
     | '/strategy'
     | '/trades'
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   LabRoute: typeof LabRoute
   NotificationsRoute: typeof NotificationsRoute
+  ResearchRoute: typeof ResearchRoute
   SettingsRoute: typeof SettingsRoute
   StrategyRoute: typeof StrategyRoute
   TradesRoute: typeof TradesRoute
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/research': {
+      id: '/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof ResearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -301,6 +321,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   LabRoute: LabRoute,
   NotificationsRoute: NotificationsRoute,
+  ResearchRoute: ResearchRoute,
   SettingsRoute: SettingsRoute,
   StrategyRoute: StrategyRoute,
   TradesRoute: TradesRoute,

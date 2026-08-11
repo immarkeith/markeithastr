@@ -37,9 +37,27 @@ export interface Settings {
   notify_push: boolean;
   auto_run: boolean;
   paper_mode: boolean;
+  ml_enabled: boolean;
+  ml_target: string;
+  ml_train_days: number;
+  ml_test_days: number;
+  ml_trees: number;
+  ml_combine_weight: number;
+  ml_holding_days: number;
+  ml_min_return_pct: number;
+  ml_retrain: string;
+  research_auto: boolean;
+  active_strategy_id: string | null;
+  bt_fee_pct: number;
+  bt_slippage_bps: number;
 }
 
-export const HISTORY_DAYS = 70;
+/**
+ * Lookback window kept in the cache. Scoring alone needs 55 clean sessions, so
+ * a 70-day window leaves almost nothing to research or train on — 160 days of
+ * daily bars is still one ranged request per provider call.
+ */
+export const HISTORY_DAYS = 160;
 
 export async function loadSettings(): Promise<Settings> {
   const { data, error } = await supabaseAdmin.from("app_settings").select("*").eq("id", 1).single();
@@ -195,10 +213,11 @@ export async function backfillHistory(days = HISTORY_DAYS): Promise<{
 
   let all: BarRow[] = [];
   let feed = s.provider;
+  let existing: string[] = [];
   if (s.provider === "alpaca") {
     const { alpacaFeed } = await import("./market-data.server");
     feed = `alpaca:${await alpacaFeed()}` as Settings["provider"];
-    const existing = await cachedTickers();
+    existing = await cachedTickers();
     const universe =
       existing.length >= 100 ? existing : await alpacaUniverse(Math.max(50, Number(s.max_universe)));
     all = await alpacaBars(universe, from, to);
@@ -217,7 +236,11 @@ export async function backfillHistory(days = HISTORY_DAYS): Promise<{
   const dates = [...byDate.keys()].sort();
   const newest = dates[dates.length - 1]!;
   const chosen = new Set(liquidityPrefilter(byDate.get(newest)!, s, share).map((r) => r.ticker));
+  // A quiet session must not shrink a universe we already track: names already
+  // in the cache stay in, and the scan's own gates still decide what's scoreable.
+  for (const ticker of existing) chosen.add(ticker);
   if (chosen.size === 0) return { days_stored: 0, tickers: 0, rows: 0, feed, from, to };
+
 
   let rowCount = 0;
   for (const date of dates) {
@@ -790,6 +813,28 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
   const sim = await managePaperTrades();
   const { generateInsights } = await import("./notify.server");
   await generateInsights(status.nyDate);
+
+  // Between the buy and the sell there is idle time — spend it on research and
+  // model work. Both are advisory only: neither can change the live strategy.
+  const settings = await loadSettings();
+  if (settings.ml_enabled) {
+    try {
+      const { gradePredictions, predictLatest } = await import("./ml.server");
+      await gradePredictions();
+      await predictLatest({ universe: 300 });
+    } catch (error) {
+      console.error("ml pass failed:", error instanceof Error ? error.message : error);
+    }
+  }
+  if (settings.research_auto) {
+    try {
+      const { runResearch } = await import("./research.server");
+      await runResearch({ universe: 300 });
+    } catch (error) {
+      console.error("research pass failed:", error instanceof Error ? error.message : error);
+    }
+  }
+
   return {
     ...base,
     ran: true,
