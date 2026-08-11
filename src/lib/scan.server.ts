@@ -638,13 +638,29 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
   if (trade!.mode !== "paper") {
     const available = new Date();
     available.setUTCDate(available.getUTCDate() + Number(s.settlement_days));
-    const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert({
-      kind: "settle",
-      amount: Number((dollars + kept).toFixed(2)),
-      available_on: available.toISOString().slice(0, 10),
-      trade_id: input.id,
-      note: `Sold ${trade!.ticker} @ ${exitPrice}${orderNote} (P&L ${profit.toFixed(2)}, kept ${kept.toFixed(2)})`,
-    });
+    const availableOn = available.toISOString().slice(0, 10);
+    // The stake comes back to the tradeable pool once it settles. Any profit is
+    // banked separately as "saved profit" so the desk keeps risking the same
+    // fixed stake instead of compounding.
+    const rows: Array<Record<string, unknown>> = [
+      {
+        kind: "settle",
+        amount: Number((dollars + Math.min(profit, 0)).toFixed(2)),
+        available_on: availableOn,
+        trade_id: input.id,
+        note: `Sold ${trade!.ticker} @ ${exitPrice}${orderNote} (P&L ${profit.toFixed(2)})`,
+      },
+    ];
+    if (kept > 0) {
+      rows.push({
+        kind: "reserve",
+        amount: Number(kept.toFixed(2)),
+        available_on: availableOn,
+        trade_id: input.id,
+        note: `Saved profit from ${trade!.ticker} (not reinvested)`,
+      });
+    }
+    const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert(rows);
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
   return { profit: Number(profit.toFixed(2)), kept: Number(kept.toFixed(2)) };
