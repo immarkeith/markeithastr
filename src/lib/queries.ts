@@ -79,16 +79,22 @@ export const ledgerQuery = queryOptions({
 });
 
 
-export function cashSummary(entries: { amount: number; available_on: string }[]) {
+export function cashSummary(entries: { amount: number; available_on: string; kind?: string }[]) {
   const today = new Date().toISOString().slice(0, 10);
   let available = 0;
   let pending = 0;
+  let saved = 0;
   for (const e of entries) {
     const amount = Number(e.amount);
+    // Banked profit is set aside, never part of the tradeable stake.
+    if (e.kind === "reserve") {
+      saved += amount;
+      continue;
+    }
     if (e.available_on <= today) available += amount;
     else pending += amount;
   }
-  return { available, pending, total: available + pending };
+  return { available, pending, saved, total: available + pending + saved };
 }
 
 export const money = (n: number) =>
