@@ -131,8 +131,9 @@ function SettingsPage() {
           <span>
             <span className="font-semibold">Simulation (paper) mode</span>
             <span className="block text-xs text-muted-foreground">
-              Keeps scoring, entries and exits running on paper. No broker orders and no real cash
-              movement. Leave this on until you fund the account.
+              ON: scoring, entries and exits run on paper — no broker orders, no real cash. OFF:
+              the same rules place real market orders in your funded Alpaca account, sized by your
+              settled cash, buying after the open re-check and selling before the close.
             </span>
           </span>
         </label>
