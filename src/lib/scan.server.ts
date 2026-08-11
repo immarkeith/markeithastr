@@ -745,16 +745,18 @@ export async function scalingCapital(): Promise<number> {
  * broker account once it is switched off.
  */
 export async function managePaperTrades(
-  options: { phase?: "both" | "exit" | "entry" } = {},
+  options: { phase?: "both" | "exit" | "entry"; keepQualifying?: boolean } = {},
 ): Promise<{
   opened: CycleResult["paper_opened"];
   closed: CycleResult["paper_closed"];
+  held: { ticker: string; rank: number; score: number }[];
 }> {
   const phase = options.phase ?? "both";
   const s = await loadSettings();
   const activeMode = s.paper_mode === false ? "live" : "paper";
   const opened: CycleResult["paper_opened"] = [];
   const closed: CycleResult["paper_closed"] = [];
+  const held: { ticker: string; rank: number; score: number }[] = [];
 
   const { data: openRows, error: openErr } = await supabaseAdmin
     .from("trades")
