@@ -786,6 +786,18 @@ export async function managePaperTrades(
 
   const bars = await latestBarByTicker(openTrades.map((t) => t.ticker as string));
 
+  // Names the desk may carry overnight: still flagged tradeable AND still inside
+  // the slots it would buy today. Selling one of these before the close only to
+  // rebuy it in the morning pays the spread twice for no change in exposure.
+  const holdSet = new Set<string>();
+  if (options.keepQualifying && s.hold_qualifying_positions !== false) {
+    const { loadLadder: loadLadderForHold } = await import("./capital.server");
+    const holdSlots = Math.max(1, Number((await loadLadderForHold()).stocks_per_day));
+    for (const row of scores.filter((r) => r.tradeable).slice(0, holdSlots)) {
+      holdSet.add(row.ticker as string);
+    }
+  }
+
   for (const trade of phase === "entry" ? [] : openTrades) {
     const ticker = trade.ticker as string;
     const bar = bars.get(ticker);
