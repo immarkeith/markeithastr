@@ -129,7 +129,13 @@ function TradesPage() {
   }
 
   const funds = useMutation({
-    mutationFn: () => fundsFn({ data: { amount: Number(deposit), note: "manual adjustment" } }),
+    mutationFn: (sign: number) =>
+      fundsFn({
+        data: {
+          amount: sign * Math.abs(Number(deposit)),
+          note: sign < 0 ? "manual withdrawal" : "manual deposit",
+        },
+      }),
     onSuccess: async () => {
       setDeposit("");
       await refresh();
