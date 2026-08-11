@@ -158,6 +158,87 @@ export type Database = {
         }
         Relationships: []
       }
+      capital_ladder_events: {
+        Row: {
+          capital: number
+          created_at: string
+          direction: string
+          event_date: string
+          from_dollars: number
+          from_stocks: number
+          id: string
+          note: string | null
+          required: number
+          to_dollars: number
+          to_stocks: number
+        }
+        Insert: {
+          capital: number
+          created_at?: string
+          direction: string
+          event_date?: string
+          from_dollars: number
+          from_stocks: number
+          id?: string
+          note?: string | null
+          required: number
+          to_dollars: number
+          to_stocks: number
+        }
+        Update: {
+          capital?: number
+          created_at?: string
+          direction?: string
+          event_date?: string
+          from_dollars?: number
+          from_stocks?: number
+          id?: string
+          note?: string | null
+          required?: number
+          to_dollars?: number
+          to_stocks?: number
+        }
+        Relationships: []
+      }
+      capital_ladder_state: {
+        Row: {
+          breach_days: number
+          created_at: string
+          hold_level: boolean
+          id: number
+          last_evaluated_date: string | null
+          pending_target: string | null
+          position_dollars: number
+          stable_days: number
+          stocks_per_day: number
+          updated_at: string
+        }
+        Insert: {
+          breach_days?: number
+          created_at?: string
+          hold_level?: boolean
+          id?: number
+          last_evaluated_date?: string | null
+          pending_target?: string | null
+          position_dollars?: number
+          stable_days?: number
+          stocks_per_day?: number
+          updated_at?: string
+        }
+        Update: {
+          breach_days?: number
+          created_at?: string
+          hold_level?: boolean
+          id?: number
+          last_evaluated_date?: string | null
+          pending_target?: string | null
+          position_dollars?: number
+          stable_days?: number
+          stocks_per_day?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_bars: {
         Row: {
           bar_date: string
