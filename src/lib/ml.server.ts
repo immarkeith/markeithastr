@@ -322,7 +322,7 @@ export async function runWalkForward(
   const dataset = await buildDataset(options.universe === undefined ? {} : { universe: options.universe });
   const params = forestParams(s);
   const key = targetKey(s);
-  const trainDays = Math.max(20, Number(s.ml_train_days ?? 40));
+  const wantTrainDays = Math.max(20, Number(s.ml_train_days ?? 40));
   const testDays = Math.max(1, Number(s.ml_test_days ?? 10));
   const perDay = Math.max(1, Number(s.num_day_trades ?? 2));
   const combineWeight = Math.min(1, Math.max(0, Number(s.ml_combine_weight ?? 0.5)));
@@ -332,9 +332,12 @@ export async function runWalkForward(
   const dates = [...new Set(labelled.map((r) => r.date))].sort();
   const warnings: string[] = [];
 
-  if (dates.length < trainDays + testDays) {
+  // Scoring burns 55 sessions of warm-up, so the training block is clamped to
+  // what the cache can actually supply rather than failing outright.
+  const trainDays = Math.max(15, Math.min(wantTrainDays, dates.length - testDays));
+  if (trainDays < wantTrainDays) {
     warnings.push(
-      `Only ${dates.length} usable sessions cached — walk-forward needs ${trainDays + testDays}. Load more market history for a trustworthy result.`,
+      `Only ${dates.length} usable sessions cached, so training was shortened to ${trainDays} sessions (you asked for ${wantTrainDays}). Load more market history for a firmer result.`,
     );
   }
 
