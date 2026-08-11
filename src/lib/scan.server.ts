@@ -713,6 +713,29 @@ async function availableCash(): Promise<number> {
 }
 
 /**
+ * Capital used for scaling decisions: settled cash PLUS banked profit. Saved
+ * profit counts as cushion but is never invested automatically — it only moves
+ * into the stake pool if the owner releases it.
+ */
+export async function scalingCapital(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from("ledger_entries")
+    .select("amount, available_on, kind");
+  if (error) throw new Error(error.message);
+  const day = today();
+  let sum = 0;
+  for (const row of data ?? []) {
+    if (String(row.kind) === "reserve") {
+      sum += Number(row.amount);
+      continue;
+    }
+    if (String(row.available_on) <= day) sum += Number(row.amount);
+  }
+  return Number(sum.toFixed(2));
+}
+
+
+/**
  * Run the trading rules: day trades exit on the next session (the "sell before
  * 4pm" rule), swings exit when they lose the 20-day average or run past the max
  * hold. Operates on the paper book while simulation mode is on, and on the real
