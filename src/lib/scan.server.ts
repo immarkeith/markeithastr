@@ -834,9 +834,20 @@ export async function managePaperTrades(
     }
     if (!why) continue;
 
+    // Still the best available name: carry it instead of churning it.
+    if (trade.kind === "day" && holdSet.has(ticker)) {
+      held.push({
+        ticker,
+        rank: Number(score?.rank ?? 0),
+        score: Number(score?.score ?? 0),
+      });
+      continue;
+    }
+
     const res = await closeTrade({ id: trade.id as string, exit_price: price });
     closed.push({ ticker, exit: price, profit: res.profit, why });
   }
+
 
   // Re-size the desk once per trading day, AFTER the day's exits have settled
   // into the ledger, so today's result is part of the stability decision.
