@@ -803,6 +803,27 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
   const sim = await managePaperTrades();
   const { generateInsights } = await import("./notify.server");
   await generateInsights(status.nyDate);
+
+  // Between the buy and the sell there is idle time — spend it on research and
+  // model work. Both are advisory only: neither can change the live strategy.
+  if (s.ml_enabled) {
+    try {
+      const { gradePredictions, predictLatest } = await import("./ml.server");
+      await gradePredictions();
+      await predictLatest({ universe: 300 });
+    } catch (error) {
+      console.error("ml pass failed:", error instanceof Error ? error.message : error);
+    }
+  }
+  if (s.research_auto) {
+    try {
+      const { runResearch } = await import("./research.server");
+      await runResearch({ universe: 300 });
+    } catch (error) {
+      console.error("research pass failed:", error instanceof Error ? error.message : error);
+    }
+  }
+
   return {
     ...base,
     ran: true,

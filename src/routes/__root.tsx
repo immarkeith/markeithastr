@@ -137,7 +137,7 @@ const NAV = [
   { to: "/notifications", label: "Alerts" },
   { to: "/strategy", label: "Strategy" },
   { to: "/lab", label: "Lab" },
-  { to: "/history", label: "History" },
+  { to: "/research", label: "Research" },
   { to: "/watchlist", label: "Watchlist" },
   { to: "/trades", label: "Trades" },
   { to: "/settings", label: "Settings" },
