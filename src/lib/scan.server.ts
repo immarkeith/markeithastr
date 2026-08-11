@@ -92,8 +92,11 @@ export async function missingDates(days = HISTORY_DAYS): Promise<string[]> {
   // Yesterday is the newest reliably-settled daily bar.
   const end = new Date();
   end.setUTCDate(end.getUTCDate() - 1);
-  return recentWeekdays(days, end).filter((d) => !present.has(d));
+  const { isTradingDay } = await import("./market-calendar");
+  // Market holidays have no bars to fetch, so they are not "missing".
+  return recentWeekdays(days, end).filter((d) => !present.has(d) && isTradingDay(d));
 }
+
 
 async function replaceDay(date: string, rows: BarRow[]): Promise<number> {
   await supabaseAdmin.from("daily_bars").delete().eq("bar_date", date);
