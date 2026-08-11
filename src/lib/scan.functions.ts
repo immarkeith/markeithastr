@@ -46,7 +46,7 @@ export const setWatchlist = createServerFn({ method: "POST" })
     z
       .object({
         ticker: z.string().min(1),
-        status: z.enum(["watching", "suggested", "approved", "rejected"]),
+        status: z.enum(["watching", "suggested", "requested", "approved", "rejected"]),
       })
       .parse(input),
   )

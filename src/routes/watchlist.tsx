@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
@@ -42,7 +42,12 @@ function WatchlistPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Swing watchlist</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-2xl font-bold tracking-tight">Swing watchlist</h1>
+        <Link to="/analyze" className="text-sm text-primary underline-offset-4 hover:underline">
+          Analyze a stock →
+        </Link>
+      </div>
       {rows.length === 0 ? (
         <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
           Candidates appear here once a name holds a place in the daily top ten.
@@ -70,7 +75,15 @@ function WatchlistPage() {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{row.streak_days}d</td>
                   <td className="px-3 py-2">
-                    <Badge variant={row.status === "approved" ? "default" : "secondary"}>
+                    <Badge
+                      variant={
+                        row.status === "approved"
+                          ? "default"
+                          : row.status === "requested"
+                            ? "outline"
+                            : "secondary"
+                      }
+                    >
                       {row.status}
                     </Badge>
                   </td>
