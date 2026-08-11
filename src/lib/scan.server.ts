@@ -285,7 +285,8 @@ export async function runScan(): Promise<{
   market_roc5: number;
 }> {
   const s = await loadSettings();
-  const config = scoreConfig(s);
+  const config = scoreConfig(s, await volumeShare(s));
+
   const coverage = await barCoverage();
   const barsAsOf = coverage[0]?.bar_date ?? null;
   if (!barsAsOf) throw new Error("No cached price history yet — load market data first.");
