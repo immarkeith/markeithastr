@@ -129,7 +129,13 @@ function TradesPage() {
   }
 
   const funds = useMutation({
-    mutationFn: () => fundsFn({ data: { amount: Number(deposit), note: "manual adjustment" } }),
+    mutationFn: (sign: number) =>
+      fundsFn({
+        data: {
+          amount: sign * Math.abs(Number(deposit)),
+          note: sign < 0 ? "manual withdrawal" : "manual deposit",
+        },
+      }),
     onSuccess: async () => {
       setDeposit("");
       await refresh();
@@ -267,12 +273,29 @@ function TradesPage() {
           <Input
             inputMode="decimal"
             value={deposit}
-            placeholder="100 or -50"
-            onChange={(e) => setDeposit(e.target.value)}
+            placeholder="50"
+            onChange={(e) => setDeposit(e.target.value.replace(/[^0-9.]/g, ""))}
           />
-          <Button variant="secondary" onClick={() => funds.mutate()} disabled={!deposit}>
-            Record
-          </Button>
+          <p className="text-[11px] text-muted-foreground">
+            Enter a positive amount, then choose deposit or withdraw.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              onClick={() => funds.mutate(1)}
+              disabled={!Number(deposit) || funds.isPending}
+            >
+              Deposit
+            </Button>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => funds.mutate(-1)}
+              disabled={!Number(deposit) || funds.isPending}
+            >
+              Withdraw
+            </Button>
+          </div>
         </div>
       </section>
 
