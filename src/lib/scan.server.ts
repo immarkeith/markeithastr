@@ -52,7 +52,12 @@ export interface Settings {
   bt_slippage_bps: number;
 }
 
-export const HISTORY_DAYS = 70;
+/**
+ * Lookback window kept in the cache. Scoring alone needs 55 clean sessions, so
+ * a 70-day window leaves almost nothing to research or train on — 160 days of
+ * daily bars is still one ranged request per provider call.
+ */
+export const HISTORY_DAYS = 160;
 
 export async function loadSettings(): Promise<Settings> {
   const { data, error } = await supabaseAdmin.from("app_settings").select("*").eq("id", 1).single();
