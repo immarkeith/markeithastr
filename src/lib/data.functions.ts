@@ -130,3 +130,40 @@ export const fetchHealthChecks = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return data ?? [];
   });
+
+/**
+ * Capital ladder: the level the desk is trading at, how much cushion it has and
+ * how close it is to the next scaling step.
+ */
+export const fetchCapitalLadder = createServerFn({ method: "GET" })
+  .middleware([requireGate])
+  .handler(async () => {
+    const [{ loadLadder, evaluateLadder, requiredCapital, describeStep, STABLE_DAYS_REQUIRED, CUSHION }, { scalingCapital }] =
+      await Promise.all([import("./capital.server"), import("./scan.server")]);
+    const db = await admin();
+    const state = await loadLadder();
+    const capital = await scalingCapital();
+    const view = evaluateLadder({ ...state, hold_level: true }, capital);
+    const { data: events } = await db
+      .from("capital_ladder_events" as never)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    return {
+      level: describeStep(view.step),
+      stocks_per_day: view.step.stocks,
+      position_dollars: view.step.dollars,
+      capital,
+      required: view.required,
+      cushion: Number((capital - view.step.stocks * view.step.dollars).toFixed(2)),
+      cushion_target: CUSHION,
+      next_level: view.next ? describeStep(view.next) : null,
+      next_required: view.next_required,
+      stable_days: state.stable_days,
+      stable_days_required: STABLE_DAYS_REQUIRED,
+      breach_days: state.breach_days,
+      hold_level: state.hold_level,
+      below_requirement: capital < requiredCapital(view.step),
+      events: (events ?? []) as unknown as Array<Record<string, unknown>>,
+    };
+  });

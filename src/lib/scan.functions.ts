@@ -338,3 +338,13 @@ export const saveNotifyPrefs = createServerFn({ method: "POST" })
     const { updateSettings } = await import("./scan.server");
     return updateSettings(data as Record<string, unknown>);
   });
+
+/** Freeze or resume automatic capital scaling. */
+export const holdCapitalLevel = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .inputValidator((input) => z.object({ hold: z.boolean() }).parse(input))
+  .handler(async ({ data }) => {
+    const { setLadderHold } = await import("./capital.server");
+    await setLadderHold(data.hold);
+    return { ok: true, hold: data.hold };
+  });
