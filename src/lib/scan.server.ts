@@ -47,10 +47,21 @@ export async function loadSettings(): Promise<Settings> {
   return data as unknown as Settings;
 }
 
-function scoreConfig(s: Settings): ScoreConfig {
+/**
+ * How much of real market volume the active data feed reports. The free Alpaca
+ * (IEX) feed only prints a small slice of consolidated volume, so the dollar
+ * volume gates have to be scaled to that slice or every name fails them.
+ */
+export async function volumeShare(s: Settings): Promise<number> {
+  if (s.provider !== "alpaca") return 1;
+  const { alpacaFeed, feedVolumeShare } = await import("./market-data.server");
+  return feedVolumeShare(await alpacaFeed());
+}
+
+export function scoreConfig(s: Settings, share = 1): ScoreConfig {
   return {
     minPrice: Number(s.min_price),
-    minAvgDollarVolume: Number(s.min_avg_dollar_volume),
+    minAvgDollarVolume: Number(s.min_avg_dollar_volume) * share,
     weights: {
       trend: Number(s.weight_trend),
       momentum: Number(s.weight_momentum),
@@ -60,6 +71,7 @@ function scoreConfig(s: Settings): ScoreConfig {
     },
   };
 }
+
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
