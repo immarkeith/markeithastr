@@ -816,10 +816,20 @@ export async function managePaperTrades(
 
   async function tryOpen(ticker: string, kind: "day" | "swing", price: number, want: number) {
     if (!price) return;
-    let dollars = want;
-    if (activeMode === "live") {
-      dollars = Math.min(want, cashLeft);
-      if (dollars < 1) return;
+    const dollars = want;
+    if (activeMode === "live" && cashLeft < want) {
+      // Full stake or nothing: if yesterday's sale has not settled yet, sit out
+      // today rather than buying a smaller partial position.
+      await notify({
+        kind: "trade",
+        title: `Sat out — waiting on settled cash`,
+        body: `${ticker} was today's pick, but only ${cashLeft.toFixed(2)} of the ${want.toFixed(2)} stake has cleared. It will buy once the money settles.`,
+        ticker,
+        severity: "info",
+        action: "No trade",
+        dedupeKey: `cash-wait-${today()}`,
+      });
+      return;
     }
     const res = await openTrade({
       ticker,
