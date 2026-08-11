@@ -18,7 +18,8 @@ export async function runHealthCheck(): Promise<HealthResult> {
   const issues: string[] = [];
   const repairs: string[] = [];
 
-  const { loadSettings, missingDates, cacheOneDay, runScan } = await import("./scan.server");
+  const { loadSettings, missingDates, cacheOneDay, runScan, barCoverage, backfillHistory } =
+    await import("./scan.server");
   const { verifyProviderKey } = await import("./market-data.server");
   const { marketStatus } = await import("./market-calendar");
   const { notify } = await import("./notify.server");
@@ -30,13 +31,35 @@ export async function runHealthCheck(): Promise<HealthResult> {
   const key = await verifyProviderKey(settings.provider as "polygon" | "alpaca");
   if (!key.ok) issues.push(`Market data key: ${key.detail}`);
 
-  // 2. Freshness of cached bars — top up automatically when the key works.
+  // 2. Is the cached history deep and wide enough to score at all? Scoring
+  // needs 55 clean sessions per ticker, so a thin or fragmented cache is
+  // rebuilt in one ranged pass rather than patched day by day.
   let missing: string[] = [];
+  let thin = false;
   try {
+    const coverage = await barCoverage();
+    thin = coverage.length < 55 || Number(coverage[0]?.ticker_count ?? 0) < 100;
     missing = await missingDates();
   } catch (error) {
     issues.push(`Could not read cached history: ${(error as Error).message}`);
   }
+
+  if (thin && key.ok) {
+    try {
+      const back = await backfillHistory();
+      if (back.days_stored > 0) {
+        repairs.push(
+          `Rebuilt price history: ${back.days_stored} sessions for ${back.tickers} tickers (${back.feed}).`,
+        );
+        missing = await missingDates();
+      } else {
+        issues.push("The data feed returned no usable history for the scan window.");
+      }
+    } catch (error) {
+      issues.push(`Could not rebuild price history: ${(error as Error).message}`);
+    }
+  }
+
   if (missing.length > 0) {
     if (key.ok) {
       let cached = 0;
@@ -57,6 +80,7 @@ export async function runHealthCheck(): Promise<HealthResult> {
       issues.push(`${missing.length} days of price history missing and the data key is failing.`);
     }
   }
+
 
   // 3. Did today's scan run? Re-score if it did not and the market is open.
   const { data: run } = await supabaseAdmin
