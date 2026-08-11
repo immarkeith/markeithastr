@@ -642,7 +642,7 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
     // The stake comes back to the tradeable pool once it settles. Any profit is
     // banked separately as "saved profit" so the desk keeps risking the same
     // fixed stake instead of compounding.
-    const rows: Array<Record<string, unknown>> = [
+    const rows: Array<{ kind: string; amount: number; available_on: string; trade_id: string; note: string }> = [
       {
         kind: "settle",
         amount: Number((dollars + Math.min(profit, 0)).toFixed(2)),
