@@ -821,7 +821,19 @@ export async function managePaperTrades(
     closed.push({ ticker, exit: price, profit: res.profit, why });
   }
 
+  // Re-size the desk once per trading day, AFTER the day's exits have settled
+  // into the ledger, so today's result is part of the stability decision.
+  if (phase !== "entry") {
+    try {
+      const { applyLadder } = await import("./capital.server");
+      await applyLadder(await scalingCapital(), today());
+    } catch (error) {
+      console.error("capital ladder failed:", error instanceof Error ? error.message : error);
+    }
+  }
+
   if (phase === "exit") return { opened, closed };
+
 
   // Strategy switched off on the Strategy page: keep scoring and managing
   // exits, but take no new entries.
