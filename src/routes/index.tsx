@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { latestRunQuery, settingsQuery } from "@/lib/queries";
 import { marketStatus } from "@/lib/market-calendar";
-import { cacheDay, getBarStatus, runCycleNow, runScanNow } from "@/lib/scan.functions";
+import { getBarStatus, loadHistory, runCycleNow, runScanNow } from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
