@@ -32,7 +32,7 @@ Settled/available cash **plus** the Saved profit balance. Saved profit still nev
 ## What you'll see
 
 A new **Capital ladder** panel on the Trades page:
-- Current level (e.g. "1 stock/day at $25")
+- Current level (e.g. "2 stocks/day at $20")
 - Current capital vs required capital
 - Cushion remaining
 - "3 of 5 stable days toward 2 stocks/day" progress bar
