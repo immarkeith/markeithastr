@@ -47,6 +47,7 @@ export interface Settings {
   ml_min_return_pct: number;
   ml_retrain: string;
   research_auto: boolean;
+  active_strategy_id: string | null;
   bt_fee_pct: number;
   bt_slippage_bps: number;
 }
