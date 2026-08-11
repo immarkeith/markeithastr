@@ -1049,8 +1049,8 @@ export interface TimedPassResult {
 }
 
 /** Most recent completed regular session strictly before `date`. */
-function previousTradingDay(date: string): string {
-  const { isTradingDay } = require("./market-calendar") as typeof import("./market-calendar");
+async function previousTradingDay(date: string): Promise<string> {
+  const { isTradingDay } = await import("./market-calendar");
   let cursor = date;
   for (let i = 0; i < 12; i++) {
     const d = new Date(`${cursor}T12:00:00Z`);
