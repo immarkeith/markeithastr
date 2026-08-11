@@ -483,14 +483,31 @@ export async function openTrade(input: {
   mode?: string;
 }) {
   const mode = input.mode === "live" ? "live" : "paper";
+  const ticker = input.ticker.toUpperCase();
+  let entryPrice = input.entry_price;
+  let orderNote = "";
+
+  // Live mode sends a real market order to the broker and records the actual
+  // fill, not the price we guessed from cached bars.
+  if (mode === "live") {
+    const { buyNotional } = await import("./broker.server");
+    const fill = await buyNotional("live", ticker, input.dollars);
+    if (fill.status !== "filled" || !fill.filled_price) {
+      throw new Error(
+        `Broker did not fill ${ticker} (status ${fill.status}). Nothing was recorded.`,
+      );
+    }
+    entryPrice = fill.filled_price;
+    orderNote = ` order ${fill.order_id} (${fill.filled_qty} sh)`;
+  }
 
   const { data, error } = await supabaseAdmin
     .from("trades")
     .insert({
-      ticker: input.ticker.toUpperCase(),
+      ticker,
       kind: input.kind,
       entry_date: today(),
-      entry_price: input.entry_price,
+      entry_price: entryPrice,
       dollars: input.dollars,
       status: "open",
       mode,
@@ -505,11 +522,11 @@ export async function openTrade(input: {
       kind: "deploy",
       amount: -Math.abs(input.dollars),
       trade_id: data!.id,
-      note: `Opened ${input.kind} ${input.ticker.toUpperCase()} @ ${input.entry_price}`,
+      note: `Bought ${input.kind} ${ticker} @ ${entryPrice}${orderNote}`,
     });
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
-  return { id: data!.id as string, mode };
+  return { id: data!.id as string, mode, entry_price: entryPrice };
 }
 
 /** Most recent cached close for a ticker — used to prefill the entry price. */
@@ -533,8 +550,9 @@ export async function latestClose(
 }
 
 /**
- * Cancel a trade that was opened by mistake. Nothing is sold — the record is
- * marked cancelled and any cash that was set aside for it is returned.
+ * Cancel a trade that was opened by mistake. Any still-open broker order for
+ * that symbol is pulled first; the record is marked cancelled and cash set
+ * aside for it is returned.
  */
 export async function cancelTrade(input: { id: string }) {
   const { data: trade, error } = await supabaseAdmin
@@ -544,6 +562,15 @@ export async function cancelTrade(input: { id: string }) {
     .single();
   if (error) throw new Error(error.message);
   if (trade!.status !== "open") throw new Error("Only an open trade can be cancelled.");
+
+  if (trade!.mode === "live") {
+    const { cancelOpenOrders } = await import("./broker.server");
+    try {
+      await cancelOpenOrders("live", trade!.ticker as string);
+    } catch (err) {
+      console.error("cancel order failed:", err instanceof Error ? err.message : err);
+    }
+  }
 
   const { error: upErr } = await supabaseAdmin
     .from("trades")
@@ -576,14 +603,31 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
 
   const dollars = Number(trade!.dollars);
   const entry = Number(trade!.entry_price);
-  const profit = dollars * (input.exit_price / entry - 1);
+  let exitPrice = input.exit_price;
+  let orderNote = "";
+
+  // Live mode actually sells the position and records the real fill.
+  if (trade!.mode === "live") {
+    const { sellPosition } = await import("./broker.server");
+    const fill = await sellPosition("live", trade!.ticker as string);
+    if (fill?.filled_price) {
+      exitPrice = fill.filled_price;
+      orderNote = ` order ${fill.order_id}`;
+    } else if (fill && fill.status !== "filled") {
+      throw new Error(
+        `Broker did not fill the sell for ${trade!.ticker} (status ${fill.status}). Trade left open.`,
+      );
+    }
+  }
+
+  const profit = dollars * (exitPrice / entry - 1);
   const kept = profit > 0 ? profit * Number(s.profit_keep_pct) : profit;
 
   const { error: upErr } = await supabaseAdmin
     .from("trades")
     .update({
       exit_date: today(),
-      exit_price: input.exit_price,
+      exit_price: exitPrice,
       profit: Number(profit.toFixed(2)),
       kept: Number(kept.toFixed(2)),
       status: "closed",
@@ -599,12 +643,13 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
       amount: Number((dollars + kept).toFixed(2)),
       available_on: available.toISOString().slice(0, 10),
       trade_id: input.id,
-      note: `Closed ${trade!.ticker} @ ${input.exit_price} (P&L ${profit.toFixed(2)}, kept ${kept.toFixed(2)})`,
+      note: `Sold ${trade!.ticker} @ ${exitPrice}${orderNote} (P&L ${profit.toFixed(2)}, kept ${kept.toFixed(2)})`,
     });
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
   return { profit: Number(profit.toFixed(2)), kept: Number(kept.toFixed(2)) };
 }
+
 
 // ---------------------------------------------- paper (simulated) cycle ----
 
@@ -633,10 +678,25 @@ async function latestBarByTicker(tickers: string[]) {
   return map;
 }
 
+/** Settled cash currently available for real orders. */
+async function availableCash(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from("ledger_entries")
+    .select("amount, available_on");
+  if (error) throw new Error(error.message);
+  const day = today();
+  let sum = 0;
+  for (const row of data ?? []) {
+    if (String(row.available_on) <= day) sum += Number(row.amount);
+  }
+  return Number(sum.toFixed(2));
+}
+
 /**
- * Simulate the trading rules against cached bars: day trades exit on the next
- * session (the "sell before 4pm" rule), swings exit when they lose the 20-day
- * average or run past the max hold.
+ * Run the trading rules: day trades exit on the next session (the "sell before
+ * 4pm" rule), swings exit when they lose the 20-day average or run past the max
+ * hold. Operates on the paper book while simulation mode is on, and on the real
+ * broker account once it is switched off.
  */
 export async function managePaperTrades(
   options: { phase?: "both" | "exit" | "entry" } = {},
@@ -646,6 +706,7 @@ export async function managePaperTrades(
 }> {
   const phase = options.phase ?? "both";
   const s = await loadSettings();
+  const activeMode = s.paper_mode === false ? "live" : "paper";
   const opened: CycleResult["paper_opened"] = [];
   const closed: CycleResult["paper_closed"] = [];
 
@@ -653,7 +714,7 @@ export async function managePaperTrades(
     .from("trades")
     .select("*")
     .eq("status", "open")
-    .eq("mode", "paper");
+    .eq("mode", activeMode);
   if (openErr) throw new Error(openErr.message);
   const openTrades = openRows ?? [];
 
@@ -725,11 +786,32 @@ export async function managePaperTrades(
     return { opened, closed };
   }
 
-  // Open today's simulated plan.
+  // Open today's plan. In live mode every entry is limited by the settled cash
+  // actually sitting in the account, so it can never overspend.
+  let cashLeft = activeMode === "live" ? await availableCash() : Number.POSITIVE_INFINITY;
 
   const stillOpen = new Set(
     openTrades.filter((t) => !closed.some((c) => c.ticker === t.ticker)).map((t) => t.ticker as string),
   );
+
+  async function tryOpen(ticker: string, kind: "day" | "swing", price: number, want: number) {
+    if (!price) return;
+    let dollars = want;
+    if (activeMode === "live") {
+      dollars = Math.min(want, cashLeft);
+      if (dollars < 1) return;
+    }
+    const res = await openTrade({
+      ticker,
+      kind,
+      entry_price: price,
+      dollars: Number(dollars.toFixed(2)),
+      mode: activeMode,
+    });
+    if (activeMode === "live") cashLeft = Number((cashLeft - dollars).toFixed(2));
+    opened.push({ ticker, kind, price: res.entry_price ?? price });
+  }
+
   const plan = scores
     .filter((r) => r.tradeable)
     .filter((r) => !stillOpen.has(r.ticker as string))
@@ -737,18 +819,10 @@ export async function managePaperTrades(
   for (const row of plan) {
     const ticker = row.ticker as string;
     const price = Number(bars.get(ticker)?.close ?? row.close);
-    if (!price) continue;
-    await openTrade({
-      ticker,
-      kind: "day",
-      entry_price: price,
-      dollars: Number(s.dollars_per_day_trade),
-      mode: "paper",
-    });
-    opened.push({ ticker, kind: "day", price });
+    await tryOpen(ticker, "day", price, Number(s.dollars_per_day_trade));
   }
 
-  // Approved swing candidates get a simulated position too.
+  // Approved swing candidates get a position too.
   const { data: approved } = await supabaseAdmin
     .from("watchlist_candidates")
     .select("ticker")
@@ -758,15 +832,7 @@ export async function managePaperTrades(
     if (stillOpen.has(ticker) || opened.some((o) => o.ticker === ticker)) continue;
     const score = byTicker.get(ticker);
     const price = Number(bars.get(ticker)?.close ?? score?.close ?? 0);
-    if (!price) continue;
-    await openTrade({
-      ticker,
-      kind: "swing",
-      entry_price: price,
-      dollars: Number(s.swing_dollars),
-      mode: "paper",
-    });
-    opened.push({ ticker, kind: "swing", price });
+    await tryOpen(ticker, "swing", price, Number(s.swing_dollars));
   }
 
   return { opened, closed };
@@ -911,7 +977,7 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
       body: `Closed ${buffer} minutes before the bell — ${exit.why}. Cash clears under the T+1 rule.`,
       ticker: exit.ticker,
       severity: exit.profit >= 0 ? "good" : "bad",
-      action: "Simulated exit",
+      action: s.paper_mode === false ? "Live exit" : "Simulated exit",
       dedupe_key: `exit:${exit.ticker}:${status.nyDate}`,
     });
   }
@@ -969,7 +1035,7 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
       body: `Re-checked after the open against ${scan.scored_count} scored names — still qualified and still the best available.`,
       ticker: entry.ticker,
       severity: "good",
-      action: "Simulated entry",
+      action: s.paper_mode === false ? "Live entry" : "Simulated entry",
       dedupe_key: `entry:${entry.ticker}:${status.nyDate}`,
     });
   }
