@@ -23,6 +23,7 @@ export type Database = {
           dollars_per_day_trade: number
           exit_buffer_minutes: number
           fundamentals_available: boolean
+          hold_qualifying_positions: boolean
           id: number
           market_proxy: string
           max_universe: number
@@ -70,6 +71,7 @@ export type Database = {
           dollars_per_day_trade?: number
           exit_buffer_minutes?: number
           fundamentals_available?: boolean
+          hold_qualifying_positions?: boolean
           id?: number
           market_proxy?: string
           max_universe?: number
@@ -117,6 +119,7 @@ export type Database = {
           dollars_per_day_trade?: number
           exit_buffer_minutes?: number
           fundamentals_available?: boolean
+          hold_qualifying_positions?: boolean
           id?: number
           market_proxy?: string
           max_universe?: number
