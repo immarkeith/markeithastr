@@ -24,6 +24,16 @@ export const cacheDay = createServerFn({ method: "POST" })
     return cacheOneDay(data.date);
   });
 
+/** One-shot history load: the whole window in as few data requests as possible. */
+export const loadHistory = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .inputValidator((input) => z.object({ days: z.number().int().min(10).max(400).default(70) }).parse(input))
+  .handler(async ({ data }) => {
+    const { backfillHistory } = await import("./scan.server");
+    return backfillHistory(data.days);
+  });
+
+
 export const runScanNow = createServerFn({ method: "POST" })
   .middleware([requireGate]).handler(async () => {
   const { runScan } = await import("./scan.server");

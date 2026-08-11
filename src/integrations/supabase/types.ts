@@ -18,14 +18,26 @@ export type Database = {
         Row: {
           active_strategy_id: string | null
           auto_run: boolean
+          bt_fee_pct: number
+          bt_slippage_bps: number
           dollars_per_day_trade: number
           exit_buffer_minutes: number
+          fundamentals_available: boolean
           id: number
           market_proxy: string
           max_universe: number
           min_avg_dollar_volume: number
           min_price: number
           min_score_to_trade: number
+          ml_combine_weight: number
+          ml_enabled: boolean
+          ml_holding_days: number
+          ml_min_return_pct: number
+          ml_retrain: string
+          ml_target: string
+          ml_test_days: number
+          ml_train_days: number
+          ml_trees: number
           notify_day_pick: boolean
           notify_health: boolean
           notify_push: boolean
@@ -37,6 +49,7 @@ export type Database = {
           preopen_recheck_minutes: number
           profit_keep_pct: number
           provider: string
+          research_auto: boolean
           settlement_days: number
           strategy_enabled: boolean
           streak_suggest_days: number
@@ -52,14 +65,26 @@ export type Database = {
         Insert: {
           active_strategy_id?: string | null
           auto_run?: boolean
+          bt_fee_pct?: number
+          bt_slippage_bps?: number
           dollars_per_day_trade?: number
           exit_buffer_minutes?: number
+          fundamentals_available?: boolean
           id?: number
           market_proxy?: string
           max_universe?: number
           min_avg_dollar_volume?: number
           min_price?: number
           min_score_to_trade?: number
+          ml_combine_weight?: number
+          ml_enabled?: boolean
+          ml_holding_days?: number
+          ml_min_return_pct?: number
+          ml_retrain?: string
+          ml_target?: string
+          ml_test_days?: number
+          ml_train_days?: number
+          ml_trees?: number
           notify_day_pick?: boolean
           notify_health?: boolean
           notify_push?: boolean
@@ -71,6 +96,7 @@ export type Database = {
           preopen_recheck_minutes?: number
           profit_keep_pct?: number
           provider?: string
+          research_auto?: boolean
           settlement_days?: number
           strategy_enabled?: boolean
           streak_suggest_days?: number
@@ -86,14 +112,26 @@ export type Database = {
         Update: {
           active_strategy_id?: string | null
           auto_run?: boolean
+          bt_fee_pct?: number
+          bt_slippage_bps?: number
           dollars_per_day_trade?: number
           exit_buffer_minutes?: number
+          fundamentals_available?: boolean
           id?: number
           market_proxy?: string
           max_universe?: number
           min_avg_dollar_volume?: number
           min_price?: number
           min_score_to_trade?: number
+          ml_combine_weight?: number
+          ml_enabled?: boolean
+          ml_holding_days?: number
+          ml_min_return_pct?: number
+          ml_retrain?: string
+          ml_target?: string
+          ml_test_days?: number
+          ml_train_days?: number
+          ml_trees?: number
           notify_day_pick?: boolean
           notify_health?: boolean
           notify_push?: boolean
@@ -105,6 +143,7 @@ export type Database = {
           preopen_recheck_minutes?: number
           profit_keep_pct?: number
           provider?: string
+          research_auto?: boolean
           settlement_days?: number
           strategy_enabled?: boolean
           streak_suggest_days?: number
@@ -235,6 +274,128 @@ export type Database = {
           },
         ]
       }
+      model_predictions: {
+        Row: {
+          actual_return: number | null
+          as_of_date: string
+          astr_score: number | null
+          benchmark_return: number | null
+          combined_score: number | null
+          created_at: string
+          features: Json
+          id: string
+          model_version_id: string | null
+          predicted_return: number | null
+          prob_positive: number | null
+          prob_target: number | null
+          result: string | null
+          rf_prediction: number | null
+          ticker: string
+        }
+        Insert: {
+          actual_return?: number | null
+          as_of_date: string
+          astr_score?: number | null
+          benchmark_return?: number | null
+          combined_score?: number | null
+          created_at?: string
+          features?: Json
+          id?: string
+          model_version_id?: string | null
+          predicted_return?: number | null
+          prob_positive?: number | null
+          prob_target?: number | null
+          result?: string | null
+          rf_prediction?: number | null
+          ticker: string
+        }
+        Update: {
+          actual_return?: number | null
+          as_of_date?: string
+          astr_score?: number | null
+          benchmark_return?: number | null
+          combined_score?: number | null
+          created_at?: string
+          features?: Json
+          id?: string
+          model_version_id?: string | null
+          predicted_return?: number | null
+          prob_positive?: number | null
+          prob_target?: number | null
+          result?: string | null
+          rf_prediction?: number | null
+          ticker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_predictions_model_version_id_fkey"
+            columns: ["model_version_id"]
+            isOneToOne: false
+            referencedRelation: "model_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_versions: {
+        Row: {
+          created_at: string
+          data_version: string | null
+          feature_importance: Json
+          feature_set_version: string
+          holding_days: number
+          id: string
+          kind: string
+          metrics: Json
+          notes: string | null
+          params: Json
+          target: string
+          test_end: string | null
+          test_start: string | null
+          train_end: string | null
+          train_start: string | null
+          trained_at: string
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          data_version?: string | null
+          feature_importance?: Json
+          feature_set_version?: string
+          holding_days?: number
+          id?: string
+          kind?: string
+          metrics?: Json
+          notes?: string | null
+          params?: Json
+          target?: string
+          test_end?: string | null
+          test_start?: string | null
+          train_end?: string | null
+          train_start?: string | null
+          trained_at?: string
+          version: string
+        }
+        Update: {
+          created_at?: string
+          data_version?: string | null
+          feature_importance?: Json
+          feature_set_version?: string
+          holding_days?: number
+          id?: string
+          kind?: string
+          metrics?: Json
+          notes?: string | null
+          params?: Json
+          target?: string
+          test_end?: string | null
+          test_start?: string | null
+          train_end?: string | null
+          train_start?: string | null
+          trained_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           action: string | null
@@ -310,6 +471,87 @@ export type Database = {
           label?: string | null
           last_sent_at?: string | null
           p256dh?: string
+        }
+        Relationships: []
+      }
+      research_candidates: {
+        Row: {
+          base_version: string | null
+          change_summary: string
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          evidence: Json
+          expected_improvement: number | null
+          hypothesis: string
+          id: string
+          name: string
+          params: Json
+          robustness: number | null
+          status: string
+          updated_at: string
+          warnings: Json
+        }
+        Insert: {
+          base_version?: string | null
+          change_summary?: string
+          confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          evidence?: Json
+          expected_improvement?: number | null
+          hypothesis?: string
+          id?: string
+          name: string
+          params?: Json
+          robustness?: number | null
+          status?: string
+          updated_at?: string
+          warnings?: Json
+        }
+        Update: {
+          base_version?: string | null
+          change_summary?: string
+          confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          evidence?: Json
+          expected_improvement?: number | null
+          hypothesis?: string
+          id?: string
+          name?: string
+          params?: Json
+          robustness?: number | null
+          status?: string
+          updated_at?: string
+          warnings?: Json
+        }
+        Relationships: []
+      }
+      research_runs: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          kind: string
+          summary: Json
+          warnings: Json
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          kind?: string
+          summary?: Json
+          warnings?: Json
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          kind?: string
+          summary?: Json
+          warnings?: Json
         }
         Relationships: []
       }

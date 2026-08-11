@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { latestRunQuery, settingsQuery } from "@/lib/queries";
 import { marketStatus } from "@/lib/market-calendar";
-import { cacheDay, getBarStatus, runCycleNow, runScanNow } from "@/lib/scan.functions";
+import { getBarStatus, loadHistory, runCycleNow, runScanNow } from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/")({
 function ScanPage() {
   const qc = useQueryClient();
   const barStatusFn = useServerFn(getBarStatus);
-  const cacheDayFn = useServerFn(cacheDay);
+  const loadHistoryFn = useServerFn(loadHistory);
   const runScanFn = useServerFn(runScanNow);
   const runCycleFn = useServerFn(runCycleNow);
 
@@ -43,30 +43,27 @@ function ScanPage() {
   const settings = useQuery(settingsQuery);
   const latest = useQuery(latestRunQuery);
 
-  const [loading, setLoading] = useState<{ done: number; total: number } | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function loadMarketData() {
-    const missing = status.data?.missing ?? [];
-    if (missing.length === 0) {
-      toast.info("Price history is already up to date.");
-      return;
-    }
-    setLoading({ done: 0, total: missing.length });
+    setBusy(true);
     try {
-      for (let i = 0; i < missing.length; i++) {
-        const date = missing[i]!;
-        const res = await cacheDayFn({ data: { date } });
-        setLoading({ done: i + 1, total: missing.length });
-        if (!res.trading_day) continue;
+      const res = await loadHistoryFn({ data: { days: 70 } });
+      if (res.days_stored === 0) {
+        toast.error("No bars came back from the data feed — check the key in Settings.");
+      } else {
+        toast.success(
+          `Cached ${res.days_stored} sessions for ${res.tickers} tickers (${res.feed} feed).`,
+        );
       }
-      toast.success("Price history cached.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load market data.");
     } finally {
-      setLoading(null);
+      setBusy(false);
       await qc.invalidateQueries({ queryKey: ["bar-status"] });
     }
   }
+
 
   const scan = useMutation({
     mutationFn: () => runScanFn({}),
@@ -137,23 +134,19 @@ function ScanPage() {
 
       <section className="space-y-3 rounded-md border border-border bg-card p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={loadMarketData} disabled={loading !== null}>
-            {loading
-              ? `Loading ${loading.done}/${loading.total}…`
+          <Button onClick={loadMarketData} disabled={busy}>
+            {busy
+              ? "Loading history…"
               : `Load market data${(status.data?.missing.length ?? 0) > 0 ? ` (${status.data?.missing.length} days)` : ""}`}
           </Button>
           <Button
             variant="secondary"
             onClick={() => scan.mutate()}
-            disabled={scan.isPending || loading !== null}
+            disabled={scan.isPending || busy}
           >
             {scan.isPending ? "Scanning…" : "Run scan"}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => cycle.mutate()}
-            disabled={cycle.isPending || loading !== null}
-          >
+          <Button variant="outline" onClick={() => cycle.mutate()} disabled={cycle.isPending || busy}>
             {cycle.isPending ? "Running cycle…" : "Run today's cycle"}
           </Button>
           <span className="text-xs text-muted-foreground">
@@ -163,10 +156,9 @@ function ScanPage() {
               : " Market is closed today, so the cycle only re-scores."}
           </span>
         </div>
-        {loading ? (
-          <Progress value={(loading.done / Math.max(1, loading.total)) * 100} className="h-1.5" />
-        ) : null}
+        {busy ? <Progress value={undefined} className="h-1.5" /> : null}
       </section>
+
 
       {plan.length > 0 ? (
         <section className="space-y-3">

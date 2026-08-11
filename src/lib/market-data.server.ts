@@ -155,6 +155,47 @@ export async function verifyProviderKey(
 }
 
 
+/**
+ * Which Alpaca data feed the saved key is allowed to use.
+ *
+ * "sip" is the full consolidated tape (every exchange). "iex" is the free
+ * feed: it only sees IEX's own prints, so its volume is a small fraction of
+ * real market volume and many symbols have no bar at all on a quiet day.
+ * We prefer sip and fall back to iex, and we report which one is live so the
+ * liquidity gates can be scaled honestly instead of silently rejecting
+ * everything.
+ */
+export type AlpacaFeed = "sip" | "iex";
+
+let cachedFeed: AlpacaFeed | null = null;
+
+export async function alpacaFeed(): Promise<AlpacaFeed> {
+  if (cachedFeed) return cachedFeed;
+  try {
+    const json = await getJson(
+      `${ALPACA_DATA}/v2/stocks/bars?symbols=AAPL&timeframe=1Day&limit=1&feed=sip`,
+      alpacaHeaders(),
+    );
+    if (json?.bars?.AAPL?.length) {
+      cachedFeed = "sip";
+      return cachedFeed;
+    }
+  } catch {
+    // Free plans answer 403 for sip — fall through to iex.
+  }
+  cachedFeed = "iex";
+  return cachedFeed;
+}
+
+/**
+ * How much of real market volume the active feed actually reports. IEX prints
+ * roughly 2-3% of consolidated volume, so a $20M dollar-volume gate applied to
+ * raw IEX volume would reject the entire market.
+ */
+export function feedVolumeShare(feed: AlpacaFeed): number {
+  return feed === "sip" ? 1 : 0.025;
+}
+
 /** Active, tradable US equities from Alpaca's assets list. */
 export async function alpacaUniverse(limit: number): Promise<string[]> {
   const json = await getJson(
@@ -168,12 +209,17 @@ export async function alpacaUniverse(limit: number): Promise<string[]> {
     .slice(0, limit);
 }
 
-/** Daily bars for many symbols over a date range, batched + paginated. */
+/**
+ * Daily bars for many symbols over a date range, batched + paginated.
+ * Always ask for the whole range in one pass: one request per symbol batch
+ * covers dozens of sessions, instead of one request per symbol batch per day.
+ */
 export async function alpacaBars(
   symbols: string[],
   start: string,
   end: string,
 ): Promise<BarRow[]> {
+  const feed = await alpacaFeed();
   const rows: BarRow[] = [];
   const chunkSize = 200;
   for (let i = 0; i < symbols.length; i += chunkSize) {
@@ -187,7 +233,7 @@ export async function alpacaBars(
         end,
         adjustment: "all",
         limit: "10000",
-        feed: "iex",
+        feed,
       });
       if (pageToken) params.set("page_token", pageToken);
       const json = await getJson(`${ALPACA_DATA}/v2/stocks/bars?${params}`, alpacaHeaders());
@@ -212,6 +258,7 @@ export async function alpacaBars(
   }
   return rows;
 }
+
 
 /** Single-symbol daily bars — used for the market proxy on Polygon. */
 export async function polygonSymbolBars(

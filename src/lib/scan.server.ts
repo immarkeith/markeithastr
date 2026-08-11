@@ -47,10 +47,21 @@ export async function loadSettings(): Promise<Settings> {
   return data as unknown as Settings;
 }
 
-function scoreConfig(s: Settings): ScoreConfig {
+/**
+ * How much of real market volume the active data feed reports. The free Alpaca
+ * (IEX) feed only prints a small slice of consolidated volume, so the dollar
+ * volume gates have to be scaled to that slice or every name fails them.
+ */
+export async function volumeShare(s: Settings): Promise<number> {
+  if (s.provider !== "alpaca") return 1;
+  const { alpacaFeed, feedVolumeShare } = await import("./market-data.server");
+  return feedVolumeShare(await alpacaFeed());
+}
+
+export function scoreConfig(s: Settings, share = 1): ScoreConfig {
   return {
     minPrice: Number(s.min_price),
-    minAvgDollarVolume: Number(s.min_avg_dollar_volume),
+    minAvgDollarVolume: Number(s.min_avg_dollar_volume) * share,
     weights: {
       trend: Number(s.weight_trend),
       momentum: Number(s.weight_momentum),
@@ -60,6 +71,7 @@ function scoreConfig(s: Settings): ScoreConfig {
     },
   };
 }
+
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -80,8 +92,11 @@ export async function missingDates(days = HISTORY_DAYS): Promise<string[]> {
   // Yesterday is the newest reliably-settled daily bar.
   const end = new Date();
   end.setUTCDate(end.getUTCDate() - 1);
-  return recentWeekdays(days, end).filter((d) => !present.has(d));
+  const { isTradingDay } = await import("./market-calendar");
+  // Market holidays have no bars to fetch, so they are not "missing".
+  return recentWeekdays(days, end).filter((d) => !present.has(d) && isTradingDay(d));
 }
+
 
 async function replaceDay(date: string, rows: BarRow[]): Promise<number> {
   await supabaseAdmin.from("daily_bars").delete().eq("bar_date", date);
@@ -93,9 +108,9 @@ async function replaceDay(date: string, rows: BarRow[]): Promise<number> {
   return rows.length;
 }
 
-function liquidityPrefilter(rows: BarRow[], s: Settings): BarRow[] {
+function liquidityPrefilter(rows: BarRow[], s: Settings, share = 1): BarRow[] {
   const minPrice = Number(s.min_price);
-  const minDollar = Number(s.min_avg_dollar_volume);
+  const minDollar = Number(s.min_avg_dollar_volume) * share;
   const proxy = s.market_proxy.toUpperCase();
   const kept = rows.filter(
     (r) => r.ticker === proxy || (r.close >= minPrice && r.close * r.volume >= minDollar * 0.6),
@@ -110,9 +125,23 @@ function liquidityPrefilter(rows: BarRow[], s: Settings): BarRow[] {
   return top;
 }
 
+/** Tickers already in the cache — keeps the stored universe stable day to day. */
+export async function cachedTickers(): Promise<string[]> {
+  const { data, error } = await supabaseAdmin
+    .from("daily_bars")
+    .select("ticker")
+    .order("ticker", { ascending: true })
+    .limit(100000);
+  if (error) throw new Error(error.message);
+  return [...new Set((data ?? []).map((r) => r.ticker as string))];
+}
+
 /**
  * Cache bars for one trading day. On Polygon this is a single whole-market
- * request; on Alpaca it batches the active-equity shortlist.
+ * request; on Alpaca it batches symbols. Once a universe exists in the cache we
+ * keep topping up the SAME symbols, otherwise every day would store a
+ * different shortlist and no ticker would ever build up enough history to
+ * score.
  */
 export async function cacheOneDay(date: string): Promise<{
   date: string;
@@ -120,18 +149,92 @@ export async function cacheOneDay(date: string): Promise<{
   trading_day: boolean;
 }> {
   const s = await loadSettings();
+  const share = await volumeShare(s);
   let rows: BarRow[];
+  let keepExisting = false;
   if (s.provider === "alpaca") {
-    const universe = await alpacaUniverse(Math.max(50, Number(s.max_universe)));
+    const existing = await cachedTickers();
+    const universe =
+      existing.length >= 100
+        ? existing
+        : await alpacaUniverse(Math.max(50, Number(s.max_universe)));
+    keepExisting = existing.length >= 100;
     rows = (await alpacaBars(universe, date, date)).filter((r) => r.bar_date === date);
   } else {
     rows = await polygonGroupedDay(date);
   }
   if (rows.length === 0) return { date, stored: 0, trading_day: false };
-  const kept = liquidityPrefilter(rows, s);
+  const kept = keepExisting ? rows : liquidityPrefilter(rows, s, share);
   const stored = await replaceDay(date, kept);
   return { date, stored, trading_day: true };
 }
+
+/**
+ * Build the whole history window in as few data requests as possible: one
+ * ranged request per symbol batch instead of one per batch per day. The stored
+ * universe is chosen from the most recent session's liquidity and then kept for
+ * every day in the window, so each ticker ends up with a continuous series the
+ * scanner can actually score.
+ */
+export async function backfillHistory(days = HISTORY_DAYS): Promise<{
+  days_stored: number;
+  tickers: number;
+  rows: number;
+  feed: string;
+  from: string | null;
+  to: string | null;
+}> {
+  const s = await loadSettings();
+  const share = await volumeShare(s);
+  const end = new Date();
+  end.setUTCDate(end.getUTCDate() - 1);
+  const window = recentWeekdays(days, end);
+  const from = window[0] ?? null;
+  const to = window[window.length - 1] ?? null;
+  if (!from || !to) return { days_stored: 0, tickers: 0, rows: 0, feed: "n/a", from, to };
+
+  let all: BarRow[] = [];
+  let feed = s.provider;
+  if (s.provider === "alpaca") {
+    const { alpacaFeed } = await import("./market-data.server");
+    feed = `alpaca:${await alpacaFeed()}` as Settings["provider"];
+    const existing = await cachedTickers();
+    const universe =
+      existing.length >= 100 ? existing : await alpacaUniverse(Math.max(50, Number(s.max_universe)));
+    all = await alpacaBars(universe, from, to);
+  } else {
+    for (const date of window) all.push(...(await polygonGroupedDay(date)));
+  }
+  if (all.length === 0) return { days_stored: 0, tickers: 0, rows: 0, feed, from, to };
+
+  // Pick the universe once, from the newest session we actually received.
+  const byDate = new Map<string, BarRow[]>();
+  for (const row of all) {
+    const list = byDate.get(row.bar_date);
+    if (list) list.push(row);
+    else byDate.set(row.bar_date, [row]);
+  }
+  const dates = [...byDate.keys()].sort();
+  const newest = dates[dates.length - 1]!;
+  const chosen = new Set(liquidityPrefilter(byDate.get(newest)!, s, share).map((r) => r.ticker));
+  if (chosen.size === 0) return { days_stored: 0, tickers: 0, rows: 0, feed, from, to };
+
+  let rowCount = 0;
+  for (const date of dates) {
+    const rows = byDate.get(date)!.filter((r) => chosen.has(r.ticker));
+    if (rows.length === 0) continue;
+    rowCount += await replaceDay(date, rows);
+  }
+  return {
+    days_stored: dates.length,
+    tickers: chosen.size,
+    rows: rowCount,
+    feed,
+    from: dates[0] ?? from,
+    to: newest,
+  };
+}
+
 
 // ------------------------------------------------------------------ scan ----
 
@@ -185,7 +288,8 @@ export async function runScan(): Promise<{
   market_roc5: number;
 }> {
   const s = await loadSettings();
-  const config = scoreConfig(s);
+  const config = scoreConfig(s, await volumeShare(s));
+
   const coverage = await barCoverage();
   const barsAsOf = coverage[0]?.bar_date ?? null;
   if (!barsAsOf) throw new Error("No cached price history yet — load market data first.");
@@ -554,19 +658,31 @@ export async function managePaperTrades(
     const ticker = trade.ticker as string;
     const bar = bars.get(ticker);
     const score = byTicker.get(ticker);
-    const price = Number(bar?.close ?? score?.close ?? 0);
+    // Last resort is the entry price itself: a day trade must never stay open
+    // just because that symbol dropped out of the cached universe.
+    const price = Number(bar?.close ?? score?.close ?? trade.entry_price ?? 0);
     if (!price) continue;
     const barDate = bar?.bar_date ?? runRow?.bars_as_of ?? today();
+
     const heldDays = Math.max(
       0,
       Math.round(
         (Date.parse(`${barDate}T00:00:00Z`) - Date.parse(`${trade.entry_date}T00:00:00Z`)) / 86400000,
       ),
     );
+    // A day trade is measured against the calendar, not against how fresh the
+    // cached bar happens to be.
+    const calendarDays = Math.max(
+      0,
+      Math.round(
+        (Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${trade.entry_date}T00:00:00Z`)) / 86400000,
+      ),
+    );
 
     let why = "";
     if (trade.kind === "day") {
-      if (heldDays >= 1) why = "day-trade exit before the close";
+      if (Math.max(heldDays, calendarDays) >= 1) why = "day-trade exit before the close";
+
     } else {
       const sma = score?.sma20 === null || score?.sma20 === undefined ? null : Number(score.sma20);
       if (sma !== null && price < sma) why = "lost the 20-day average";
@@ -654,12 +770,21 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
     return { ...base, reason: `Market closed (${status.detail}). Nothing to do.` };
   }
 
-  const missing = await missingDates();
+  // Thin or fragmented history can never produce a score (each indicator needs
+  // 55 clean sessions), so rebuild the whole window in one ranged pass first.
+  const coverage = await barCoverage();
   let cached = 0;
-  for (const date of missing.slice(-6)) {
-    const res = await cacheOneDay(date);
-    if (res.trading_day) cached += 1;
+  if (coverage.length < 55 || Number(coverage[0]?.ticker_count ?? 0) < 100) {
+    const back = await backfillHistory();
+    cached = back.days_stored;
+  } else {
+    const missing = await missingDates();
+    for (const date of missing.slice(-6)) {
+      const res = await cacheOneDay(date);
+      if (res.trading_day) cached += 1;
+    }
   }
+
 
   const scan = await runScan();
   const sim = await managePaperTrades();
