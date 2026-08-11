@@ -1,12 +1,19 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FEATURE_LABELS, type FeatureName } from "@/lib/features";
+import {
+  getModelHistory,
+  runPredictLatest,
+  runWalkForwardNow,
+} from "@/lib/research.functions";
 import { runStrategyLab } from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/lab")({
