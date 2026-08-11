@@ -816,7 +816,7 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
       console.error("ml pass failed:", error instanceof Error ? error.message : error);
     }
   }
-  if (s.research_auto) {
+  if (settings.research_auto) {
     try {
       const { runResearch } = await import("./research.server");
       await runResearch({ universe: 300 });
