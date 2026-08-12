@@ -144,7 +144,10 @@ export async function runHealthCheck(): Promise<HealthResult> {
   if ((stale ?? []).length > 0) {
     try {
       const { managePaperTrades } = await import("./scan.server");
-      const res = await managePaperTrades({ phase: "exit" });
+      // These rows are explicitly legacy simulated positions. The app may now
+      // be in live mode, so do not let the current setting redirect this repair
+      // toward the live book and leave the paper rows stuck forever.
+      const res = await managePaperTrades({ phase: "exit", mode: "paper" });
       if (res.closed.length > 0) {
         repairs.push(`Closed ${res.closed.length} simulated day trade(s) left open.`);
       } else {
