@@ -38,7 +38,16 @@ export async function runHealthCheck(): Promise<HealthResult> {
   let thin = false;
   try {
     const coverage = await barCoverage();
-    thin = coverage.length < 55 || Number(coverage[0]?.ticker_count ?? 0) < 100;
+    // IEX does not print every tracked symbol every day. Judging the entire
+    // cache by only the newest session caused a complete history rebuild every
+    // 15 minutes, even when 150+ usable sessions were already present. Treat
+    // the cache as thin only when it lacks scoring depth or has never had a
+    // reasonably broad session.
+    const widestSession = coverage.reduce(
+      (widest, day) => Math.max(widest, Number(day.ticker_count ?? 0)),
+      0,
+    );
+    thin = coverage.length < 55 || widestSession < 50;
     missing = await missingDates();
   } catch (error) {
     issues.push(`Could not read cached history: ${(error as Error).message}`);

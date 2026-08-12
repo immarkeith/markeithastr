@@ -170,7 +170,7 @@ export async function verifyProviderKey(
  * repeatedly fail with a 403. Keeping the feed explicit also prevents Alpaca's
  * default feed from changing the request unexpectedly.
  */
-export type AlpacaFeed = "sip" | "iex";
+export type AlpacaFeed = "iex";
 
 export async function alpacaFeed(): Promise<AlpacaFeed> {
   return "iex";
@@ -182,7 +182,7 @@ export async function alpacaFeed(): Promise<AlpacaFeed> {
  * raw IEX volume would reject the entire market.
  */
 export function feedVolumeShare(feed: AlpacaFeed): number {
-  return feed === "sip" ? 1 : 0.025;
+  return feed === "iex" ? 0.025 : 0.025;
 }
 
 /** Active, tradable US equities from Alpaca's assets list. */
@@ -208,7 +208,6 @@ export async function alpacaBars(
   start: string,
   end: string,
 ): Promise<BarRow[]> {
-  const feed = await alpacaFeed();
   const rows: BarRow[] = [];
   const chunkSize = 200;
   for (let i = 0; i < symbols.length; i += chunkSize) {
@@ -222,7 +221,7 @@ export async function alpacaBars(
         end,
         adjustment: "all",
         limit: "10000",
-        feed,
+        feed: "iex",
       });
       if (pageToken) params.set("page_token", pageToken);
       const json = await getJson(`${ALPACA_DATA}/v2/stocks/bars?${params}`, alpacaHeaders());
