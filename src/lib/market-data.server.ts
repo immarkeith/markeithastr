@@ -134,7 +134,10 @@ export async function verifyProviderKey(
       );
       return { ok: true, detail: "Polygon key accepted." };
     }
-    await getJson(`${ALPACA_DATA}/v2/stocks/AAPL/bars?timeframe=1Day&limit=1`, alpacaHeaders());
+    await getJson(
+      `${ALPACA_DATA}/v2/stocks/AAPL/bars?timeframe=1Day&limit=1&feed=iex`,
+      alpacaHeaders(),
+    );
     return {
       ok: true,
       detail: alpacaLiveCreds() ? "Alpaca live key accepted." : "Alpaca paper key accepted.",
@@ -161,30 +164,16 @@ export async function verifyProviderKey(
  * "sip" is the full consolidated tape (every exchange). "iex" is the free
  * feed: it only sees IEX's own prints, so its volume is a small fraction of
  * real market volume and many symbols have no bar at all on a quiet day.
- * We prefer sip and fall back to iex, and we report which one is live so the
- * liquidity gates can be scaled honestly instead of silently rejecting
- * everything.
+ * The app deliberately uses IEX because it is included with Alpaca's free
+ * market-data plan. A one-bar SIP probe can appear to work while a ranged
+ * history request is still forbidden, which previously made the health check
+ * repeatedly fail with a 403. Keeping the feed explicit also prevents Alpaca's
+ * default feed from changing the request unexpectedly.
  */
 export type AlpacaFeed = "sip" | "iex";
 
-let cachedFeed: AlpacaFeed | null = null;
-
 export async function alpacaFeed(): Promise<AlpacaFeed> {
-  if (cachedFeed) return cachedFeed;
-  try {
-    const json = await getJson(
-      `${ALPACA_DATA}/v2/stocks/bars?symbols=AAPL&timeframe=1Day&limit=1&feed=sip`,
-      alpacaHeaders(),
-    );
-    if (json?.bars?.AAPL?.length) {
-      cachedFeed = "sip";
-      return cachedFeed;
-    }
-  } catch {
-    // Free plans answer 403 for sip — fall through to iex.
-  }
-  cachedFeed = "iex";
-  return cachedFeed;
+  return "iex";
 }
 
 /**
