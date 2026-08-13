@@ -33,7 +33,7 @@ export async function runHealthCheck(): Promise<HealthResult> {
   // instead of being hammered every cycle.
   const { data: recentRows } = await supabaseAdmin
     .from("health_checks")
-    .select("issues, repairs, created_at")
+    .select("issues, repairs, checked_at")
     .order("created_at", { ascending: false })
     .limit(8);
   const recent = (recentRows ?? []) as {
