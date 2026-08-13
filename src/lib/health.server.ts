@@ -83,20 +83,31 @@ export async function runHealthCheck(): Promise<HealthResult> {
   }
 
   if (thin && key.ok) {
-    try {
-      const back = await backfillHistory();
-      if (back.days_stored > 0) {
-        repairs.push(
-          `Rebuilt price history: ${back.days_stored} sessions for ${back.tickers} tickers (${back.feed}).`,
+    if (repairedRecently("rebuilt price history", 60)) {
+      // A rebuild just ran. Doing it again cannot help and only burns data
+      // requests, so report the underlying cause once instead of looping.
+      if (!alreadyReported("price history is still too thin")) {
+        issues.push(
+          "Price history is still too thin after a recent rebuild — the data feed is not returning enough sessions.",
         );
-        missing = await missingDates();
-      } else {
-        issues.push("The data feed returned no usable history for the scan window.");
       }
-    } catch (error) {
-      issues.push(`Could not rebuild price history: ${(error as Error).message}`);
+    } else {
+      try {
+        const back = await backfillHistory();
+        if (back.days_stored > 0) {
+          repairs.push(
+            `Rebuilt price history: ${back.days_stored} sessions for ${back.tickers} tickers (${back.feed}).`,
+          );
+          missing = await missingDates();
+        } else {
+          issues.push("The data feed returned no usable history for the scan window.");
+        }
+      } catch (error) {
+        issues.push(`Could not rebuild price history: ${(error as Error).message}`);
+      }
     }
   }
+
 
   if (missing.length > 0) {
     if (key.ok) {
