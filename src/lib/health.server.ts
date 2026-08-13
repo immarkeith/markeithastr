@@ -27,6 +27,35 @@ export async function runHealthCheck(): Promise<HealthResult> {
   const settings = await loadSettings();
   const status = marketStatus();
 
+  // Recent self-check history. Used to stop the same repair from being retried
+  // in a loop: if a repair already ran a few minutes ago, the cause is not
+  // something a second identical attempt will fix, so it is reported once
+  // instead of being hammered every cycle.
+  const { data: recentRows } = await supabaseAdmin
+    .from("health_checks")
+    .select("issues, repairs, created_at")
+    .order("created_at", { ascending: false })
+    .limit(8);
+  const recent = (recentRows ?? []) as {
+    issues: unknown;
+    repairs: unknown;
+    created_at: string;
+  }[];
+  const asList = (value: unknown): string[] => (Array.isArray(value) ? (value as string[]) : []);
+  /** Did we already perform this kind of repair inside the cooldown window? */
+  const repairedRecently = (needle: string, minutes: number) =>
+    recent.some(
+      (row) =>
+        Date.now() - new Date(row.created_at).getTime() < minutes * 60_000 &&
+        asList(row.repairs).some((r) => r.toLowerCase().includes(needle)),
+    );
+  /** Has this exact problem been reported in the last few checks already? */
+  const alreadyReported = (needle: string) =>
+    recent
+      .slice(0, 4)
+      .some((row) => asList(row.issues).some((i) => i.toLowerCase().includes(needle)));
+
+
   // 1. Data key.
   const key = await verifyProviderKey(settings.provider as "polygon" | "alpaca");
   if (!key.ok) issues.push(`Market data key: ${key.detail}`);
