@@ -34,19 +34,19 @@ export async function runHealthCheck(): Promise<HealthResult> {
   const { data: recentRows } = await supabaseAdmin
     .from("health_checks")
     .select("issues, repairs, checked_at")
-    .order("created_at", { ascending: false })
+    .order("checked_at", { ascending: false })
     .limit(8);
   const recent = (recentRows ?? []) as {
     issues: unknown;
     repairs: unknown;
-    created_at: string;
+    checked_at: string;
   }[];
   const asList = (value: unknown): string[] => (Array.isArray(value) ? (value as string[]) : []);
   /** Did we already perform this kind of repair inside the cooldown window? */
   const repairedRecently = (needle: string, minutes: number) =>
     recent.some(
       (row) =>
-        Date.now() - new Date(row.created_at).getTime() < minutes * 60_000 &&
+        Date.now() - new Date(row.checked_at).getTime() < minutes * 60_000 &&
         asList(row.repairs).some((r) => r.toLowerCase().includes(needle)),
     );
   /** Has this exact problem been reported in the last few checks already? */
@@ -124,7 +124,7 @@ export async function runHealthCheck(): Promise<HealthResult> {
   const { data: run } = await supabaseAdmin
     .from("scan_runs")
     .select("run_date, scored_count, created_at")
-    .order("created_at", { ascending: false })
+    .order("checked_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   const lastRun = run as { run_date?: string; scored_count?: number } | null;
