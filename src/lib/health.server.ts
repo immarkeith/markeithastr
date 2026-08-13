@@ -153,9 +153,10 @@ export async function runHealthCheck(): Promise<HealthResult> {
   }
   if (lastRun && Number(lastRun.scored_count ?? 0) === 0) {
     // A zero-score scan is usually stale/thin data rather than bad settings, so
-    // try once more now that the history has been repaired.
+    // try once more now that the history has been repaired — but only if a
+    // rescore has not already been attempted in the last half hour.
     let recovered = false;
-    if (key.ok && missing.length === 0) {
+    if (key.ok && missing.length === 0 && !repairedRecently("rescored the market", 30)) {
       try {
         const res = await runScan();
         if (res.scored_count > 0) {
@@ -171,6 +172,7 @@ export async function runHealthCheck(): Promise<HealthResult> {
       issues.push("The last scan scored zero names — check the liquidity gates in Settings.");
     }
   }
+
 
 
   // 4. Simulated positions that should have been closed already.
