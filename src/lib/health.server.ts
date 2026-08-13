@@ -208,10 +208,12 @@ export async function runHealthCheck(): Promise<HealthResult> {
     note: `${status.label} — ${status.detail}`,
   });
 
+  // Only alert when something still needs the user. Self-repairs are logged to
+  // the self-check history but never pushed as a notification.
   if (!ok) {
     await notify({
       kind: "health",
-      title: issues.length === 1 ? "ASTR found a problem" : `ASTR found ${issues.length} problems`,
+      title: issues.length === 1 ? "ASTR needs a fix" : `ASTR needs ${issues.length} fixes`,
       body:
         issues.slice(0, 3).join(" ") +
         (repairs.length > 0 ? ` Fixed automatically: ${repairs.join(" ")}` : ""),
@@ -219,15 +221,8 @@ export async function runHealthCheck(): Promise<HealthResult> {
       action: "Open the app to review",
       dedupe_key: `health:${issues[0]?.slice(0, 60)}:${status.nyDate}`,
     });
-  } else if (repairs.length > 0) {
-    await notify({
-      kind: "health",
-      title: "ASTR fixed itself",
-      body: repairs.join(" "),
-      severity: "good",
-      dedupe_key: `health-fix:${repairs.join("|").slice(0, 60)}:${status.nyDate}`,
-    });
   }
+
 
   return { ok, issues, repairs, checked_at: checkedAt };
 }
