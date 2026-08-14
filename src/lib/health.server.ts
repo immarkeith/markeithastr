@@ -122,6 +122,13 @@ export async function runHealthCheck(): Promise<HealthResult> {
         }
       }
       if (cached > 0) repairs.push(`Downloaded ${cached} missing day(s) of price history.`);
+      // Re-read coverage so a day we just downloaded no longer blocks the scan
+      // repair below (that stale list is why the scan never got re-run).
+      try {
+        missing = await missingDates();
+      } catch {
+        /* keep the previous list */
+      }
       if (missing.length > 3) {
         issues.push(`${missing.length} days of price history are still missing.`);
       }
@@ -135,7 +142,7 @@ export async function runHealthCheck(): Promise<HealthResult> {
   const { data: run } = await supabaseAdmin
     .from("scan_runs")
     .select("run_date, scored_count, created_at")
-    .order("checked_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   const lastRun = run as { run_date?: string; scored_count?: number } | null;
