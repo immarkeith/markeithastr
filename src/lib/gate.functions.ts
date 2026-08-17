@@ -29,8 +29,10 @@ export const unlockSite = createServerFn({ method: "POST" })
   });
 
 export const lockSite = createServerFn({ method: "POST" }).handler(async () => {
-  const { gateSession } = await import("./gate.server");
+  const { gateSession, sessionSecretConfigured } = await import("./gate.server");
+  if (!sessionSecretConfigured()) return { ok: true as const };
   const session = await gateSession();
   await session.clear();
   return { ok: true as const };
 });
+
