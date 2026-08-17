@@ -578,7 +578,13 @@ export async function cancelTrade(input: { id: string }) {
 
   const { error: upErr } = await supabaseAdmin
     .from("trades")
-    .update({ status: "cancelled", exit_date: today(), profit: 0, kept: 0 })
+    .update({
+      status: "cancelled",
+      exit_date: today(),
+      exit_at: new Date().toISOString(),
+      profit: 0,
+      kept: 0,
+    })
     .eq("id", input.id);
   if (upErr) throw new Error(upErr.message);
 
