@@ -43,9 +43,12 @@ Added: when a name stays in the top ranks for enough consecutive sessions (defau
 
 ## Technical notes
 
-- `broker.server.ts`: add a `sellQty` helper (partial sale) and make `sellPosition` return a verified result including post-sale quantity; `closeTrade` in `scan.server.ts` throws/keeps-open unless the position is confirmed flat.
-- `managePaperTrades` entry loop: filter the plan by live `positionQty` in addition to `stillOpen`.
-- `health.server.ts`: new reconciliation check (broker positions/cash vs `trades` + `ledger_entries`), reported as an issue, never auto-traded.
-- One-time correction script/server fn for today: partial sell of the excess, reverse the phantom Aug 14 settle row, restate the open UMH trade at the real average entry.
-- New server fn returning broker account + positions with live quotes for the dashboard; P&L series derived from `trades.exit_date/profit` and `ledger_entries`.
+- `broker.server.ts`: add `sellQty` (partial sale) and `listPositions`/live quote reads; `sellPosition` returns a verified result including post-sale quantity.
+- `closeTrade` in `scan.server.ts`: never marks closed unless the position is confirmed gone; retries once, then leaves the trade open with a `status_note` and no push.
+- `trades`: add a nullable `status_note` column for hold/failed-sell/unsettled reasons surfaced on the home card.
+- `managePaperTrades` entry loop: filter the plan by live `positionQty`; skip buys when settled cash is short (already the "sat out" path) — that covers tomorrow morning automatically.
+- Pre-close hook timing: increase `exit_buffer_minutes` slightly so a retry fits before the bell; cron unchanged in shape.
+- `health.server.ts`: reconciliation check (broker positions/cash vs `trades` + `ledger_entries`), reported once, never auto-traded.
+- One-time correction pass for today: partial sell of the excess computed from live qty/price, reverse the phantom Aug 14 settle row, restate the open UMH trade at the real average entry.
+- New server fn returning broker account + positions + available-to-trade (T+1 aware) for the dashboard; P&L series derived from `trades.exit_date/profit` and `ledger_entries`.
 - `notify.server.ts` `generateInsights`: add a `permanent-hold` notification keyed by ticker so it fires once; new `permanent_hold_days` setting (default 10).
