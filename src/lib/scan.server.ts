@@ -975,6 +975,17 @@ export async function managePaperTrades(
     }
     if (!why) continue;
 
+    // Trimmed today: the extra shares were already sold, and the remaining
+    // single stake rolls into the next session instead of being liquidated.
+    if ((options.carryOver ?? []).includes(ticker)) {
+      held.push({
+        ticker,
+        rank: Number(score?.rank ?? 0),
+        score: Number(score?.score ?? 0),
+      });
+      continue;
+    }
+
     // Still the best available name: carry it instead of churning it.
     if (trade.kind === "day" && holdSet.has(ticker)) {
       held.push({
@@ -984,6 +995,7 @@ export async function managePaperTrades(
       });
       continue;
     }
+
 
     const res = await closeTrade({ id: trade.id as string, exit_price: price });
     // An unconfirmed sell keeps the position open with a note on the dashboard;
