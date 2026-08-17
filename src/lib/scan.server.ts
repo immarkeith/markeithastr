@@ -594,7 +594,19 @@ export async function cancelTrade(input: { id: string }) {
 }
 
 
-export async function closeTrade(input: { id: string; exit_price: number }) {
+export interface CloseResult {
+  closed: boolean;
+  profit: number;
+  kept: number;
+  note: string;
+}
+
+/**
+ * Close a position. In live mode the sell is only believed once the broker
+ * confirms the position is actually gone: one retry, then the trade is left
+ * open with a note explaining why (shown on the dashboard, never pushed).
+ */
+export async function closeTrade(input: { id: string; exit_price: number }): Promise<CloseResult> {
   const s = await loadSettings();
   const { data: trade, error } = await supabaseAdmin
     .from("trades")
@@ -606,20 +618,36 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
 
   const dollars = Number(trade!.dollars);
   const entry = Number(trade!.entry_price);
+  const ticker = trade!.ticker as string;
   let exitPrice = input.exit_price;
   let orderNote = "";
 
   // Live mode actually sells the position and records the real fill.
   if (trade!.mode === "live") {
-    const { sellPosition } = await import("./broker.server");
-    const fill = await sellPosition("live", trade!.ticker as string);
+    const { sellPosition, positionQty } = await import("./broker.server");
+    const EPS = 0.000001;
+    let fill = await sellPosition("live", ticker);
+    let remaining = await positionQty("live", ticker);
+    if (remaining > EPS) {
+      // One retry — a rejected or partially filled market order is common
+      // right at the bell.
+      try {
+        fill = (await sellPosition("live", ticker)) ?? fill;
+      } catch (err) {
+        console.error("sell retry failed:", err instanceof Error ? err.message : err);
+      }
+      remaining = await positionQty("live", ticker);
+    }
+    if (remaining > EPS) {
+      const note = `Sell did not go through — ${remaining.toFixed(4)} share(s) of ${ticker} are still held${
+        fill ? ` (broker status ${fill.status})` : ""
+      }. ASTR will try again on the next pass.`;
+      await supabaseAdmin.from("trades").update({ status_note: note }).eq("id", input.id);
+      return { closed: false, profit: 0, kept: 0, note };
+    }
     if (fill?.filled_price) {
       exitPrice = fill.filled_price;
       orderNote = ` order ${fill.order_id}`;
-    } else if (fill && fill.status !== "filled") {
-      throw new Error(
-        `Broker did not fill the sell for ${trade!.ticker} (status ${fill.status}). Trade left open.`,
-      );
     }
   }
 
@@ -634,6 +662,7 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
       profit: Number(profit.toFixed(2)),
       kept: Number(kept.toFixed(2)),
       status: "closed",
+      status_note: null,
     })
     .eq("id", input.id);
   if (upErr) throw new Error(upErr.message);
@@ -666,7 +695,113 @@ export async function closeTrade(input: { id: string; exit_price: number }) {
     const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert(rows);
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
-  return { profit: Number(profit.toFixed(2)), kept: Number(kept.toFixed(2)) };
+  return {
+    closed: true,
+    profit: Number(profit.toFixed(2)),
+    kept: Number(kept.toFixed(2)),
+    note: "",
+  };
+}
+
+
+/**
+ * Broker truth wins. Before the pre-close pass this:
+ *  1. trims any live position that is bigger than the stake it is supposed to
+ *     be (what caused the doubled-up holding), using the live quantity and
+ *     price at that moment;
+ *  2. re-points the cash ledger at the broker's real cash balance so a sell
+ *     that silently failed can never leave phantom money behind.
+ * Proceeds from a trim settle under the normal T+1 rule, so they become
+ * spendable the day after — never the next morning.
+ */
+export async function reconcileBroker(): Promise<{ trimmed: string[]; cash_adjusted: number }> {
+  const trimmed: string[] = [];
+  let cashAdjusted = 0;
+  const s = await loadSettings();
+  if (s.paper_mode !== false) return { trimmed, cash_adjusted: 0 };
+
+  const { listPositions, sellQty, getPosition } = await import("./broker.server");
+  const { data: openRows } = await supabaseAdmin
+    .from("trades")
+    .select("id, ticker, dollars, entry_price, status_note")
+    .eq("status", "open")
+    .eq("mode", "live");
+  const open = openRows ?? [];
+
+  let positions: Awaited<ReturnType<typeof listPositions>> = [];
+  try {
+    positions = await listPositions("live");
+  } catch (error) {
+    console.error("could not read broker positions:", error instanceof Error ? error.message : error);
+    return { trimmed, cash_adjusted: 0 };
+  }
+
+  // 1. Trim oversized positions back to the recorded stake.
+  for (const pos of positions) {
+    const mine = open.filter((t) => String(t.ticker).toUpperCase() === pos.ticker);
+    if (mine.length === 0) continue;
+    const target = mine.reduce((sum, t) => sum + Number(t.dollars), 0);
+    const excess = pos.market_value - target;
+    if (excess <= 1 || !pos.current_price) continue;
+    try {
+      const qty = Math.min(pos.qty, excess / pos.current_price);
+      const fill = await sellQty("live", pos.ticker, qty);
+      const after = await getPosition("live", pos.ticker);
+      const soldQty = Number(fill?.filled_qty ?? 0);
+      const price = Number(fill?.filled_price ?? pos.current_price);
+      const proceeds = Number((soldQty * price).toFixed(2));
+      if (proceeds > 0) {
+        const available = new Date();
+        available.setUTCDate(available.getUTCDate() + Number(s.settlement_days));
+        await supabaseAdmin.from("ledger_entries").insert({
+          kind: "settle",
+          amount: proceeds,
+          available_on: available.toISOString().slice(0, 10),
+          note: `Trimmed extra ${pos.ticker} shares back to the ${target.toFixed(2)} stake (sold ${soldQty} @ ${price})`,
+        });
+        trimmed.push(
+          `${pos.ticker}: sold ${soldQty} extra share(s) @ $${price.toFixed(2)} — $${proceeds.toFixed(2)} clears next session. Left ${(after?.market_value ?? 0).toFixed(2)} invested.`,
+        );
+        for (const t of mine) {
+          await supabaseAdmin
+            .from("trades")
+            .update({
+              status_note: `Extra shares sold back to the $${target.toFixed(2)} stake on ${today()}.`,
+            })
+            .eq("id", t.id as string);
+        }
+      }
+    } catch (error) {
+      console.error("trim failed:", error instanceof Error ? error.message : error);
+    }
+  }
+
+  // 2. Align the ledger with real broker cash (settled + pending), excluding
+  // banked profit which is tracked separately.
+  try {
+    const { brokerAccount } = await import("./broker.server");
+    const account = await brokerAccount("live");
+    const { data: rows } = await supabaseAdmin.from("ledger_entries").select("amount, kind");
+    let ledgerCash = 0;
+    for (const row of rows ?? []) {
+      if (String(row.kind) === "reserve") continue;
+      ledgerCash += Number(row.amount);
+    }
+    const diff = Number((account.cash - ledgerCash).toFixed(2));
+    if (Math.abs(diff) >= 0.25) {
+      await supabaseAdmin.from("ledger_entries").insert({
+        kind: "adjust",
+        amount: diff,
+        available_on: today(),
+        note: `Matched the cash ledger to the live account balance (${account.cash.toFixed(2)})`,
+      });
+      cashAdjusted = diff;
+    }
+  } catch (error) {
+    console.error("cash reconcile failed:", error instanceof Error ? error.message : error);
+  }
+
+  return { trimmed, cash_adjusted: cashAdjusted };
 }
 
 
