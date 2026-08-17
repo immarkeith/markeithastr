@@ -884,6 +884,8 @@ export async function managePaperTrades(
     phase?: "both" | "exit" | "entry";
     keepQualifying?: boolean;
     mode?: "paper" | "live";
+    /** Tickers trimmed back to their stake this pass: keep the remainder. */
+    carryOver?: string[];
   } = {},
 ): Promise<{
   opened: CycleResult["paper_opened"];
