@@ -510,6 +510,7 @@ export async function openTrade(input: {
       ticker,
       kind: input.kind,
       entry_date: today(),
+      entry_at: new Date().toISOString(),
       entry_price: entryPrice,
       dollars: input.dollars,
       status: "open",
@@ -577,7 +578,13 @@ export async function cancelTrade(input: { id: string }) {
 
   const { error: upErr } = await supabaseAdmin
     .from("trades")
-    .update({ status: "cancelled", exit_date: today(), profit: 0, kept: 0 })
+    .update({
+      status: "cancelled",
+      exit_date: today(),
+      exit_at: new Date().toISOString(),
+      profit: 0,
+      kept: 0,
+    })
     .eq("id", input.id);
   if (upErr) throw new Error(upErr.message);
 
@@ -658,6 +665,7 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
     .from("trades")
     .update({
       exit_date: today(),
+      exit_at: new Date().toISOString(),
       exit_price: exitPrice,
       profit: Number(profit.toFixed(2)),
       kept: Number(kept.toFixed(2)),

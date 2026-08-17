@@ -367,3 +367,184 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       })),
     };
   });
+
+export interface ScoreSnapshot {
+  run_date: string;
+  rank: number;
+  score: number;
+  close: number;
+  tradeable: boolean;
+  invalidation: string | null;
+  factors: Record<string, { weighted_points: number; reasons: string[] }>;
+  ml: {
+    predicted_return: number | null;
+    prob_positive: number | null;
+    prob_target: number | null;
+    combined_score: number | null;
+    astr_score: number | null;
+  } | null;
+}
+
+export interface TradeHistoryRow {
+  id: string;
+  ticker: string;
+  kind: string;
+  mode: string;
+  status: string;
+  dollars: number;
+  entry_date: string;
+  entry_at: string | null;
+  entry_price: number;
+  exit_date: string | null;
+  exit_at: string | null;
+  exit_price: number | null;
+  profit: number | null;
+  kept: number | null;
+  status_note: string | null;
+  shares: number;
+  proceeds: number | null;
+  pct: number | null;
+  entry_score: ScoreSnapshot | null;
+  exit_score: ScoreSnapshot | null;
+}
+
+/**
+ * Every recorded buy/sell with the score evidence from the day it was bought
+ * (and the day it was sold), so each row can explain itself.
+ */
+export const fetchTradeHistory = createServerFn({ method: "GET" })
+  .middleware([requireGate])
+  .handler(async () => {
+    const db = await admin();
+    const { data: trades, error } = await db
+      .from("trades")
+      .select("*")
+      .order("entry_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    const rows = trades ?? [];
+
+    const tickers = Array.from(new Set(rows.map((t) => String(t.ticker).toUpperCase())));
+    const dates = Array.from(
+      new Set(
+        rows.flatMap((t) =>
+          [t.entry_date as string | null, t.exit_date as string | null].filter(
+            (d): d is string => !!d,
+          ),
+        ),
+      ),
+    );
+
+    // Scores are stored per scan run; map run ids back to their run_date.
+    const { data: runs } = dates.length
+      ? await db.from("scan_runs").select("id, run_date").in("run_date", dates)
+      : { data: [] as Array<{ id: string; run_date: string }> };
+    const runDate = new Map<string, string>();
+    for (const r of runs ?? []) runDate.set(String(r.id), String(r.run_date));
+
+    const { data: scores } = runs && runs.length && tickers.length
+      ? await db
+          .from("scan_scores")
+          .select("run_id, ticker, rank, score, close, tradeable, invalidation, factors")
+          .in(
+            "run_id",
+            (runs ?? []).map((r) => String(r.id)),
+          )
+          .in("ticker", tickers)
+      : { data: [] as never[] };
+
+    const { data: preds } = dates.length && tickers.length
+      ? await db
+          .from("model_predictions")
+          .select(
+            "ticker, as_of_date, predicted_return, prob_positive, prob_target, combined_score, astr_score",
+          )
+          .in("as_of_date", dates)
+          .in("ticker", tickers)
+      : { data: [] as never[] };
+
+    const predKey = new Map<string, ScoreSnapshot["ml"]>();
+    for (const p of preds ?? []) {
+      predKey.set(`${String(p.ticker).toUpperCase()}|${String(p.as_of_date)}`, {
+        predicted_return: p.predicted_return === null ? null : Number(p.predicted_return),
+        prob_positive: p.prob_positive === null ? null : Number(p.prob_positive),
+        prob_target: p.prob_target === null ? null : Number(p.prob_target),
+        combined_score: p.combined_score === null ? null : Number(p.combined_score),
+        astr_score: p.astr_score === null ? null : Number(p.astr_score),
+      });
+    }
+
+    const snapKey = new Map<string, ScoreSnapshot>();
+    for (const s of scores ?? []) {
+      const date = runDate.get(String(s.run_id));
+      if (!date) continue;
+      const ticker = String(s.ticker).toUpperCase();
+      snapKey.set(`${ticker}|${date}`, {
+        run_date: date,
+        rank: Number(s.rank),
+        score: Number(s.score),
+        close: Number(s.close),
+        tradeable: Boolean(s.tradeable),
+        invalidation: (s.invalidation as string | null) ?? null,
+        factors: (s.factors ?? {}) as ScoreSnapshot["factors"],
+        ml: predKey.get(`${ticker}|${date}`) ?? null,
+      });
+    }
+
+    const history: TradeHistoryRow[] = rows.map((t) => {
+      const ticker = String(t.ticker).toUpperCase();
+      const dollars = Number(t.dollars);
+      const entryPrice = Number(t.entry_price);
+      const exitPrice = t.exit_price === null ? null : Number(t.exit_price);
+      const shares = entryPrice > 0 ? dollars / entryPrice : 0;
+      return {
+        id: String(t.id),
+        ticker,
+        kind: String(t.kind),
+        mode: String(t.mode),
+        status: String(t.status),
+        dollars,
+        entry_date: String(t.entry_date),
+        entry_at: (t.entry_at as string | null) ?? (t.created_at as string | null) ?? null,
+        entry_price: entryPrice,
+        exit_date: (t.exit_date as string | null) ?? null,
+        exit_at: (t.exit_at as string | null) ?? null,
+        exit_price: exitPrice,
+        profit: t.profit === null ? null : Number(t.profit),
+        kept: t.kept === null ? null : Number(t.kept),
+        status_note: (t.status_note as string | null) ?? null,
+        shares: Number(shares.toFixed(6)),
+        proceeds: exitPrice === null ? null : Number((shares * exitPrice).toFixed(2)),
+        pct:
+          exitPrice === null || entryPrice <= 0
+            ? null
+            : Number(((exitPrice / entryPrice - 1) * 100).toFixed(2)),
+        entry_score: snapKey.get(`${ticker}|${String(t.entry_date)}`) ?? null,
+        exit_score: t.exit_date ? (snapKey.get(`${ticker}|${String(t.exit_date)}`) ?? null) : null,
+      };
+    });
+
+    // The strategy that is currently driving the scoring weights.
+    const { data: settings } = await db
+      .from("app_settings")
+      .select("active_strategy_id, strategy_enabled, ml_enabled")
+      .eq("id", 1)
+      .maybeSingle();
+    let strategy_name: string | null = null;
+    if (settings?.active_strategy_id) {
+      const { data: strat } = await db
+        .from("strategies")
+        .select("name")
+        .eq("id", settings.active_strategy_id as string)
+        .maybeSingle();
+      strategy_name = (strat?.name as string | null) ?? null;
+    }
+
+    return {
+      trades: history,
+      strategy_name,
+      strategy_enabled: Boolean(settings?.strategy_enabled ?? true),
+      ml_enabled: Boolean(settings?.ml_enabled ?? false),
+    };
+  });
