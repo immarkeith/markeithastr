@@ -984,6 +984,9 @@ export async function managePaperTrades(
     }
 
     const res = await closeTrade({ id: trade.id as string, exit_price: price });
+    // An unconfirmed sell keeps the position open with a note on the dashboard;
+    // it is never reported as a completed exit.
+    if (!res.closed) continue;
     closed.push({ ticker, exit: price, profit: res.profit, why });
   }
 
