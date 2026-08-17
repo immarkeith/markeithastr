@@ -18,6 +18,7 @@ import { Route as ResearchRouteImport } from './routes/research'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StrategyRouteImport } from './routes/strategy'
+import { Route as TradeHistoryRouteImport } from './routes/trade-history'
 import { Route as TradesRouteImport } from './routes/trades'
 import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
@@ -71,6 +72,11 @@ const StrategyRoute = StrategyRouteImport.update({
   path: '/strategy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TradeHistoryRoute = TradeHistoryRouteImport.update({
+  id: '/trade-history',
+  path: '/trade-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TradesRoute = TradesRouteImport.update({
   id: '/trades',
   path: '/trades',
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
+  '/trade-history': typeof TradeHistoryRoute
   '/trades': typeof TradesRoute
   '/unlock': typeof UnlockRoute
   '/watchlist': typeof WatchlistRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
+  '/trade-history': typeof TradeHistoryRoute
   '/trades': typeof TradesRoute
   '/unlock': typeof UnlockRoute
   '/watchlist': typeof WatchlistRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
+  '/trade-history': typeof TradeHistoryRoute
   '/trades': typeof TradesRoute
   '/unlock': typeof UnlockRoute
   '/watchlist': typeof WatchlistRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | '/scan'
     | '/settings'
     | '/strategy'
+    | '/trade-history'
     | '/trades'
     | '/unlock'
     | '/watchlist'
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/scan'
     | '/settings'
     | '/strategy'
+    | '/trade-history'
     | '/trades'
     | '/unlock'
     | '/watchlist'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/scan'
     | '/settings'
     | '/strategy'
+    | '/trade-history'
     | '/trades'
     | '/unlock'
     | '/watchlist'
@@ -230,6 +242,7 @@ export interface RootRouteChildren {
   ScanRoute: typeof ScanRoute
   SettingsRoute: typeof SettingsRoute
   StrategyRoute: typeof StrategyRoute
+  TradeHistoryRoute: typeof TradeHistoryRoute
   TradesRoute: typeof TradesRoute
   UnlockRoute: typeof UnlockRoute
   WatchlistRoute: typeof WatchlistRoute
@@ -304,6 +317,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StrategyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trade-history': {
+      id: '/trade-history'
+      path: '/trade-history'
+      fullPath: '/trade-history'
+      preLoaderRoute: typeof TradeHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/trades': {
       id: '/trades'
       path: '/trades'
@@ -366,6 +386,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScanRoute: ScanRoute,
   SettingsRoute: SettingsRoute,
   StrategyRoute: StrategyRoute,
+  TradeHistoryRoute: TradeHistoryRoute,
   TradesRoute: TradesRoute,
   UnlockRoute: UnlockRoute,
   WatchlistRoute: WatchlistRoute,
