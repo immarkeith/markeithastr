@@ -57,9 +57,13 @@ export async function gateSession() {
 
 export async function isUnlocked(): Promise<boolean> {
   if (!gateConfigured()) return true;
+  // Fail closed: a passcode is set but the cookie secret is missing, so no
+  // cookie can be trusted.
+  if (!sessionSecretConfigured()) return false;
   const session = await gateSession();
   return session.data.unlocked === true;
 }
+
 
 /** Guard for server functions that spend API calls or change records. */
 export async function requireUnlocked(): Promise<void> {
