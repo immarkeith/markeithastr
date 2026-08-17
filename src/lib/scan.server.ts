@@ -665,6 +665,7 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
     .from("trades")
     .update({
       exit_date: today(),
+      exit_at: new Date().toISOString(),
       exit_price: exitPrice,
       profit: Number(profit.toFixed(2)),
       kept: Number(kept.toFixed(2)),
