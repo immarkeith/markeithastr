@@ -94,7 +94,8 @@ function TradesPage() {
     mutationFn: (input: { id: string; exit_price: number }) => closeFn({ data: input }),
     onSuccess: async (res) => {
       await refresh();
-      toast.success(`Closed — P&L ${money(res.profit)}, kept ${money(res.kept)}`);
+      if (!res.closed) toast.warning(res.note);
+      else toast.success(`Closed — P&L ${money(res.profit)}, kept ${money(res.kept)}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
