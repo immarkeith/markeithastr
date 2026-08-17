@@ -750,8 +750,10 @@ export type Database = {
         Row: {
           created_at: string
           dollars: number
+          entry_at: string | null
           entry_date: string
           entry_price: number
+          exit_at: string | null
           exit_date: string | null
           exit_price: number | null
           hold_days: number
@@ -767,8 +769,10 @@ export type Database = {
         Insert: {
           created_at?: string
           dollars: number
+          entry_at?: string | null
           entry_date: string
           entry_price: number
+          exit_at?: string | null
           exit_date?: string | null
           exit_price?: number | null
           hold_days?: number
@@ -784,8 +788,10 @@ export type Database = {
         Update: {
           created_at?: string
           dollars?: number
+          entry_at?: string | null
           entry_date?: string
           entry_price?: number
+          exit_at?: string | null
           exit_date?: string | null
           exit_price?: number | null
           hold_days?: number
