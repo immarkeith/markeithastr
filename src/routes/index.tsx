@@ -204,11 +204,7 @@ function HomePage() {
             {d?.holdings.map((h) => (
               <div key={`${h.ticker}-${h.entry_date}`} className="rounded-md border border-border bg-card p-4">
                 <div className="flex items-baseline justify-between">
-                  <Link
-                    to="/analyze"
-                    search={{ ticker: h.ticker }}
-                    className="text-lg font-bold hover:text-primary"
-                  >
+                  <Link to="/analyze" className="text-lg font-bold hover:text-primary">
                     {h.ticker}
                   </Link>
                   <span
@@ -231,7 +227,7 @@ function HomePage() {
                     : ""}
                 </p>
                 {h.note ? (
-                  <p className="mt-2 rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning-foreground">
+                  <p className="mt-2 rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                     {h.note}
                   </p>
                 ) : null}
