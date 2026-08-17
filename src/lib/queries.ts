@@ -8,6 +8,7 @@ import {
   fetchNotifications,
   fetchRunHistory,
   fetchSettings,
+  fetchTradeHistory,
   fetchTrades,
   fetchWatchlist,
 } from "@/lib/data.functions";
@@ -182,4 +183,9 @@ export const dashboardQuery = queryOptions({
     return fetchDashboard();
   },
   refetchInterval: 60_000,
+});
+
+export const tradeHistoryQuery = queryOptions({
+  queryKey: ["trade-history"],
+  queryFn: () => fetchTradeHistory(),
 });
