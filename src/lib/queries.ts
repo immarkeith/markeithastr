@@ -174,3 +174,12 @@ export const capitalLadderQuery = queryOptions({
   queryKey: ["capital-ladder"],
   queryFn: () => fetchCapitalLadder(),
 });
+
+export const dashboardQuery = queryOptions({
+  queryKey: ["dashboard"],
+  queryFn: async () => {
+    const { fetchDashboard } = await import("@/lib/data.functions");
+    return fetchDashboard();
+  },
+  refetchInterval: 60_000,
+});
