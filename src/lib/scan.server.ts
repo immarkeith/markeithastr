@@ -1022,6 +1022,16 @@ export async function managePaperTrades(
   async function tryOpen(ticker: string, kind: "day" | "swing", price: number, want: number) {
     if (!price) return;
     const dollars = want;
+    // Never stack a second stake on a name the account already holds — that is
+    // exactly how the doubled-up position happened.
+    if (activeMode === "live") {
+      try {
+        const { positionQty } = await import("./broker.server");
+        if ((await positionQty("live", ticker)) > 0) return;
+      } catch (error) {
+        console.error("position check failed:", error instanceof Error ? error.message : error);
+      }
+    }
     if (activeMode === "live" && cashLeft < want) {
       // Full stake or nothing: if yesterday's sale has not settled yet, sit out
       // today rather than buying a smaller partial position.
