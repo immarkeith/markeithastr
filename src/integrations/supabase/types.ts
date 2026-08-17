@@ -754,12 +754,14 @@ export type Database = {
           entry_price: number
           exit_date: string | null
           exit_price: number | null
+          hold_days: number
           id: string
           kept: number | null
           kind: string
           mode: string
           profit: number | null
           status: string
+          status_note: string | null
           ticker: string
         }
         Insert: {
@@ -769,12 +771,14 @@ export type Database = {
           entry_price: number
           exit_date?: string | null
           exit_price?: number | null
+          hold_days?: number
           id?: string
           kept?: number | null
           kind?: string
           mode?: string
           profit?: number | null
           status?: string
+          status_note?: string | null
           ticker: string
         }
         Update: {
@@ -784,12 +788,14 @@ export type Database = {
           entry_price?: number
           exit_date?: string | null
           exit_price?: number | null
+          hold_days?: number
           id?: string
           kept?: number | null
           kind?: string
           mode?: string
           profit?: number | null
           status?: string
+          status_note?: string | null
           ticker?: string
         }
         Relationships: []
