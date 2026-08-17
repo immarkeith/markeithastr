@@ -191,7 +191,7 @@ function TradeCard({ row }: { row: TradeHistoryRow }) {
                 {row.exit_price === null
                   ? "no fill recorded"
                   : `$${row.exit_price.toFixed(2)} / share · ${money(row.proceeds)} back`}
-                {row.kept ? ` · ${money(row.kept)} saved profit` : ""}
+                {row.kept && row.kept > 0 ? ` · ${money(row.kept)} saved profit` : ""}
               </div>
             </>
           ) : (
