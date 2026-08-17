@@ -1,196 +1,304 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 
 import { MarketStatusBar } from "@/components/MarketStatusBar";
-import { ScoreTable } from "@/components/ScoreTable";
 import { StatTile } from "@/components/StatTile";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { latestRunQuery, settingsQuery } from "@/lib/queries";
-import { marketStatus } from "@/lib/market-calendar";
-import { getBarStatus, loadHistory, runCycleNow, runScanNow } from "@/lib/scan.functions";
+import { dashboardQuery, money } from "@/lib/queries";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Scan — ASTR Daily Rotation Desk" },
+      { title: "Dashboard — ASTR Rotation Desk" },
       {
         name: "description",
         content:
-          "Run a wide-universe daily scan: factor-weighted scores, tradeable signals and today's rotation plan.",
+          "Live account balance, current holdings, the next planned buy and a daily, weekly and monthly profit/loss graph.",
       },
-      { property: "og:title", content: "Scan — ASTR Daily Rotation Desk" },
+      { property: "og:title", content: "Dashboard — ASTR Rotation Desk" },
       {
         property: "og:description",
-        content: "Factor-weighted daily rotation scores across thousands of liquid US stocks.",
+        content: "Live balance, open positions, queued buys and profit/loss over time.",
       },
     ],
   }),
-  component: ScanPage,
+  component: HomePage,
 });
 
-function ScanPage() {
-  const qc = useQueryClient();
-  const barStatusFn = useServerFn(getBarStatus);
-  const loadHistoryFn = useServerFn(loadHistory);
-  const runScanFn = useServerFn(runScanNow);
-  const runCycleFn = useServerFn(runCycleNow);
+const RANGES = [
+  { key: "1d", label: "Today", days: 1 },
+  { key: "1w", label: "Week", days: 7 },
+  { key: "1m", label: "Month", days: 30 },
+  { key: "3m", label: "3 months", days: 90 },
+] as const;
 
-  const status = useQuery({ queryKey: ["bar-status"], queryFn: () => barStatusFn({}) });
-  const settings = useQuery(settingsQuery);
-  const latest = useQuery(latestRunQuery);
+function PnlChart({ rows }: { rows: { exit_date: string; profit: number }[] }) {
+  const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("1w");
+  const active = RANGES.find((r) => r.key === range) ?? RANGES[1];
 
-  const [busy, setBusy] = useState(false);
-
-  async function loadMarketData() {
-    setBusy(true);
-    try {
-      const res = await loadHistoryFn({ data: { days: 160 } });
-      if (res.days_stored === 0) {
-        toast.error("No bars came back from the data feed — check the key in Settings.");
-      } else {
-        toast.success(
-          `Cached ${res.days_stored} sessions for ${res.tickers} tickers (${res.feed} feed).`,
-        );
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load market data.");
-    } finally {
-      setBusy(false);
-      await qc.invalidateQueries({ queryKey: ["bar-status"] });
+  const series = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - (active.days - 1));
+    const from = cutoff.toISOString().slice(0, 10);
+    const byDay = new Map<string, number>();
+    for (const row of rows) {
+      if (!row.exit_date || row.exit_date < from) continue;
+      byDay.set(row.exit_date, (byDay.get(row.exit_date) ?? 0) + row.profit);
     }
-  }
+    const days = [...byDay.keys()].sort();
+    let running = 0;
+    return days.map((day) => {
+      running += byDay.get(day) ?? 0;
+      return { day, daily: byDay.get(day) ?? 0, cumulative: Number(running.toFixed(2)) };
+    });
+  }, [rows, active.days]);
 
+  const total = series.length > 0 ? series[series.length - 1]!.cumulative : 0;
+  const values = series.map((p) => p.cumulative);
+  const max = Math.max(0.01, ...values.map(Math.abs));
+  const width = 100;
+  const height = 40;
+  const path = series
+    .map((point, i) => {
+      const x = series.length === 1 ? width : (i / (series.length - 1)) * width;
+      const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
+      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
 
-  const scan = useMutation({
-    mutationFn: () => runScanFn({}),
-    onSuccess: async (res) => {
-      toast.success(`Scored ${res.scored_count} of ${res.universe_size} tickers.`);
-      await qc.invalidateQueries();
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+  return (
+    <section className="space-y-3 rounded-md border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Profit / loss</h2>
+        <div className="flex gap-1">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => setRange(r.key)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                r.key === range
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-  const cycle = useMutation({
-    mutationFn: () => runCycleFn({ data: { force: true } }),
-    onSuccess: async (res) => {
-      if (!res.ran) toast.info(res.reason);
-      else
-        toast.success(
-          `Cycle done — ${res.scan?.scored_count ?? 0} scored, ${res.paper_opened.length} simulated entries, ${res.paper_closed.length} exits.`,
-        );
-      await qc.invalidateQueries();
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+      <p
+        className={`text-2xl font-bold tabular-nums ${
+          total >= 0 ? "text-success" : "text-destructive"
+        }`}
+      >
+        {total >= 0 ? "+" : ""}
+        {money(total)}
+      </p>
 
-  const market = marketStatus();
-  const s = settings.data;
-  const scores = latest.data?.scores ?? [];
-  const tradeable = scores.filter((r) => r.tradeable);
-  const plan = tradeable.slice(0, Number(s?.num_day_trades ?? 2));
+      {series.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No closed trades in this window yet — the line starts once a position is sold.
+        </p>
+      ) : (
+        <>
+          <svg viewBox={`0 0 ${width} ${height}`} className="h-28 w-full" preserveAspectRatio="none">
+            <line
+              x1="0"
+              x2={width}
+              y1={height / 2}
+              y2={height / 2}
+              stroke="currentColor"
+              strokeWidth="0.3"
+              className="text-border"
+            />
+            <path
+              d={path}
+              fill="none"
+              strokeWidth="1.2"
+              stroke="currentColor"
+              className={total >= 0 ? "text-success" : "text-destructive"}
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+          <ul className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+            {series
+              .slice(-6)
+              .reverse()
+              .map((point) => (
+                <li key={point.day} className="flex justify-between tabular-nums">
+                  <span>{point.day}</span>
+                  <span className={point.daily >= 0 ? "text-success" : "text-destructive"}>
+                    {point.daily >= 0 ? "+" : ""}
+                    {money(point.daily)}
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
+function HomePage() {
+  const dash = useQuery(dashboardQuery);
+  const d = dash.data;
 
   return (
     <div className="space-y-8">
-      <MarketStatusBar paperMode={(s as { paper_mode?: boolean } | undefined)?.paper_mode !== false} />
+      <MarketStatusBar paperMode={d?.mode !== "live"} />
 
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">Daily rotation scan</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Whole-market daily bars are cached once per trading day, so scans and history cost no
-          extra data requests. Scores blend trend, momentum, volume, relative strength and
-          volatility quality. Simulation mode keeps scoring, entries and exits running on paper —
-          no broker orders are placed until you switch it off in Settings.
+      <header className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight">Desk overview</h1>
+        <p className="text-sm text-muted-foreground">
+          {d?.mode === "live"
+            ? "Live account — real orders."
+            : "Simulation mode — nothing is sent to the broker."}
+          {d?.scan ? ` Last score ${d.scan.run_date} (${d.scan.scored_count} names).` : ""}
         </p>
       </header>
 
+      {dash.isLoading ? <p className="text-sm text-muted-foreground">Loading the desk…</p> : null}
+      {d?.broker_error ? (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          Could not reach the broker: {d.broker_error}
+        </p>
+      ) : null}
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          label="Bars cached"
-          value={`${status.data?.days_cached ?? 0} days`}
-          hint={status.data?.newest ? `newest ${status.data.newest}` : "no data yet"}
-        />
-        <StatTile
-          label="Universe (latest day)"
-          value={`${status.data?.tickers_latest ?? 0}`}
-          hint={`cap ${s?.max_universe ?? "—"} tickers`}
+          label="Account value"
+          value={d?.account ? money(d.account.equity) : "—"}
+          hint={d?.account ? `status ${d.account.status}` : "broker balance"}
           tone="accent"
         />
         <StatTile
-          label="Last scan"
-          value={latest.data?.run ? String(latest.data.run.run_date) : "—"}
-          hint={latest.data?.run?.note ?? "not run yet"}
+          label="Cash at broker"
+          value={d?.account ? money(d.account.cash) : "—"}
+          hint="includes money still clearing"
         />
         <StatTile
-          label="Tradeable names"
-          value={`${tradeable.length}`}
-          hint={`score ≥ ${s?.min_score_to_trade ?? 60}`}
-          tone={tradeable.length > 0 ? "positive" : "default"}
+          label="Ready to invest"
+          value={d ? money(d.cash.available) : "—"}
+          hint={d ? `${money(d.cash.pending)} clears next session` : "settled cash"}
+          tone={(d?.cash.available ?? 0) >= (d?.stake ?? 0) ? "positive" : "default"}
+        />
+        <StatTile
+          label="Saved profit"
+          value={d ? money(d.cash.saved) : "—"}
+          hint="set aside, never reinvested"
         />
       </section>
-
-      <section className="space-y-3 rounded-md border border-border bg-card p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={loadMarketData} disabled={busy}>
-            {busy
-              ? "Loading history…"
-              : `Load market data${(status.data?.missing.length ?? 0) > 0 ? ` (${status.data?.missing.length} days)` : ""}`}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => scan.mutate()}
-            disabled={scan.isPending || busy}
-          >
-            {scan.isPending ? "Scanning…" : "Run scan"}
-          </Button>
-          <Button variant="outline" onClick={() => cycle.mutate()} disabled={cycle.isPending || busy}>
-            {cycle.isPending ? "Running cycle…" : "Run today's cycle"}
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            Cycle = top up bars, re-score, then apply the simulated entry/exit rules.
-            {market.tradingDay
-              ? ` Session ${market.label.toLowerCase()}.`
-              : " Market is closed today, so the cycle only re-scores."}
-          </span>
-        </div>
-        {busy ? <Progress value={undefined} className="h-1.5" /> : null}
-      </section>
-
-
-      {plan.length > 0 ? (
-        <section className="space-y-3">
-          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-            Today's plan
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {plan.map((row) => (
-              <div key={row.id} className="rounded-md border border-primary/40 bg-primary/5 p-4">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-bold">{row.ticker}</span>
-                  <span className="tabular-nums text-primary">
-                    {Number(row.score).toFixed(1)} pts
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Deploy ${Number(s?.dollars_per_day_trade ?? 25).toFixed(0)} at ~$
-                  {Number(row.close).toFixed(2)}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">{row.invalidation}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <section className="space-y-3">
         <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-          Ranked candidates
+          Currently owned
         </h2>
-        <ScoreTable rows={scores} />
+        {(d?.holdings.length ?? 0) === 0 ? (
+          <p className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
+            Nothing is held right now.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {d?.holdings.map((h) => (
+              <div key={`${h.ticker}-${h.entry_date}`} className="rounded-md border border-border bg-card p-4">
+                <div className="flex items-baseline justify-between">
+                  <Link to="/analyze" className="text-lg font-bold hover:text-primary">
+                    {h.ticker}
+                  </Link>
+                  <span
+                    className={`tabular-nums font-semibold ${
+                      h.pl >= 0 ? "text-success" : "text-destructive"
+                    }`}
+                  >
+                    {h.pl >= 0 ? "+" : ""}
+                    {money(h.pl)} ({h.pl_pct.toFixed(2)}%)
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+                  {money(h.market_value)} at ${h.price.toFixed(2)} · entry ${h.entry_price.toFixed(2)}
+                  {h.qty !== null ? ` · ${h.qty} sh` : ""}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {h.kind === "untracked" ? "Untracked position" : `${h.kind} trade since ${h.entry_date}`}
+                  {h.rank !== null
+                    ? ` · ranked #${h.rank} (${(h.score ?? 0).toFixed(1)} pts)${h.still_qualifies ? " — still qualifies" : " — no longer qualifies"}`
+                    : ""}
+                </p>
+                {h.note ? (
+                  <p className="mt-2 rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                    {h.note}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
+
+      <section className="grid gap-3 lg:grid-cols-2">
+        <div className="space-y-3 rounded-md border border-border bg-card p-4">
+          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Up next</h2>
+          <p className="text-xs text-muted-foreground">
+            Bought only if it still passes the next scheduled score check.
+          </p>
+          {(d?.up_next.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing is queued right now.</p>
+          ) : (
+            <ul className="space-y-2">
+              {d?.up_next.map((row) => (
+                <li key={row.ticker} className="rounded border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-bold">{row.ticker}</span>
+                    <span className="tabular-nums text-primary">{row.score.toFixed(1)} pts</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Plan {money(row.stake)} at ~${row.close.toFixed(2)}
+                    {d?.cash && d.cash.available < row.stake
+                      ? " — waiting on cash to clear"
+                      : ""}
+                  </p>
+                  {row.invalidation ? (
+                    <p className="mt-1 text-xs text-muted-foreground">{row.invalidation}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="space-y-3 rounded-md border border-border bg-card p-4">
+          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+            Longer-term ideas
+          </h2>
+          {(d?.suggestions.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">No hold suggestions yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {d?.suggestions.map((s) => (
+                <li
+                  key={s.ticker}
+                  className="flex items-center justify-between rounded border border-border p-3"
+                >
+                  <div>
+                    <span className="font-bold">{s.ticker}</span>
+                    <p className="text-xs text-muted-foreground">
+                      Top-ranked {s.streak_days} session(s) in a row
+                      {s.permanent ? " — permanent hold candidate" : ""}
+                    </p>
+                  </div>
+                  <Link to="/watchlist" className="text-xs text-primary hover:underline">
+                    Review
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <PnlChart rows={d?.closed ?? []} />
     </div>
   );
 }

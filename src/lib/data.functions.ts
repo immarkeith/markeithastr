@@ -174,3 +174,196 @@ export const fetchCapitalLadder = createServerFn({ method: "GET" })
       }>,
     };
   });
+
+/**
+ * Everything the home dashboard shows in one call: the live account balance,
+ * what is actually held right now (with any note about a failed sell), what is
+ * queued to buy next, the best longer-term ideas and the closed-trade series
+ * used for the profit/loss graph.
+ */
+export const fetchDashboard = createServerFn({ method: "GET" })
+  .middleware([requireGate])
+  .handler(async () => {
+    const db = await admin();
+    const { data: settings } = await db.from("app_settings").select("*").eq("id", 1).single();
+    const mode = settings?.paper_mode === false ? "live" : "paper";
+
+    // Live broker snapshot. A broker outage must not blank the page.
+    let account: {
+      equity: number;
+      cash: number;
+      buying_power: number;
+      status: string;
+    } | null = null;
+    let positions: Array<{
+      ticker: string;
+      qty: number;
+      current_price: number;
+      market_value: number;
+      unrealized_pl: number;
+      unrealized_plpc: number;
+    }> = [];
+    let broker_error: string | null = null;
+    try {
+      const { brokerAccount, listPositions } = await import("./broker.server");
+      const acct = await brokerAccount(mode);
+      account = {
+        equity: acct.equity,
+        cash: acct.cash,
+        buying_power: acct.buying_power,
+        status: acct.status,
+      };
+      positions = await listPositions(mode);
+    } catch (error) {
+      broker_error = error instanceof Error ? error.message : "Broker unavailable";
+    }
+
+    const { data: openTrades } = await db
+      .from("trades")
+      .select("*")
+      .eq("status", "open")
+      .eq("mode", mode);
+    const { data: closedTrades } = await db
+      .from("trades")
+      .select("exit_date, profit, kept, ticker, mode")
+      .eq("status", "closed")
+      .eq("mode", mode)
+      .order("exit_date", { ascending: true })
+      .limit(400);
+    const { data: ledger } = await db.from("ledger_entries").select("amount, available_on, kind");
+
+    const day = new Date().toISOString().slice(0, 10);
+    let available = 0;
+    let pending = 0;
+    let saved = 0;
+    for (const row of ledger ?? []) {
+      const amount = Number(row.amount);
+      if (String(row.kind) === "reserve") {
+        saved += amount;
+        continue;
+      }
+      if (String(row.available_on) <= day) available += amount;
+      else pending += amount;
+    }
+
+    // Latest scores drive both the holding rank and the "up next" queue.
+    const { data: runRow } = await db
+      .from("scan_runs")
+      .select("id, run_date, bars_as_of, scored_count")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const { data: scores } = runRow
+      ? await db
+          .from("scan_scores")
+          .select("ticker, rank, score, close, tradeable, invalidation")
+          .eq("run_id", runRow.id as string)
+          .order("rank", { ascending: true })
+          .limit(25)
+      : { data: [] as any[] };
+    const byTicker = new Map((scores ?? []).map((r) => [String(r.ticker), r]));
+
+    const { loadLadder } = await import("./capital.server");
+    const ladder = await loadLadder();
+
+    const heldTickers = new Set<string>();
+    const holdings = (openTrades ?? []).map((t) => {
+      const ticker = String(t.ticker);
+      heldTickers.add(ticker);
+      const pos = positions.find((p) => p.ticker === ticker.toUpperCase());
+      const score = byTicker.get(ticker);
+      const price = Number(pos?.current_price ?? score?.close ?? t.entry_price);
+      const dollars = Number(t.dollars);
+      const pl = pos ? pos.unrealized_pl : dollars * (price / Number(t.entry_price) - 1);
+      return {
+        ticker,
+        kind: String(t.kind),
+        entry_date: String(t.entry_date),
+        entry_price: Number(t.entry_price),
+        dollars,
+        qty: pos?.qty ?? null,
+        price,
+        market_value: pos?.market_value ?? Number((dollars * (price / Number(t.entry_price))).toFixed(2)),
+        pl: Number(pl.toFixed(2)),
+        pl_pct: Number((((price / Number(t.entry_price)) - 1) * 100).toFixed(2)),
+        rank: score ? Number(score.rank) : null,
+        score: score ? Number(score.score) : null,
+        still_qualifies: Boolean(score?.tradeable),
+        note: (t as { status_note?: string | null }).status_note ?? null,
+      };
+    });
+
+    // Broker holdings with no matching open trade row are worth surfacing too.
+    for (const pos of positions) {
+      if (heldTickers.has(pos.ticker)) continue;
+      holdings.push({
+        ticker: pos.ticker,
+        kind: "untracked",
+        entry_date: "—",
+        entry_price: pos.current_price,
+        dollars: pos.market_value,
+        qty: pos.qty,
+        price: pos.current_price,
+        market_value: pos.market_value,
+        pl: pos.unrealized_pl,
+        pl_pct: pos.unrealized_plpc,
+        rank: null,
+        score: null,
+        still_qualifies: false,
+        note: "Held at the broker without a matching ASTR trade record.",
+      });
+    }
+
+    const slots = Math.max(0, Number(ladder.stocks_per_day) - holdings.filter((h) => h.kind === "day").length);
+    const upNext = (scores ?? [])
+      .filter((r) => r.tradeable && !heldTickers.has(String(r.ticker)))
+      .slice(0, Math.max(1, slots || 1))
+      .map((r) => ({
+        ticker: String(r.ticker),
+        score: Number(r.score),
+        close: Number(r.close),
+        invalidation: (r.invalidation as string | null) ?? null,
+        stake: Number(ladder.position_dollars),
+      }));
+
+    const { data: watch } = await db
+      .from("watchlist_candidates")
+      .select("ticker, streak_days, status, best_pick_ever")
+      .in("status", ["suggested", "requested", "approved"])
+      .order("streak_days", { ascending: false })
+      .limit(3);
+
+    return {
+      mode,
+      account,
+      broker_error,
+      cash: {
+        available: Number(available.toFixed(2)),
+        pending: Number(pending.toFixed(2)),
+        saved: Number(saved.toFixed(2)),
+      },
+      holdings,
+      up_next: upNext,
+      slots,
+      stake: Number(ladder.position_dollars),
+      stocks_per_day: Number(ladder.stocks_per_day),
+      suggestions: (watch ?? []).map((w) => ({
+        ticker: String(w.ticker),
+        streak_days: Number(w.streak_days),
+        status: String(w.status),
+        permanent: Number(w.streak_days) >= 10,
+      })),
+      scan: runRow
+        ? {
+            run_date: String(runRow.run_date),
+            scored_count: Number(runRow.scored_count),
+            bars_as_of: (runRow.bars_as_of as string | null) ?? null,
+          }
+        : null,
+      closed: (closedTrades ?? []).map((t) => ({
+        exit_date: String(t.exit_date),
+        ticker: String(t.ticker),
+        profit: Number(t.profit ?? 0),
+      })),
+    };
+  });

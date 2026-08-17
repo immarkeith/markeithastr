@@ -352,5 +352,25 @@ export async function generateInsights(day: string): Promise<number> {
     if (ok) created += 1;
   }
 
+  // A name that keeps earning its place for two straight weeks of sessions is
+  // worth holding permanently instead of rotating in and out of it.
+  const { data: longRun } = await supabaseAdmin
+    .from("watchlist_candidates")
+    .select("ticker, streak_days, status")
+    .gte("streak_days", 10);
+  for (const row of longRun ?? []) {
+    if (String(row.status) === "rejected") continue;
+    const ok = await notify({
+      kind: "swing-hold",
+      title: `${row.ticker} looks like a permanent hold`,
+      body: `${row.ticker} has stayed inside the top ranks for ${row.streak_days} sessions in a row. Holding it instead of rotating it would have avoided repeated buy/sell spreads.`,
+      ticker: row.ticker as string,
+      severity: "good",
+      action: "Consider a permanent hold on the Watchlist page",
+      dedupe_key: `permanent-hold:${row.ticker}:${Math.floor(Number(row.streak_days) / 5)}`,
+    });
+    if (ok) created += 1;
+  }
+
   return created;
 }

@@ -146,12 +146,74 @@ export async function positionQty(mode: BrokerMode, ticker: string): Promise<num
   }
 }
 
+export interface BrokerPosition {
+  ticker: string;
+  qty: number;
+  avg_entry_price: number;
+  current_price: number;
+  market_value: number;
+  unrealized_pl: number;
+  unrealized_plpc: number;
+}
+
+function toPosition(p: any): BrokerPosition {
+  return {
+    ticker: String(p.symbol ?? "").toUpperCase(),
+    qty: Number(p.qty ?? 0),
+    avg_entry_price: Number(p.avg_entry_price ?? 0),
+    current_price: Number(p.current_price ?? 0),
+    market_value: Number(p.market_value ?? 0),
+    unrealized_pl: Number(p.unrealized_pl ?? 0),
+    unrealized_plpc: Number(p.unrealized_plpc ?? 0) * 100,
+  };
+}
+
+/** Everything the account actually holds right now, straight from the broker. */
+export async function listPositions(mode: BrokerMode): Promise<BrokerPosition[]> {
+  const rows = (await call(mode, "/v2/positions")) ?? [];
+  return (Array.isArray(rows) ? rows : []).map(toPosition);
+}
+
+export async function getPosition(mode: BrokerMode, ticker: string): Promise<BrokerPosition | null> {
+  try {
+    const p = await call(mode, `/v2/positions/${ticker.toUpperCase()}`);
+    return p ? toPosition(p) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Sell the entire position in a symbol at market. */
 export async function sellPosition(mode: BrokerMode, ticker: string): Promise<BrokerFill | null> {
   const qty = await positionQty(mode, ticker);
   if (!qty) return null;
   const order = await call(mode, `/v2/positions/${ticker.toUpperCase()}?percentage=100`, {
     method: "DELETE",
+  });
+  if (!order?.id) return null;
+  return waitForFill(mode, String(order.id));
+}
+
+/**
+ * Sell a specific quantity (fractional allowed). Used to trim a position back
+ * to the intended stake without closing it completely.
+ */
+export async function sellQty(
+  mode: BrokerMode,
+  ticker: string,
+  qty: number,
+): Promise<BrokerFill | null> {
+  const rounded = Number(qty.toFixed(6));
+  if (rounded <= 0) return null;
+  const order = await call(mode, "/v2/orders", {
+    method: "POST",
+    body: {
+      symbol: ticker.toUpperCase(),
+      qty: String(rounded),
+      side: "sell",
+      type: "market",
+      time_in_force: "day",
+    },
   });
   if (!order?.id) return null;
   return waitForFill(mode, String(order.id));
