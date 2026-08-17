@@ -510,6 +510,7 @@ export async function openTrade(input: {
       ticker,
       kind: input.kind,
       entry_date: today(),
+      entry_at: new Date().toISOString(),
       entry_price: entryPrice,
       dollars: input.dollars,
       status: "open",
