@@ -1259,6 +1259,14 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
     console.error("pre-close rescore failed:", error instanceof Error ? error.message : error);
   }
 
+  // Broker truth first: trim anything bigger than its stake and re-align cash,
+  // using the live quantity and price at this moment.
+  try {
+    await reconcileBroker();
+  } catch (error) {
+    console.error("reconcile failed:", error instanceof Error ? error.message : error);
+  }
+
   const sim = await managePaperTrades({ phase: "exit", keepQualifying: true });
   for (const exit of sim.closed) {
     await notify({
