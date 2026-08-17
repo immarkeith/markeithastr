@@ -9,9 +9,22 @@ export const GATE_DAYS = 90;
 
 type GateSession = { unlocked?: boolean; since?: string };
 
+/**
+ * The cookie secret must come from the environment. There is deliberately no
+ * fallback string: a hardcoded default would let anyone who reads this file mint
+ * their own "unlocked" cookie and walk past the passcode.
+ */
+function sessionPassword(): string {
+  const secret = process.env["SESSION_SECRET"]?.trim();
+  if (!secret || secret.length < 32) {
+    throw new Error("SESSION_SECRET is not configured (needs at least 32 characters)");
+  }
+  return secret;
+}
+
 function sessionConfig() {
   return {
-    password: process.env["SESSION_SECRET"] ?? "astr-dev-only-session-secret-000000",
+    password: sessionPassword(),
     name: "astr-gate",
     maxAge: 60 * 60 * 24 * GATE_DAYS,
     cookie: { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" },
@@ -22,6 +35,13 @@ function sessionConfig() {
 export function gateConfigured(): boolean {
   return Boolean(process.env["SITE_PASSWORD"]?.trim());
 }
+
+/** A passcode without a real cookie secret cannot be enforced safely. */
+export function sessionSecretConfigured(): boolean {
+  const secret = process.env["SESSION_SECRET"]?.trim();
+  return Boolean(secret && secret.length >= 32);
+}
+
 
 function digest(value: string): Buffer {
   return createHash("sha256").update(value, "utf8").digest();
