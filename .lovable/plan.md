@@ -6,27 +6,34 @@ Your broker account right now holds **2.4635 shares of UMH ($39.74 market value)
 
 Cause: the sell path treats "broker returned nothing" as a successful sale. When the close-position request comes back empty (no order id, or the position lookup momentarily reads zero), the app still stamps the trade closed at a cached price and books the cash. Nothing ever re-checks that the shares actually left the account.
 
-## Fix 1 — today's cleanup (one-time)
+## Fix 1 — today's cleanup, then back to normal the day after tomorrow
 
-At today's pre-close pass, sell only the excess: about **1.2295 shares (~$19.9)**, leaving roughly **$20 of UMH to roll into tomorrow** as the carried position. The app's books get corrected so one open $20 UMH trade remains at the real average entry price ($16.2289), the phantom Aug 14 settle entry is reversed, and the ledger cash matches the broker's actual cash.
+- **Today, at the existing pre-close time (moved a few minutes earlier so a failed sell can be retried before the bell):** read the real UMH position and the real live price, then sell the excess so about **one $20 stake stays**. The exact dollar and share amount is computed at that moment from live data, not from the ~$19.9 estimate above.
+- **Tomorrow morning:** no buy. The proceeds are still unsettled under T+1, so the morning pass records "waiting on settled cash" and takes no position.
+- **Tomorrow's pre-close:** normal strategy resumes on the carried $20 UMH — sell it if another name now scores higher, hold it if it's still top of your formula.
+- **Day after tomorrow:** the cash has settled and the regular twice-daily cycle runs fully, with no new deposit needed.
 
-## Fix 2 — so it can't happen again
+The books are corrected in the same pass: one open UMH trade at the real average entry ($16.2289), the phantom Aug 14 settle row reversed, and ledger cash reconciled to the broker's actual cash.
 
-- **Sells must be verified.** After a sell, re-read the position at the broker. Shares still there → the trade stays **open**, and you get one notification ("sell didn't go through") instead of a silent fake close. Only a confirmed zero position closes the trade and books the cash.
-- **Never buy a name you already hold.** Before any buy, check the live broker position for that ticker as well as open trade rows. Already held → skip it and take the next-ranked eligible name.
-- **Daily reconciliation.** The self-check compares broker positions and cash against the app's open trades and ledger. Any drift is reported once as something you need to look at (it will not try to silently "repair" it by trading).
+## Fix 2 — live truth instead of assumptions
+
+- **Sells must be confirmed.** After a sell order, re-read the position. Still holding shares → retry once inside the remaining pre-close window. If it still hasn't sold, the trade stays **open** with a reason recorded — no push notification, just a note on the home page holding card.
+- **Buys must be confirmed too.** A buy only becomes a trade row and a ledger entry after the broker reports a real fill with a real fill price.
+- **Balance comes from the broker plus the T+1 rule.** Available-to-trade cash = live broker cash minus anything not yet settled; selling $20 today does not show as $20 spendable until it clears. The home page shows both live equity/cash and "available to trade today".
+- **Never buy a name already held.** Checked against the live broker position, not just the app's rows.
+- **Daily reconciliation.** The self-check compares broker positions and cash against the app's trades and ledger and reports drift once, without trading to "fix" it.
 
 ## Fix 3 — new home tab
 
 The opening tab becomes the dashboard, in this order:
 
-1. **Live account** — real balance from the broker: equity, cash available, saved profit.
-2. **What you're holding now** — each position with entry, live price, dollar and percent P&L, and why it's being held.
-3. **Up next** — the names that get bought at the next pass if they still pass the score test, with the stake each would take.
+1. **Live account** — real broker equity and cash, plus available-to-trade after T+1, and saved profit.
+2. **What you're holding now** — each position with entry, live price, dollar and percent P&L, and a status note: held because it still scores highest, couldn't sell and why, unsettled, or any other flag.
+3. **Up next** — names that get bought at the next pass if they still pass the score test, with the stake each would take (and "waiting on settled cash" when that's the reason nothing buys).
 4. **Suggestions (best 3)** — long-term / add-to-monitored candidates, only when there are any.
-5. **Profit & loss graph** — one chart with **1D / 1W / 1M / 3M** toggles, built from the trade and ledger history already stored (no extra market-data cost).
+5. **Profit & loss graph** — one chart with **1D / 1W / 1M / 3M** toggles, built from stored trade and ledger history (no extra market-data cost).
 
-Detail that lives elsewhere today (full ranked table, self-check log, capital ladder) stays on its own tabs so the home tab stays fast; the scan table moves to its own tab rather than being duplicated.
+Detail that lives elsewhere today (full ranked table, self-check log, capital ladder) stays on its own tabs so the home tab stays fast.
 
 ## Fix 4 — scoring and the "permanent hold" nudge
 
@@ -36,9 +43,12 @@ Added: when a name stays in the top ranks for enough consecutive sessions (defau
 
 ## Technical notes
 
-- `broker.server.ts`: add a `sellQty` helper (partial sale) and make `sellPosition` return a verified result including post-sale quantity; `closeTrade` in `scan.server.ts` throws/keeps-open unless the position is confirmed flat.
-- `managePaperTrades` entry loop: filter the plan by live `positionQty` in addition to `stillOpen`.
-- `health.server.ts`: new reconciliation check (broker positions/cash vs `trades` + `ledger_entries`), reported as an issue, never auto-traded.
-- One-time correction script/server fn for today: partial sell of the excess, reverse the phantom Aug 14 settle row, restate the open UMH trade at the real average entry.
-- New server fn returning broker account + positions with live quotes for the dashboard; P&L series derived from `trades.exit_date/profit` and `ledger_entries`.
+- `broker.server.ts`: add `sellQty` (partial sale) and `listPositions`/live quote reads; `sellPosition` returns a verified result including post-sale quantity.
+- `closeTrade` in `scan.server.ts`: never marks closed unless the position is confirmed gone; retries once, then leaves the trade open with a `status_note` and no push.
+- `trades`: add a nullable `status_note` column for hold/failed-sell/unsettled reasons surfaced on the home card.
+- `managePaperTrades` entry loop: filter the plan by live `positionQty`; skip buys when settled cash is short (already the "sat out" path) — that covers tomorrow morning automatically.
+- Pre-close hook timing: increase `exit_buffer_minutes` slightly so a retry fits before the bell; cron unchanged in shape.
+- `health.server.ts`: reconciliation check (broker positions/cash vs `trades` + `ledger_entries`), reported once, never auto-traded.
+- One-time correction pass for today: partial sell of the excess computed from live qty/price, reverse the phantom Aug 14 settle row, restate the open UMH trade at the real average entry.
+- New server fn returning broker account + positions + available-to-trade (T+1 aware) for the dashboard; P&L series derived from `trades.exit_date/profit` and `ledger_entries`.
 - `notify.server.ts` `generateInsights`: add a `permanent-hold` notification keyed by ticker so it fires once; new `permanent_hold_days` setting (default 10).
