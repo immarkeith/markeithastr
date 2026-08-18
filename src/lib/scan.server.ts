@@ -493,7 +493,14 @@ export async function openTrade(input: {
   // Live mode sends a real market order to the broker and records the actual
   // fill, not the price we guessed from cached bars.
   if (mode === "live") {
-    const { buyNotional } = await import("./broker.server");
+    const { buyNotional, positionQty } = await import("./broker.server");
+    // Broker truth guard: if the account already holds this name, no second
+    // order is ever sent — this is what doubled a position before, when a
+    // duplicate/retried request reached the buy path.
+    const held = await positionQty("live", ticker);
+    if (held > 0) {
+      throw new Error(`${ticker} is already held at the broker (${held} sh) — no second buy placed.`);
+    }
     const fill = await buyNotional("live", ticker, input.dollars);
     if (fill.status !== "filled" || !fill.filled_price) {
       throw new Error(
@@ -503,6 +510,7 @@ export async function openTrade(input: {
     entryPrice = fill.filled_price;
     orderNote = ` order ${fill.order_id} (${fill.filled_qty} sh)`;
   }
+
 
   const { data, error } = await supabaseAdmin
     .from("trades")
@@ -1262,11 +1270,16 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
   if (!options.force) {
     if (!status.tradingDay) return { ...base, reason: `Market closed (${status.detail}).` };
     const left = status.minutesToClose ?? 0;
-    if (left > buffer) {
-      return { ...base, reason: `Too early — exits run inside the last ${buffer} minutes.` };
+    // The scheduler fires a few minutes before the buffer so a failed sell can
+    // be retried before the bell. Treat that lead time as inside the window —
+    // otherwise the scheduled pass bails as "too early" and nothing sells.
+    const window = buffer + 6;
+    if (left > window) {
+      return { ...base, reason: `Too early — exits run inside the last ${window} minutes.` };
     }
     if (left < 0) return { ...base, reason: "Session already closed." };
   }
+
 
   // Fresh pre-close score decides whether each holding still qualifies.
   let scan: { scored_count: number; bars_as_of: string | null } | null = null;
@@ -1402,8 +1415,17 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
     };
   }
 
-  // 4. Buy the day's allocation from the fresh ranking.
+  // 4. Broker truth first: trim anything larger than its stake and re-align the
+  // cash ledger, so a doubled-up holding is corrected at the open too.
+  try {
+    await reconcileBroker();
+  } catch (error) {
+    console.error("reconcile failed:", error instanceof Error ? error.message : error);
+  }
+
+  // 5. Buy the day's allocation from the fresh ranking.
   const sim = await managePaperTrades({ phase: "entry" });
+
   for (const entry of sim.opened) {
     await notify({
       kind: "entry",
