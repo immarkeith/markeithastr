@@ -1415,8 +1415,17 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
     };
   }
 
-  // 4. Buy the day's allocation from the fresh ranking.
+  // 4. Broker truth first: trim anything larger than its stake and re-align the
+  // cash ledger, so a doubled-up holding is corrected at the open too.
+  try {
+    await reconcileBroker();
+  } catch (error) {
+    console.error("reconcile failed:", error instanceof Error ? error.message : error);
+  }
+
+  // 5. Buy the day's allocation from the fresh ranking.
   const sim = await managePaperTrades({ phase: "entry" });
+
   for (const entry of sim.opened) {
     await notify({
       kind: "entry",
