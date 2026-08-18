@@ -493,7 +493,14 @@ export async function openTrade(input: {
   // Live mode sends a real market order to the broker and records the actual
   // fill, not the price we guessed from cached bars.
   if (mode === "live") {
-    const { buyNotional } = await import("./broker.server");
+    const { buyNotional, positionQty } = await import("./broker.server");
+    // Broker truth guard: if the account already holds this name, no second
+    // order is ever sent — this is what doubled a position before, when a
+    // duplicate/retried request reached the buy path.
+    const held = await positionQty("live", ticker);
+    if (held > 0) {
+      throw new Error(`${ticker} is already held at the broker (${held} sh) — no second buy placed.`);
+    }
     const fill = await buyNotional("live", ticker, input.dollars);
     if (fill.status !== "filled" || !fill.filled_price) {
       throw new Error(
@@ -503,6 +510,7 @@ export async function openTrade(input: {
     entryPrice = fill.filled_price;
     orderNote = ` order ${fill.order_id} (${fill.filled_qty} sh)`;
   }
+
 
   const { data, error } = await supabaseAdmin
     .from("trades")
