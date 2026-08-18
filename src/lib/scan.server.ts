@@ -1270,11 +1270,16 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
   if (!options.force) {
     if (!status.tradingDay) return { ...base, reason: `Market closed (${status.detail}).` };
     const left = status.minutesToClose ?? 0;
-    if (left > buffer) {
-      return { ...base, reason: `Too early — exits run inside the last ${buffer} minutes.` };
+    // The scheduler fires a few minutes before the buffer so a failed sell can
+    // be retried before the bell. Treat that lead time as inside the window —
+    // otherwise the scheduled pass bails as "too early" and nothing sells.
+    const window = buffer + 6;
+    if (left > window) {
+      return { ...base, reason: `Too early — exits run inside the last ${window} minutes.` };
     }
     if (left < 0) return { ...base, reason: "Session already closed." };
   }
+
 
   // Fresh pre-close score decides whether each holding still qualifies.
   let scan: { scored_count: number; bars_as_of: string | null } | null = null;
