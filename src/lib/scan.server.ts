@@ -1397,13 +1397,27 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
   // Broker truth first: trim anything bigger than its stake and re-align cash,
   // using the live quantity and price at this moment.
   let carryOver: string[] = [];
+  let adopted: string[] = [];
   try {
     const fix = await reconcileBroker();
     // A trimmed name keeps its single stake overnight; the trim proceeds settle
     // under T+1, so the desk sits out the next morning by design.
     carryOver = fix.trimmed.map((line) => line.split(":")[0]!.trim());
+    adopted = fix.adopted;
   } catch (error) {
     console.error("reconcile failed:", error instanceof Error ? error.message : error);
+  }
+  for (const line of adopted) {
+    const ticker = line.split(":")[0]!.trim();
+    await notify({
+      kind: "health",
+      title: `Found an unrecorded ${ticker} position at the broker`,
+      body: `${line} It has been written into the book, so this pre-close pass decides whether to sell or hold it like any other position.`,
+      ticker,
+      severity: "bad",
+      action: "Review the trade log",
+      dedupe_key: `adopt:${ticker}:${status.nyDate}`,
+    });
   }
 
   const sim = await managePaperTrades({ phase: "exit", keepQualifying: true, carryOver });
