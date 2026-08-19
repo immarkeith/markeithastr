@@ -905,7 +905,7 @@ export async function reconcileBroker(): Promise<{
     console.error("cash reconcile failed:", error instanceof Error ? error.message : error);
   }
 
-  return { trimmed, cash_adjusted: cashAdjusted };
+  return { trimmed, adopted, cash_adjusted: cashAdjusted };
 }
 
 
