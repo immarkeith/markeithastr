@@ -207,6 +207,38 @@ export async function runHealthCheck(): Promise<HealthResult> {
     }
   }
 
+  // 5. Broker orders the app never recorded. This is read-only: it reports the
+  // mismatch (with the order ids, so the source can be traced) and never trades
+  // to "fix" it. Positions themselves get adopted by the pre-close pass.
+  if (settings.paper_mode === false) {
+    try {
+      const { listOrdersSince } = await import("./broker.server");
+      const since = `${status.nyDate}T00:00:00Z`;
+      const orders = (await listOrdersSince("live", since)).filter(
+        (o) => o.status === "filled" && o.filled_qty > 0,
+      );
+      if (orders.length > 0) {
+        const { data: ledgerRows } = await supabaseAdmin
+          .from("ledger_entries")
+          .select("note")
+          .gte("entry_date", status.nyDate);
+        const notes = (ledgerRows ?? []).map((r) => String(r.note ?? "")).join(" ");
+        const orphans = orders.filter((o) => !notes.includes(o.order_id));
+        if (orphans.length > 0) {
+          issues.push(
+            `${orphans.length} broker order(s) today are not in the app's records: ${orphans
+              .map((o) => `${o.side} ${o.ticker} @ ${o.filled_price ?? "?"} (${o.submitted_at ?? "?"}, order ${o.order_id})`)
+              .join("; ")}.`,
+          );
+        }
+      }
+    } catch (error) {
+      if (!alreadyReported("could not compare broker orders")) {
+        issues.push(`Could not compare broker orders: ${(error as Error).message}`);
+      }
+    }
+  }
+
   const ok = issues.length === 0;
   const checkedAt = new Date().toISOString();
 
