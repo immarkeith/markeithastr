@@ -219,6 +219,49 @@ export async function sellQty(
   return waitForFill(mode, String(order.id));
 }
 
+export interface BrokerOrderSummary {
+  order_id: string;
+  ticker: string;
+  side: "buy" | "sell";
+  status: string;
+  qty: number | null;
+  notional: number | null;
+  filled_qty: number;
+  filled_price: number | null;
+  submitted_at: string | null;
+  filled_at: string | null;
+}
+
+/**
+ * Every order the broker has on record since a timestamp. Used to detect orders
+ * that exist at the broker but never made it into the app's own book.
+ */
+export async function listOrdersSince(
+  mode: BrokerMode,
+  sinceIso: string,
+): Promise<BrokerOrderSummary[]> {
+  const rows =
+    (await call(
+      mode,
+      `/v2/orders?status=all&limit=100&direction=desc&after=${encodeURIComponent(sinceIso)}`,
+    )) ?? [];
+  return (Array.isArray(rows) ? rows : []).map((o: any) => ({
+    order_id: String(o.id ?? ""),
+    ticker: String(o.symbol ?? "").toUpperCase(),
+    side: String(o.side) === "sell" ? "sell" : "buy",
+    status: String(o.status ?? "unknown"),
+    qty: o.qty === null || o.qty === undefined ? null : Number(o.qty),
+    notional: o.notional === null || o.notional === undefined ? null : Number(o.notional),
+    filled_qty: Number(o.filled_qty ?? 0),
+    filled_price:
+      o.filled_avg_price === null || o.filled_avg_price === undefined
+        ? null
+        : Number(o.filled_avg_price),
+    submitted_at: o.submitted_at ? String(o.submitted_at) : null,
+    filled_at: o.filled_at ? String(o.filled_at) : null,
+  }));
+}
+
 /** Cancel any still-open orders for a symbol (used when a plan is abandoned). */
 export async function cancelOpenOrders(mode: BrokerMode, ticker: string): Promise<number> {
   const open = (await call(mode, "/v2/orders?status=open")) ?? [];
