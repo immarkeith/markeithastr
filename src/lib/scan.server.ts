@@ -730,13 +730,101 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
  * Proceeds from a trim settle under the normal T+1 rule, so they become
  * spendable the day after — never the next morning.
  */
-export async function reconcileBroker(): Promise<{ trimmed: string[]; cash_adjusted: number }> {
+export async function adoptUntrackedPositions(): Promise<string[]> {
+  const adopted: string[] = [];
+  const s = await loadSettings();
+  if (s.paper_mode !== false) return adopted;
+
+  const { listPositions, listOrdersSince } = await import("./broker.server");
+  let positions: Awaited<ReturnType<typeof listPositions>> = [];
+  try {
+    positions = await listPositions("live");
+  } catch (error) {
+    console.error(
+      "could not read broker positions:",
+      error instanceof Error ? error.message : error,
+    );
+    return adopted;
+  }
+  if (positions.length === 0) return adopted;
+
+  const { data: openRows } = await supabaseAdmin
+    .from("trades")
+    .select("id, ticker")
+    .eq("status", "open")
+    .eq("mode", "live");
+  const known = new Set((openRows ?? []).map((t) => String(t.ticker).toUpperCase()));
+  const unknown = positions.filter((p) => !known.has(p.ticker) && p.qty > 0);
+  if (unknown.length === 0) return adopted;
+
+  // Fill time and order id, when the broker still lists the buy, so the
+  // reconstructed row carries the real timestamps rather than "now".
+  let orders: Awaited<ReturnType<typeof listOrdersSince>> = [];
+  try {
+    const since = new Date(Date.now() - 14 * 86400000).toISOString();
+    orders = await listOrdersSince("live", since);
+  } catch {
+    /* timestamps fall back to now */
+  }
+
+  for (const pos of unknown) {
+    const buy = orders.find(
+      (o) => o.ticker === pos.ticker && o.side === "buy" && o.status === "filled",
+    );
+    const entryAt = buy?.filled_at ?? buy?.submitted_at ?? new Date().toISOString();
+    const dollars = Number((pos.qty * pos.avg_entry_price).toFixed(2));
+    const note = `Reconstructed from the broker on ${today()} — this position was held at the broker with no matching record in the app${buy ? ` (order ${buy.order_id})` : ""}.`;
+    const { data: inserted, error } = await supabaseAdmin
+      .from("trades")
+      .insert({
+        ticker: pos.ticker,
+        kind: "day",
+        mode: "live",
+        status: "open",
+        entry_date: entryAt.slice(0, 10),
+        entry_at: entryAt,
+        entry_price: pos.avg_entry_price,
+        dollars,
+        status_note: note,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      console.error("could not adopt broker position:", error.message);
+      continue;
+    }
+    await supabaseAdmin.from("ledger_entries").insert({
+      kind: "deploy",
+      amount: -dollars,
+      entry_date: entryAt.slice(0, 10),
+      available_on: entryAt.slice(0, 10),
+      note: `Adopted untracked ${pos.ticker} position @ ${pos.avg_entry_price} (${pos.qty} sh)${buy ? ` order ${buy.order_id}` : ""}`,
+      trade_id: (inserted?.id as string | undefined) ?? null,
+    });
+    adopted.push(
+      `${pos.ticker}: ${pos.qty} share(s) @ $${pos.avg_entry_price.toFixed(2)} ($${dollars.toFixed(2)}) adopted from the broker.`,
+    );
+  }
+  return adopted;
+}
+
+export async function reconcileBroker(): Promise<{
+  trimmed: string[];
+  adopted: string[];
+  cash_adjusted: number;
+}> {
   const trimmed: string[] = [];
   let cashAdjusted = 0;
   const s = await loadSettings();
-  if (s.paper_mode !== false) return { trimmed, cash_adjusted: 0 };
+  if (s.paper_mode !== false) return { trimmed, adopted: [], cash_adjusted: 0 };
 
   const { listPositions, sellQty, getPosition } = await import("./broker.server");
+
+  // Broker truth first: anything held with no trade row is written into the book
+  // before any trim or exit decision, so a position can never be ignored just
+  // because the app never recorded the buy.
+  const adopted = await adoptUntrackedPositions();
+
   const { data: openRows } = await supabaseAdmin
     .from("trades")
     .select("id, ticker, dollars, entry_price, status_note")
@@ -749,7 +837,7 @@ export async function reconcileBroker(): Promise<{ trimmed: string[]; cash_adjus
     positions = await listPositions("live");
   } catch (error) {
     console.error("could not read broker positions:", error instanceof Error ? error.message : error);
-    return { trimmed, cash_adjusted: 0 };
+    return { trimmed, adopted, cash_adjusted: 0 };
   }
 
   // 1. Trim oversized positions back to the recorded stake.
