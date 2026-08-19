@@ -1003,6 +1003,18 @@ export async function managePaperTrades(
   const closed: CycleResult["paper_closed"] = [];
   const held: { ticker: string; rank: number; score: number }[] = [];
 
+  // Before deciding exits in the live book, make sure the book actually matches
+  // the broker: a position held with no trade row would otherwise never be
+  // considered for sale at all.
+  if (phase !== "entry" && activeMode === "live") {
+    try {
+      const adopted = await adoptUntrackedPositions();
+      if (adopted.length > 0) console.log("adopted untracked broker positions:", adopted.join(" "));
+    } catch (error) {
+      console.error("adoption failed:", error instanceof Error ? error.message : error);
+    }
+  }
+
   const { data: openRows, error: openErr } = await supabaseAdmin
     .from("trades")
     .select("*")
