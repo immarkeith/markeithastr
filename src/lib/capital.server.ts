@@ -317,3 +317,22 @@ export async function setLadderHold(hold: boolean): Promise<void> {
     .from("capital_ladder_state" as never)
     .upsert({ id: 1, hold_level: hold } as never);
 }
+
+/**
+ * Reset the desk to the standard starting level. Used when the owner restarts
+ * the bot after a manual stop: counters start clean so a stale breach from a
+ * bookkeeping glitch cannot keep the stake small.
+ */
+export async function resetLadder(): Promise<LadderState> {
+  const db = await admin();
+  const next: LadderState = {
+    stocks_per_day: 1,
+    position_dollars: STANDARD_DOLLARS,
+    stable_days: 0,
+    breach_days: 0,
+    hold_level: false,
+    last_evaluated_date: null,
+  };
+  await db.from("capital_ladder_state" as never).upsert({ id: 1, ...next } as never);
+  return next;
+}
