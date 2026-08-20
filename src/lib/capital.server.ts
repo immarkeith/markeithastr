@@ -16,6 +16,8 @@ export const STANDARD_DOLLARS = 20;
 export const MIN_DOLLARS = 10;
 export const STABLE_DAYS_REQUIRED = 5;
 export const BREACH_DAYS_REQUIRED = 2;
+/** Ignore shortfalls smaller than this (cents of fees, stale quotes). */
+export const BREACH_TOLERANCE = 0.5;
 export const MAX_STOCKS = 4;
 
 export interface LadderStep {
@@ -110,7 +112,9 @@ export function evaluateLadder(state: LadderState, capital: number): LadderDecis
   }
 
   // --- below the current level's requirement: consider stepping down --------
-  if (capital < required) {
+  // A rounding-sized miss (a few cents of fees or a stale quote) is not a real
+  // shortfall and must never shrink the stake.
+  if (capital < required - BREACH_TOLERANCE) {
     breach += 1;
     stable = 0;
     if (breach >= BREACH_DAYS_REQUIRED && index > 0) {
@@ -312,4 +316,23 @@ export async function setLadderHold(hold: boolean): Promise<void> {
   await db
     .from("capital_ladder_state" as never)
     .upsert({ id: 1, hold_level: hold } as never);
+}
+
+/**
+ * Reset the desk to the standard starting level. Used when the owner restarts
+ * the bot after a manual stop: counters start clean so a stale breach from a
+ * bookkeeping glitch cannot keep the stake small.
+ */
+export async function resetLadder(): Promise<LadderState> {
+  const db = await admin();
+  const next: LadderState = {
+    stocks_per_day: 1,
+    position_dollars: STANDARD_DOLLARS,
+    stable_days: 0,
+    breach_days: 0,
+    hold_level: false,
+    last_evaluated_date: null,
+  };
+  await db.from("capital_ladder_state" as never).upsert({ id: 1, ...next } as never);
+  return next;
 }

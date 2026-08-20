@@ -955,24 +955,39 @@ async function availableCash(): Promise<number> {
 }
 
 /**
- * Capital used for scaling decisions: settled cash PLUS banked profit. Saved
- * profit counts as cushion but is never invested automatically — it only moves
- * into the stake pool if the owner releases it.
+ * Capital used for scaling decisions: what the account is genuinely worth, not
+ * just the idle slice. Settled cash, cash still settling under T+1, banked
+ * profit, and the market value of anything currently held all count. Sizing the
+ * desk off settled cash alone made a normal day (stake invested, proceeds
+ * unsettled) look like a shortfall and shrank the stake for no real reason.
  */
 export async function scalingCapital(): Promise<number> {
   const { data, error } = await supabaseAdmin
     .from("ledger_entries")
     .select("amount, available_on, kind");
   if (error) throw new Error(error.message);
-  const day = today();
   let sum = 0;
-  for (const row of data ?? []) {
-    if (String(row.kind) === "reserve") {
-      sum += Number(row.amount);
-      continue;
+  for (const row of data ?? []) sum += Number(row.amount);
+
+  // Money sitting inside an open position is still capital.
+  try {
+    const s = await loadSettings();
+    if (s.paper_mode === false) {
+      const { listPositions } = await import("./broker.server");
+      const positions = await listPositions("live");
+      for (const pos of positions) sum += Number(pos.market_value ?? 0);
+    } else {
+      const { data: openRows } = await supabaseAdmin
+        .from("trades")
+        .select("dollars")
+        .eq("status", "open")
+        .eq("mode", "paper");
+      for (const row of openRows ?? []) sum += Number(row.dollars);
     }
-    if (String(row.available_on) <= day) sum += Number(row.amount);
+  } catch (error) {
+    console.error("scalingCapital positions:", error instanceof Error ? error.message : error);
   }
+
   return Number(sum.toFixed(2));
 }
 

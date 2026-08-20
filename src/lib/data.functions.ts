@@ -335,6 +335,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
 
     return {
       mode,
+      bot_running: settings?.auto_run !== false && settings?.strategy_enabled !== false,
       account,
       broker_error,
       cash: {
