@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { MarketStatusBar } from "@/components/MarketStatusBar";
 import { StatTile } from "@/components/StatTile";
 import { dashboardQuery, money } from "@/lib/queries";
+import { setBotRunning } from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
