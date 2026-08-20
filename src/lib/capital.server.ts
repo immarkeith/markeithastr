@@ -110,7 +110,9 @@ export function evaluateLadder(state: LadderState, capital: number): LadderDecis
   }
 
   // --- below the current level's requirement: consider stepping down --------
-  if (capital < required) {
+  // A rounding-sized miss (a few cents of fees or a stale quote) is not a real
+  // shortfall and must never shrink the stake.
+  if (capital < required - BREACH_TOLERANCE) {
     breach += 1;
     stable = 0;
     if (breach >= BREACH_DAYS_REQUIRED && index > 0) {
