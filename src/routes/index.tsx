@@ -144,6 +144,17 @@ function PnlChart({ rows }: { rows: { exit_date: string; profit: number }[] }) {
 function HomePage() {
   const dash = useQuery(dashboardQuery);
   const d = dash.data;
+  const [busy, setBusy] = useState(false);
+
+  async function toggleBot(running: boolean) {
+    setBusy(true);
+    try {
+      await setBotRunning({ data: { running } });
+      await dash.refetch();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -158,6 +169,37 @@ function HomePage() {
           {d?.scan ? ` Last score ${d.scan.run_date} (${d.scan.scored_count} names).` : ""}
         </p>
       </header>
+
+      {d && !d.bot_running ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 p-4">
+          <div>
+            <p className="font-semibold text-warning">Bot stopped</p>
+            <p className="text-sm text-muted-foreground">
+              No scheduled scoring, buying or selling will happen until you start it again.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => toggleBot(true)}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {busy ? "Starting…" : "Start bot"}
+          </button>
+        </section>
+      ) : null}
+      {d?.bot_running ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => toggleBot(false)}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
+          >
+            {busy ? "Stopping…" : "Stop bot"}
+          </button>
+        </div>
+      ) : null}
 
       {dash.isLoading ? <p className="text-sm text-muted-foreground">Loading the desk…</p> : null}
       {d?.broker_error ? (
