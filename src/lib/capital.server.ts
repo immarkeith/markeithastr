@@ -16,6 +16,8 @@ export const STANDARD_DOLLARS = 20;
 export const MIN_DOLLARS = 10;
 export const STABLE_DAYS_REQUIRED = 5;
 export const BREACH_DAYS_REQUIRED = 2;
+/** Ignore shortfalls smaller than this (cents of fees, stale quotes). */
+export const BREACH_TOLERANCE = 0.5;
 export const MAX_STOCKS = 4;
 
 export interface LadderStep {
