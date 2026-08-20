@@ -351,3 +351,21 @@ export const holdCapitalLevel = createServerFn({ method: "POST" })
     await setLadderHold(data.hold);
     return { ok: true, hold: data.hold };
   });
+
+/**
+ * Master stop/start switch. Stopping makes every scheduled pass a no-op;
+ * starting also resets the position ladder to the standard 1 x $20 level with
+ * clean counters.
+ */
+export const setBotRunning = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .inputValidator((input) => z.object({ running: z.boolean() }).parse(input))
+  .handler(async ({ data }) => {
+    const [{ updateSettings }, { resetLadder }] = await Promise.all([
+      import("./scan.server"),
+      import("./capital.server"),
+    ]);
+    await updateSettings({ auto_run: data.running, strategy_enabled: data.running });
+    if (data.running) await resetLadder();
+    return { ok: true, running: data.running };
+  });
