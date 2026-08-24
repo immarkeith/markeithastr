@@ -888,7 +888,11 @@ export async function reconcileBroker(): Promise<{
   try {
     const { brokerAccount } = await import("./broker.server");
     const account = await brokerAccount("live");
-    const { data: rows } = await supabaseAdmin.from("ledger_entries").select("amount, kind");
+    // Live cash only: paper-race rows carry a strategy_id and are never counted.
+    const { data: rows } = await supabaseAdmin
+      .from("ledger_entries")
+      .select("amount, kind")
+      .is("strategy_id", null);
     let ledgerCash = 0;
     for (const row of rows ?? []) {
       if (String(row.kind) === "reserve") continue;
