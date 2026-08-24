@@ -990,6 +990,7 @@ export async function scalingCapital(): Promise<number> {
         .from("trades")
         .select("dollars")
         .eq("status", "open")
+        .is("strategy_id", null)
         .eq("mode", "paper");
       for (const row of openRows ?? []) sum += Number(row.dollars);
     }
