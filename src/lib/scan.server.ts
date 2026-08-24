@@ -1470,6 +1470,17 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
       dedupe_key: `hold:${hold.ticker}:${status.nyDate}`,
     });
   }
+  // The paper strategy race runs its own exits on the same cached bars. It is
+  // fully isolated (every row carries a strategy_id) and can never block or
+  // change the live book, so a failure here is logged and ignored.
+  try {
+    const { runRacePass, maybeSuggestSwitch } = await import("./race.server");
+    await runRacePass({ phase: "exit" });
+    await maybeSuggestSwitch();
+  } catch (error) {
+    console.error("paper race (exit) failed:", error instanceof Error ? error.message : error);
+  }
+
   const parts: string[] = [];
   if (sim.closed.length) parts.push(`closed ${sim.closed.length}`);
   if (sim.held.length) parts.push(`held ${sim.held.length}`);
