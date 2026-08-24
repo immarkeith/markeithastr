@@ -221,19 +221,26 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       broker_error = error instanceof Error ? error.message : "Broker unavailable";
     }
 
+    // Every query here is scoped to strategy_id IS NULL: that is the real book.
+    // Paper-race rows carry a strategy_id and never reach this dashboard.
     const { data: openTrades } = await db
       .from("trades")
       .select("*")
       .eq("status", "open")
+      .is("strategy_id", null)
       .eq("mode", mode);
     const { data: closedTrades } = await db
       .from("trades")
       .select("exit_date, profit, kept, ticker, mode")
       .eq("status", "closed")
+      .is("strategy_id", null)
       .eq("mode", mode)
       .order("exit_date", { ascending: true })
       .limit(400);
-    const { data: ledger } = await db.from("ledger_entries").select("amount, available_on, kind");
+    const { data: ledger } = await db
+      .from("ledger_entries")
+      .select("amount, available_on, kind")
+      .is("strategy_id", null);
 
     const day = new Date().toISOString().slice(0, 10);
     let available = 0;
