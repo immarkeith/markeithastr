@@ -101,6 +101,7 @@ export const fetchLedger = createServerFn({ method: "GET" })
     const { data, error } = await db
       .from("ledger_entries")
       .select("*")
+      .is("strategy_id", null)
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
