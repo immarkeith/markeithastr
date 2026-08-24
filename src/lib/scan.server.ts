@@ -39,6 +39,7 @@ export interface Settings {
   hold_qualifying_positions: boolean;
   notify_push: boolean;
   auto_run: boolean;
+  strategy_enabled: boolean;
   paper_mode: boolean;
   ml_enabled: boolean;
   ml_target: string;
