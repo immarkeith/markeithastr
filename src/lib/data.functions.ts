@@ -86,6 +86,8 @@ export const fetchTrades = createServerFn({ method: "GET" })
     const { data, error } = await db
       .from("trades")
       .select("*")
+      // Live book only; paper-race trades live in the Research Log.
+      .is("strategy_id", null)
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
@@ -99,6 +101,7 @@ export const fetchLedger = createServerFn({ method: "GET" })
     const { data, error } = await db
       .from("ledger_entries")
       .select("*")
+      .is("strategy_id", null)
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
@@ -218,19 +221,26 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       broker_error = error instanceof Error ? error.message : "Broker unavailable";
     }
 
+    // Every query here is scoped to strategy_id IS NULL: that is the real book.
+    // Paper-race rows carry a strategy_id and never reach this dashboard.
     const { data: openTrades } = await db
       .from("trades")
       .select("*")
       .eq("status", "open")
+      .is("strategy_id", null)
       .eq("mode", mode);
     const { data: closedTrades } = await db
       .from("trades")
       .select("exit_date, profit, kept, ticker, mode")
       .eq("status", "closed")
+      .is("strategy_id", null)
       .eq("mode", mode)
       .order("exit_date", { ascending: true })
       .limit(400);
-    const { data: ledger } = await db.from("ledger_entries").select("amount, available_on, kind");
+    const { data: ledger } = await db
+      .from("ledger_entries")
+      .select("amount, available_on, kind")
+      .is("strategy_id", null);
 
     const day = new Date().toISOString().slice(0, 10);
     let available = 0;
@@ -420,6 +430,8 @@ export const fetchTradeHistory = createServerFn({ method: "GET" })
     const { data: trades, error } = await db
       .from("trades")
       .select("*")
+      // Live trade log. The paper race has its own log (Research Log).
+      .is("strategy_id", null)
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);

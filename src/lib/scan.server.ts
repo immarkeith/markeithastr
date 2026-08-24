@@ -39,6 +39,7 @@ export interface Settings {
   hold_qualifying_positions: boolean;
   notify_push: boolean;
   auto_run: boolean;
+  strategy_enabled: boolean;
   paper_mode: boolean;
   ml_enabled: boolean;
   ml_target: string;
@@ -752,6 +753,7 @@ export async function adoptUntrackedPositions(): Promise<string[]> {
     .from("trades")
     .select("id, ticker")
     .eq("status", "open")
+    .is("strategy_id", null)
     .eq("mode", "live");
   const known = new Set((openRows ?? []).map((t) => String(t.ticker).toUpperCase()));
   const unknown = positions.filter((p) => !known.has(p.ticker) && p.qty > 0);
@@ -829,6 +831,7 @@ export async function reconcileBroker(): Promise<{
     .from("trades")
     .select("id, ticker, dollars, entry_price, status_note")
     .eq("status", "open")
+    .is("strategy_id", null)
     .eq("mode", "live");
   const open = openRows ?? [];
 
@@ -885,7 +888,11 @@ export async function reconcileBroker(): Promise<{
   try {
     const { brokerAccount } = await import("./broker.server");
     const account = await brokerAccount("live");
-    const { data: rows } = await supabaseAdmin.from("ledger_entries").select("amount, kind");
+    // Live cash only: paper-race rows carry a strategy_id and are never counted.
+    const { data: rows } = await supabaseAdmin
+      .from("ledger_entries")
+      .select("amount, kind")
+      .is("strategy_id", null);
     let ledgerCash = 0;
     for (const row of rows ?? []) {
       if (String(row.kind) === "reserve") continue;
@@ -943,7 +950,8 @@ async function latestBarByTicker(tickers: string[]) {
 async function availableCash(): Promise<number> {
   const { data, error } = await supabaseAdmin
     .from("ledger_entries")
-    .select("amount, available_on, kind");
+    .select("amount, available_on, kind")
+    .is("strategy_id", null);
   if (error) throw new Error(error.message);
   const day = today();
   let sum = 0;
@@ -964,7 +972,8 @@ async function availableCash(): Promise<number> {
 export async function scalingCapital(): Promise<number> {
   const { data, error } = await supabaseAdmin
     .from("ledger_entries")
-    .select("amount, available_on, kind");
+    .select("amount, available_on, kind")
+    .is("strategy_id", null);
   if (error) throw new Error(error.message);
   let sum = 0;
   for (const row of data ?? []) sum += Number(row.amount);
@@ -981,6 +990,7 @@ export async function scalingCapital(): Promise<number> {
         .from("trades")
         .select("dollars")
         .eq("status", "open")
+        .is("strategy_id", null)
         .eq("mode", "paper");
       for (const row of openRows ?? []) sum += Number(row.dollars);
     }
@@ -1034,6 +1044,8 @@ export async function managePaperTrades(
     .from("trades")
     .select("*")
     .eq("status", "open")
+    // Live book only — paper-race rows are handled by race.server.ts.
+    .is("strategy_id", null)
     .eq("mode", activeMode);
   if (openErr) throw new Error(openErr.message);
   const openTrades = openRows ?? [];
@@ -1282,6 +1294,12 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
 
   const scan = await runScan();
   const sim = await managePaperTrades();
+  try {
+    const { runRacePass } = await import("./race.server");
+    await runRacePass({ phase: "both" });
+  } catch (error) {
+    console.error("paper race failed:", error instanceof Error ? error.message : error);
+  }
   const { generateInsights } = await import("./notify.server");
   await generateInsights(status.nyDate);
 
@@ -1458,6 +1476,17 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
       dedupe_key: `hold:${hold.ticker}:${status.nyDate}`,
     });
   }
+  // The paper strategy race runs its own exits on the same cached bars. It is
+  // fully isolated (every row carries a strategy_id) and can never block or
+  // change the live book, so a failure here is logged and ignored.
+  try {
+    const { runRacePass, maybeSuggestSwitch } = await import("./race.server");
+    await runRacePass({ phase: "exit" });
+    await maybeSuggestSwitch();
+  } catch (error) {
+    console.error("paper race (exit) failed:", error instanceof Error ? error.message : error);
+  }
+
   const parts: string[] = [];
   if (sim.closed.length) parts.push(`closed ${sim.closed.length}`);
   if (sim.held.length) parts.push(`held ${sim.held.length}`);
@@ -1566,6 +1595,15 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
       dedupe_key: `entry:${entry.ticker}:${status.nyDate}`,
     });
   }
+  // Paper strategy race: simulated buys on the same fresh ranking, isolated by
+  // strategy_id and never sent to any broker.
+  try {
+    const { runRacePass } = await import("./race.server");
+    await runRacePass({ phase: "entry" });
+  } catch (error) {
+    console.error("paper race (entry) failed:", error instanceof Error ? error.message : error);
+  }
+
   const insights = await generateInsights(status.nyDate);
 
   return {

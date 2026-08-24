@@ -34,9 +34,30 @@ export const loadHistory = createServerFn({ method: "POST" })
   });
 
 
+/**
+ * The one manual "Rescore now" action: top up any missing recent sessions from
+ * the feed, then rebuild every indicator and re-rank the universe. Caching a day
+ * we already have costs nothing, so this is safe to press any time.
+ */
 export const runScanNow = createServerFn({ method: "POST" })
   .middleware([requireGate]).handler(async () => {
-  const { runScan } = await import("./scan.server");
+  const { runScan, missingDates, cacheOneDay, barCoverage, backfillHistory } = await import(
+    "./scan.server"
+  );
+  const coverage = await barCoverage();
+  if (coverage.length < 55 || Number(coverage[0]?.ticker_count ?? 0) < 100) {
+    // Not enough clean history to score anything — rebuild the whole window.
+    await backfillHistory();
+  } else {
+    const missing = await missingDates();
+    for (const date of missing.slice(-6)) {
+      try {
+        await cacheOneDay(date);
+      } catch (error) {
+        console.error("cache day failed:", error instanceof Error ? error.message : error);
+      }
+    }
+  }
   return runScan();
 });
 

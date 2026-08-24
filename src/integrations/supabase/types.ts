@@ -326,6 +326,7 @@ export type Database = {
           id: string
           kind: string
           note: string | null
+          strategy_id: string | null
           trade_id: string | null
         }
         Insert: {
@@ -336,6 +337,7 @@ export type Database = {
           id?: string
           kind: string
           note?: string | null
+          strategy_id?: string | null
           trade_id?: string | null
         }
         Update: {
@@ -346,9 +348,17 @@ export type Database = {
           id?: string
           kind?: string
           note?: string | null
+          strategy_id?: string | null
           trade_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ledger_entries_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ledger_entries_trade_id_fkey"
             columns: ["trade_id"]
@@ -524,6 +534,56 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      paper_slots: {
+        Row: {
+          breach_days: number
+          created_at: string
+          enabled: boolean
+          id: number
+          last_evaluated_date: string | null
+          position_dollars: number
+          stable_days: number
+          started_on: string
+          stocks_per_day: number
+          strategy_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          breach_days?: number
+          created_at?: string
+          enabled?: boolean
+          id: number
+          last_evaluated_date?: string | null
+          position_dollars?: number
+          stable_days?: number
+          started_on?: string
+          stocks_per_day?: number
+          strategy_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          breach_days?: number
+          created_at?: string
+          enabled?: boolean
+          id?: number
+          last_evaluated_date?: string | null
+          position_dollars?: number
+          stable_days?: number
+          started_on?: string
+          stocks_per_day?: number
+          strategy_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_slots_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -764,6 +824,7 @@ export type Database = {
           profit: number | null
           status: string
           status_note: string | null
+          strategy_id: string | null
           ticker: string
         }
         Insert: {
@@ -783,6 +844,7 @@ export type Database = {
           profit?: number | null
           status?: string
           status_note?: string | null
+          strategy_id?: string | null
           ticker: string
         }
         Update: {
@@ -802,9 +864,18 @@ export type Database = {
           profit?: number | null
           status?: string
           status_note?: string | null
+          strategy_id?: string | null
           ticker?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "trades_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       watchlist_candidates: {
         Row: {

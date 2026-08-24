@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { MarketStatusBar } from "@/components/MarketStatusBar";
+import { PnlChart } from "@/components/PnlChart";
 import { StatTile } from "@/components/StatTile";
 import { dashboardQuery, money } from "@/lib/queries";
 import { setBotRunning } from "@/lib/scan.functions";
@@ -25,122 +26,6 @@ export const Route = createFileRoute("/")({
   }),
   component: HomePage,
 });
-
-const RANGES = [
-  { key: "1d", label: "Today", days: 1 },
-  { key: "1w", label: "Week", days: 7 },
-  { key: "1m", label: "Month", days: 30 },
-  { key: "3m", label: "3 months", days: 90 },
-] as const;
-
-function PnlChart({ rows }: { rows: { exit_date: string; profit: number }[] }) {
-  const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("1w");
-  const active = RANGES.find((r) => r.key === range) ?? RANGES[1];
-
-  const series = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setUTCDate(cutoff.getUTCDate() - (active.days - 1));
-    const from = cutoff.toISOString().slice(0, 10);
-    const byDay = new Map<string, number>();
-    for (const row of rows) {
-      if (!row.exit_date || row.exit_date < from) continue;
-      byDay.set(row.exit_date, (byDay.get(row.exit_date) ?? 0) + row.profit);
-    }
-    const days = [...byDay.keys()].sort();
-    let running = 0;
-    return days.map((day) => {
-      running += byDay.get(day) ?? 0;
-      return { day, daily: byDay.get(day) ?? 0, cumulative: Number(running.toFixed(2)) };
-    });
-  }, [rows, active.days]);
-
-  const total = series.length > 0 ? series[series.length - 1]!.cumulative : 0;
-  const values = series.map((p) => p.cumulative);
-  const max = Math.max(0.01, ...values.map(Math.abs));
-  const width = 100;
-  const height = 40;
-  const path = series
-    .map((point, i) => {
-      const x = series.length === 1 ? width : (i / (series.length - 1)) * width;
-      const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
-      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
-
-  return (
-    <section className="space-y-3 rounded-md border border-border bg-card p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Profit / loss</h2>
-        <div className="flex gap-1">
-          {RANGES.map((r) => (
-            <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                r.key === range
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <p
-        className={`text-2xl font-bold tabular-nums ${
-          total >= 0 ? "text-success" : "text-destructive"
-        }`}
-      >
-        {total >= 0 ? "+" : ""}
-        {money(total)}
-      </p>
-
-      {series.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No closed trades in this window yet — the line starts once a position is sold.
-        </p>
-      ) : (
-        <>
-          <svg viewBox={`0 0 ${width} ${height}`} className="h-28 w-full" preserveAspectRatio="none">
-            <line
-              x1="0"
-              x2={width}
-              y1={height / 2}
-              y2={height / 2}
-              stroke="currentColor"
-              strokeWidth="0.3"
-              className="text-border"
-            />
-            <path
-              d={path}
-              fill="none"
-              strokeWidth="1.2"
-              stroke="currentColor"
-              className={total >= 0 ? "text-success" : "text-destructive"}
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
-          <ul className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-            {series
-              .slice(-6)
-              .reverse()
-              .map((point) => (
-                <li key={point.day} className="flex justify-between tabular-nums">
-                  <span>{point.day}</span>
-                  <span className={point.daily >= 0 ? "text-success" : "text-destructive"}>
-                    {point.daily >= 0 ? "+" : ""}
-                    {money(point.daily)}
-                  </span>
-                </li>
-              ))}
-          </ul>
-        </>
-      )}
-    </section>
-  );
-}
 
 function HomePage() {
   const dash = useQuery(dashboardQuery);

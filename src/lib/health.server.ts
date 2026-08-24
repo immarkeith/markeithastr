@@ -187,6 +187,8 @@ export async function runHealthCheck(): Promise<HealthResult> {
     .from("trades")
     .select("ticker, entry_date, kind")
     .eq("status", "open")
+    // Paper-race rows carry a strategy_id and are managed by the Research Lab.
+    .is("strategy_id", null)
     .eq("mode", "paper")
     .eq("kind", "day")
     .lt("entry_date", status.nyDate);

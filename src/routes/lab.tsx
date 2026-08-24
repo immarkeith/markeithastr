@@ -1,34 +1,34 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { FEATURE_LABELS, type FeatureName } from "@/lib/features";
 import {
-  getModelHistory,
-  runPredictLatest,
-  runWalkForwardNow,
-} from "@/lib/research.functions";
-import { runStrategyLab } from "@/lib/scan.functions";
+  adjustRaceCash,
+  fetchRace,
+  openRaceTrade,
+  runRaceNow,
+  updateRaceSlot,
+} from "@/lib/race.functions";
+import { money } from "@/lib/queries";
 
 export const Route = createFileRoute("/lab")({
   head: () => ({
     meta: [
-      { title: "Strategy lab — ASTR Daily Rotation Desk" },
+      { title: "Research Lab — ASTR Strategy Race" },
       {
         name: "description",
         content:
-          "Replay alternative factor-weight formulas over cached market history to see which scoring mix would have picked better.",
+          "Three scoring formulas trade a simulated book side by side with the live strategy on the same $20 stake, so a clear winner can be seen before anything changes.",
       },
-      { property: "og:title", content: "Strategy lab — ASTR" },
+      { property: "og:title", content: "Research Lab — ASTR Strategy Race" },
       {
         property: "og:description",
-        content: "Compare scoring formulas against recent sessions before you change the weights.",
+        content: "Paper-test scoring formulas in parallel with live trading on identical stakes.",
       },
     ],
   }),
@@ -36,391 +36,368 @@ export const Route = createFileRoute("/lab")({
 });
 
 function LabPage() {
-  const run = useServerFn(runStrategyLab);
-  const walkForward = useServerFn(runWalkForwardNow);
-  const predict = useServerFn(runPredictLatest);
-  const history = useServerFn(getModelHistory);
-  const [sessions, setSessions] = useState("12");
-  const [universe, setUniverse] = useState("400");
-  const [mlUniverse, setMlUniverse] = useState("300");
+  const qc = useQueryClient();
+  const race = useQuery({ queryKey: ["race"], queryFn: () => fetchRace() });
+  const setSlotFn = useServerFn(updateRaceSlot);
+  const runFn = useServerFn(runRaceNow);
 
-  const test = useMutation({
-    mutationFn: () =>
-      run({ data: { sessions: Number(sessions) || 12, universe: Number(universe) || 400 } }),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const models = useQuery({ queryKey: ["model-history"], queryFn: () => history() });
-
-  const wf = useMutation({
-    mutationFn: () => walkForward({ data: { universe: Number(mlUniverse) || 300, folds: 4 } }),
+  const run = useMutation({
+    mutationFn: () => runFn({ data: { phase: "both" } }),
     onSuccess: async (res) => {
-      const best = [...res.systems].sort((a, b) => b.avg_return_pct - a.avg_return_pct)[0];
-      toast.success(
-        best
-          ? `${res.folds} fold(s) tested — best out-of-sample: ${best.label}.`
-          : "Not enough history to complete a fold.",
-      );
-      await models.refetch();
+      const opened = res.slots.reduce((n, s) => n + s.opened.length, 0);
+      const closed = res.slots.reduce((n, s) => n + s.closed.length, 0);
+      toast.success(`Test pass done — ${opened} simulated buy(s), ${closed} sell(s).`);
+      await qc.invalidateQueries({ queryKey: ["race"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: Error) => toast.error(error.message),
   });
 
-  const live = useMutation({
-    mutationFn: () => predict({ data: { universe: Number(mlUniverse) || 300 } }),
-    onSuccess: (res) =>
-      res.rows.length === 0
-        ? toast.info("Not enough completed history to train on yet — load more market data.")
-        : toast.success(`Predicted ${res.rows.length} names for ${res.as_of}.`),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-
-  const result = test.data;
-  const ranked = [...(result?.results ?? [])].sort(
-    (a, b) => b.total_return_pct - a.total_return_pct,
-  );
+  const d = race.data;
+  const slots = (d?.entrants ?? []).filter((e) => !e.live);
+  const live = (d?.entrants ?? []).find((e) => e.live) ?? null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Strategy lab</h1>
-        <p className="text-sm text-muted-foreground">
-          Between the daily buy and sell, this replays different scoring formulas over the price
-          history already cached — no extra data calls, no real money. The winner tells you which
-          weight mix to try in Settings.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-card p-4">
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <Label htmlFor="sessions">Sessions to replay</Label>
-          <Input
-            id="sessions"
-            className="w-28"
-            inputMode="numeric"
-            value={sessions}
-            onChange={(e) => setSessions(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="universe">Tickers per session</Label>
-          <Input
-            id="universe"
-            className="w-28"
-            inputMode="numeric"
-            value={universe}
-            onChange={(e) => setUniverse(e.target.value)}
-          />
-        </div>
-        <Button onClick={() => test.mutate()} disabled={test.isPending}>
-          {test.isPending ? "Replaying…" : "Run comparison"}
-        </Button>
-      </div>
-
-      {result && (
-        <p className="text-sm text-muted-foreground">
-          {result.sessions} sessions · {result.tickers} tickers · through {result.as_of ?? "—"} ·{" "}
-          {result.picks_per_day} pick(s)/day at score ≥ {result.min_score}
-        </p>
-      )}
-
-      {ranked.length > 0 && (
-        <div className="overflow-x-auto rounded-md border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="p-2 text-left">Formula</th>
-                <th className="p-2 text-right">Picks</th>
-                <th className="p-2 text-right">Win rate</th>
-                <th className="p-2 text-right">Avg / trade</th>
-                <th className="p-2 text-right">Total</th>
-                <th className="p-2 text-left">Best</th>
-                <th className="p-2 text-left">Worst</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ranked.map((r, i) => (
-                <tr key={r.id} className={i === 0 ? "bg-success/5" : ""}>
-                  <td className="p-2 font-semibold">
-                    {r.label}
-                    {i === 0 && <span className="ml-2 text-xs text-success">best</span>}
-                    <span className="block text-xs font-normal text-muted-foreground">
-                      {r.weights.trend}/{r.weights.momentum}/{r.weights.volume}/
-                      {r.weights.relative_strength}/{r.weights.volatility_quality}
-                    </span>
-                  </td>
-                  <td className="p-2 text-right tabular-nums">{r.picks}</td>
-                  <td className="p-2 text-right tabular-nums">{r.win_rate}%</td>
-                  <td
-                    className={`p-2 text-right tabular-nums ${
-                      r.avg_return_pct >= 0 ? "text-success" : "text-destructive"
-                    }`}
-                  >
-                    {r.avg_return_pct >= 0 ? "+" : ""}
-                    {r.avg_return_pct}%
-                  </td>
-                  <td
-                    className={`p-2 text-right tabular-nums ${
-                      r.total_return_pct >= 0 ? "text-success" : "text-destructive"
-                    }`}
-                  >
-                    {r.total_return_pct >= 0 ? "+" : ""}
-                    {r.total_return_pct}%
-                  </td>
-                  <td className="p-2 text-xs text-muted-foreground">
-                    {r.best ? `${r.best.ticker} ${r.best.ret > 0 ? "+" : ""}${r.best.ret}%` : "—"}
-                  </td>
-                  <td className="p-2 text-xs text-muted-foreground">
-                    {r.worst ? `${r.worst.ticker} ${r.worst.ret}%` : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {!result && !test.isPending && (
-        <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          Run a comparison to see how each formula would have done. Needs cached market data first.
-        </p>
-      )}
-
-      <hr className="border-border/60" />
-
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Predictive model (walk-forward)</h2>
+          <h1 className="text-2xl font-bold tracking-tight">Research Lab</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            A pattern-learning model (random forest) trains on past sessions and is graded only on
-            the sessions that came after — never on days it learned from. The table compares three
-            systems on exactly the same out-of-sample days: your ASTR score alone, the model alone,
-            and the blend set in Settings. Nothing here changes your live picks.
+            Three scoring formulas trade a simulated book beside the live strategy, on the same
+            stake and the same market data, so the only difference is the formula. Nothing here can
+            place a broker order, and none of this money touches the live ledger.
           </p>
         </div>
+        <Button onClick={() => run.mutate()} disabled={run.isPending}>
+          {run.isPending ? "Running…" : "Run test pass"}
+        </Button>
+      </header>
 
-        <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-card p-4">
-          <div className="space-y-1">
-            <Label htmlFor="mlUniverse">Tickers per session</Label>
-            <Input
-              id="mlUniverse"
-              className="w-28"
-              inputMode="numeric"
-              value={mlUniverse}
-              onChange={(e) => setMlUniverse(e.target.value)}
-            />
-          </div>
-          <Button onClick={() => wf.mutate()} disabled={wf.isPending}>
-            {wf.isPending ? "Training folds…" : "Run walk-forward test"}
+      <section className="grid gap-3 sm:grid-cols-3">
+        <StatTile
+          label="Days testing"
+          value={`${d?.days_running ?? 0}`}
+          hint={`a verdict needs ${d?.min_days ?? 28} days`}
+          tone="accent"
+        />
+        <StatTile
+          label="Live strategy"
+          value={live ? `${live.total_pnl >= 0 ? "+" : ""}${money(live.total_pnl)}` : "—"}
+          hint={live ? `${live.trades} closed trade(s)` : "the control line"}
+          tone={live && live.total_pnl >= 0 ? "positive" : "default"}
+        />
+        <StatTile
+          label="Best paper formula"
+          value={slots[0] ? slots[0].name : "—"}
+          hint={
+            slots.length
+              ? `${slots.reduce((best, s) => (s.total_pnl > best.total_pnl ? s : best), slots[0]!).total_pnl >= 0 ? "+" : ""}${money(
+                  slots.reduce((best, s) => (s.total_pnl > best.total_pnl ? s : best), slots[0]!)
+                    .total_pnl,
+                )} realised`
+              : "no slots yet"
+          }
+        />
+      </section>
+
+      {d?.suggestion ? (
+        <section className="rounded-md border border-primary/40 bg-primary/10 p-4">
+          <p className="font-semibold text-primary">
+            {d.suggestion.name} is ahead of the live strategy by {money(d.suggestion.edge)}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            After {d.days_running} days on the same stake. Nothing switched automatically — turn it
+            on yourself from the{" "}
+            <Link to="/strategy" className="text-primary hover:underline">
+              Strategy tab
+            </Link>{" "}
+            if you want it trading real money.
+          </p>
+        </section>
+      ) : null}
+
+      {race.isLoading ? <p className="text-sm text-muted-foreground">Loading the race…</p> : null}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {slots.map((slot) => (
+          <SlotCard
+            key={slot.key}
+            slot={slot}
+            strategies={d?.strategies ?? []}
+            onPick={async (strategyId) => {
+              try {
+                await setSlotFn({ data: { id: slot.slot_id!, strategy_id: strategyId } });
+                toast.success("Slot switched — its counters and start date reset.");
+                await qc.invalidateQueries({ queryKey: ["race"] });
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Could not switch the slot.");
+              }
+            }}
+            onToggle={async (enabled) => {
+              try {
+                await setSlotFn({ data: { id: slot.slot_id!, enabled } });
+                await qc.invalidateQueries({ queryKey: ["race"] });
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Could not update the slot.");
+              }
+            }}
+          />
+        ))}
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Every simulated trade is written to the{" "}
+        <Link to="/research-log" className="text-primary hover:underline">
+          Research Log
+        </Link>{" "}
+        with its own strategy tag. The live{" "}
+        <Link to="/trade-history" className="text-primary hover:underline">
+          Trade Log
+        </Link>{" "}
+        never includes them.
+      </p>
+    </div>
+  );
+}
+
+type Entrant = NonNullable<Awaited<ReturnType<typeof fetchRace>>>["entrants"][number];
+
+function SlotCard({
+  slot,
+  strategies,
+  onPick,
+  onToggle,
+}: {
+  slot: Entrant;
+  strategies: { id: string; name: string; description: string }[];
+  onPick: (strategyId: string) => Promise<void>;
+  onToggle: (enabled: boolean) => Promise<void>;
+}) {
+  const [openTools, setOpenTools] = useState(false);
+
+  return (
+    <section className="space-y-4 rounded-md border border-border bg-card p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+            Rank #{slot.rank}
+          </p>
+          <h2 className="text-lg font-bold leading-tight">{slot.name}</h2>
+          <p className="text-xs text-muted-foreground">
+            {money(slot.stake)} per stock · {slot.stocks_per_day} at a time
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onToggle(!slot.enabled)}
+          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
+            slot.enabled
+              ? "bg-primary/20 text-primary"
+              : "border border-border text-muted-foreground"
+          }`}
+        >
+          {slot.enabled ? "Testing" : "Paused"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded border border-border p-2">
+          <p className="text-[10px] uppercase text-muted-foreground">P&amp;L</p>
+          <p
+            className={`text-sm font-bold tabular-nums ${
+              slot.total_pnl >= 0 ? "text-success" : "text-destructive"
+            }`}
+          >
+            {slot.total_pnl >= 0 ? "+" : ""}
+            {money(slot.total_pnl)}
+          </p>
+        </div>
+        <div className="rounded border border-border p-2">
+          <p className="text-[10px] uppercase text-muted-foreground">Win rate</p>
+          <p className="text-sm font-bold tabular-nums">
+            {slot.win_rate === null ? "—" : `${slot.win_rate}%`}
+          </p>
+        </div>
+        <div className="rounded border border-border p-2">
+          <p className="text-[10px] uppercase text-muted-foreground">Cash</p>
+          <p className="text-sm font-bold tabular-nums">{money(slot.cash.available)}</p>
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Holding</p>
+        {slot.holdings.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nothing held right now.</p>
+        ) : (
+          slot.holdings.map((h) => (
+            <div key={h.ticker} className="flex items-baseline justify-between text-sm">
+              <span className="font-semibold">{h.ticker}</span>
+              <span
+                className={`tabular-nums ${h.pl >= 0 ? "text-success" : "text-destructive"}`}
+              >
+                {h.pl >= 0 ? "+" : ""}
+                {money(h.pl)} ({h.pl_pct.toFixed(2)}%)
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Up next</p>
+        {slot.up_next ? (
+          <p className="text-sm">
+            <span className="font-semibold">{slot.up_next.ticker}</span>{" "}
+            <span className="tabular-nums text-primary">
+              {slot.up_next.score.toFixed(1)} pts
+            </span>{" "}
+            <span className="text-xs text-muted-foreground">
+              at ~${slot.up_next.close.toFixed(2)}
+            </span>
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Nothing meets this formula's score bar yet.
+          </p>
+        )}
+      </div>
+
+      <PnlChart rows={slot.closed} ranges={LAB_RANGES} initialRange="1w" title="Profit" compact />
+
+      <button
+        type="button"
+        onClick={() => setOpenTools((v) => !v)}
+        className="text-xs text-primary hover:underline"
+      >
+        {openTools ? "Hide tools" : "Slot tools"}
+      </button>
+
+      {openTools ? (
+        <div className="space-y-4 border-t border-border pt-3">
+          <label className="block space-y-1">
+            <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+              Formula being tested
+            </span>
+            <select
+              value={slot.strategy_id ?? ""}
+              onChange={(e) => void onPick(e.target.value)}
+              className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+            >
+              {strategies.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <SlotCashTools strategyId={slot.strategy_id!} stake={slot.stake} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/** Deposit/withdraw test cash and open a simulated position by hand. */
+function SlotCashTools({ strategyId, stake }: { strategyId: string; stake: number }) {
+  const qc = useQueryClient();
+  const cashFn = useServerFn(adjustRaceCash);
+  const tradeFn = useServerFn(openRaceTrade);
+  const [amount, setAmount] = useState("20");
+  const [ticker, setTicker] = useState("");
+  const [price, setPrice] = useState("");
+  const [dollars, setDollars] = useState(String(stake));
+
+  async function adjust(sign: 1 | -1) {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error("Enter an amount greater than zero.");
+      return;
+    }
+    try {
+      await cashFn({
+        data: {
+          strategy_id: strategyId,
+          amount: sign * value,
+          note: sign > 0 ? "manual paper deposit" : "manual paper withdrawal",
+        },
+      });
+      toast.success(`${sign > 0 ? "Added" : "Removed"} ${money(value)} of test cash.`);
+      await qc.invalidateQueries({ queryKey: ["race"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not adjust the test cash.");
+    }
+  }
+
+  async function open() {
+    try {
+      await tradeFn({
+        data: {
+          strategy_id: strategyId,
+          ticker,
+          entry_price: Number(price),
+          dollars: Number(dollars),
+        },
+      });
+      toast.success(`Opened a simulated ${ticker.toUpperCase()} position.`);
+      setTicker("");
+      setPrice("");
+      await qc.invalidateQueries({ queryKey: ["race"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not open the paper trade.");
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+          Adjust test cash
+        </span>
+        <div className="flex gap-2">
+          <input
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
+          />
+          <Button size="sm" variant="secondary" onClick={() => void adjust(1)}>
+            Deposit
           </Button>
-          <Button variant="secondary" onClick={() => live.mutate()} disabled={live.isPending}>
-            {live.isPending ? "Predicting…" : "Predict today's names"}
+          <Button size="sm" variant="outline" onClick={() => void adjust(-1)}>
+            Withdraw
           </Button>
         </div>
+      </div>
 
-        {models.data && (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile
-              label="Graded predictions"
-              value={`${models.data.accuracy.graded}`}
-              hint="past predictions with a known outcome"
-            />
-            <StatTile
-              label="Direction called right"
-              value={
-                models.data.accuracy.directional_accuracy === null
-                  ? "—"
-                  : `${models.data.accuracy.directional_accuracy}%`
-              }
-              tone={(models.data.accuracy.directional_accuracy ?? 0) > 50 ? "positive" : "default"}
-            />
-            <StatTile
-              label="Top 10% actual return"
-              value={
-                models.data.accuracy.top_decile_avg === null
-                  ? "—"
-                  : `${models.data.accuracy.top_decile_avg}%`
-              }
-              hint="highest-ranked names, realised"
-            />
-            <StatTile
-              label="Models trained"
-              value={`${models.data.models.length}`}
-              hint={models.data.models[0]?.trained_at?.slice(0, 10) ?? "none yet"}
-            />
-          </div>
-        )}
-
-        {wf.data && (
-          <>
-            <p className="text-sm text-muted-foreground">
-              {wf.data.folds} fold(s) · train {wf.data.train_days} / test {wf.data.test_days}{" "}
-              sessions · {wf.data.tickers} tickers · holding {wf.data.holding_days} day(s) · through{" "}
-              {wf.data.as_of ?? "—"} · target {wf.data.target}
-            </p>
-
-            <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="p-2 text-left">System</th>
-                    <th className="p-2 text-right">Trades</th>
-                    <th className="p-2 text-right">Win rate</th>
-                    <th className="p-2 text-right">Avg</th>
-                    <th className="p-2 text-right">Total</th>
-                    <th className="p-2 text-right">vs SPY</th>
-                    <th className="p-2 text-right">Worst drawdown</th>
-                    <th className="p-2 text-right">Profit factor</th>
-                    <th className="p-2 text-right">Sharpe</th>
-                    <th className="p-2 text-right">Rank corr.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...wf.data.systems]
-                    .sort((a, b) => b.avg_return_pct - a.avg_return_pct)
-                    .map((sys, i) => (
-                      <tr key={sys.id} className={i === 0 ? "bg-success/5" : ""}>
-                        <td className="p-2 font-semibold">
-                          {sys.label}
-                          {i === 0 && <span className="ml-2 text-xs text-success">best</span>}
-                        </td>
-                        <td className="p-2 text-right tabular-nums">{sys.picks}</td>
-                        <td className="p-2 text-right tabular-nums">{sys.win_rate}%</td>
-                        <td
-                          className={`p-2 text-right tabular-nums ${
-                            sys.avg_return_pct >= 0 ? "text-success" : "text-destructive"
-                          }`}
-                        >
-                          {sys.avg_return_pct >= 0 ? "+" : ""}
-                          {sys.avg_return_pct}%
-                        </td>
-                        <td className="p-2 text-right tabular-nums">{sys.total_return_pct}%</td>
-                        <td className="p-2 text-right tabular-nums">
-                          {sys.avg_vs_benchmark_pct >= 0 ? "+" : ""}
-                          {sys.avg_vs_benchmark_pct}%
-                        </td>
-                        <td className="p-2 text-right tabular-nums">{sys.max_drawdown_pct}%</td>
-                        <td className="p-2 text-right tabular-nums">{sys.profit_factor}</td>
-                        <td className="p-2 text-right tabular-nums">{sys.sharpe}</td>
-                        <td className="p-2 text-right tabular-nums">{sys.rank_ic ?? "—"}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-
-            {wf.data.warnings.length > 0 && (
-              <ul className="list-disc space-y-1 rounded-md border border-warning/40 bg-warning/5 p-3 pl-6 text-xs text-muted-foreground">
-                {wf.data.warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
-              </ul>
-            )}
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="space-y-2 rounded-md border border-border p-3">
-                <h3 className="text-xs uppercase tracking-widest text-muted-foreground">
-                  Does a higher model rank actually pay?
-                </h3>
-                {wf.data.buckets.map((b) => (
-                  <div key={b.bucket} className="flex justify-between text-xs tabular-nums">
-                    <span>{b.bucket}</span>
-                    <span
-                      className={b.avg_return_pct >= 0 ? "text-success" : "text-destructive"}
-                    >
-                      {b.avg_return_pct >= 0 ? "+" : ""}
-                      {b.avg_return_pct}% · {b.win_rate}% win · {b.rows} rows
-                    </span>
-                  </div>
-                ))}
-                <h3 className="pt-2 text-xs uppercase tracking-widest text-muted-foreground">
-                  By market regime
-                </h3>
-                {wf.data.regimes.map((r) => (
-                  <div key={r.regime} className="flex justify-between text-xs tabular-nums">
-                    <span>{r.regime}</span>
-                    <span className={r.avg_return_pct >= 0 ? "text-success" : "text-destructive"}>
-                      {r.avg_return_pct >= 0 ? "+" : ""}
-                      {r.avg_return_pct}% · {r.win_rate}% win
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2 rounded-md border border-border p-3">
-                <h3 className="text-xs uppercase tracking-widest text-muted-foreground">
-                  What the model leans on most
-                </h3>
-                {wf.data.importance.map((f) => (
-                  <div key={f.feature} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span>{FEATURE_LABELS[f.feature as FeatureName] ?? f.feature}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {Math.round(f.weight * 100)}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-muted">
-                      <div
-                        className="h-1.5 rounded-full bg-primary"
-                        style={{ width: `${Math.min(100, f.weight * 300)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {live.data && live.data.rows.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-xs uppercase tracking-widest text-muted-foreground">
-              Model view of {live.data.as_of} (top 15)
-            </h3>
-            <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="p-2 text-left">Ticker</th>
-                    <th className="p-2 text-right">ASTR score</th>
-                    <th className="p-2 text-right">Expected move</th>
-                    <th className="p-2 text-right">Chance up</th>
-                    <th className="p-2 text-right">Chance hits target</th>
-                    <th className="p-2 text-right">Blended rank</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {live.data.rows.slice(0, 15).map((row) => (
-                    <tr key={row.ticker} className="border-t border-border/60">
-                      <td className="p-2 font-semibold">{row.ticker}</td>
-                      <td className="p-2 text-right tabular-nums">
-                        {row.astr_score === null ? "—" : row.astr_score.toFixed(1)}
-                      </td>
-                      <td
-                        className={`p-2 text-right tabular-nums ${
-                          row.predicted_return >= 0 ? "text-success" : "text-destructive"
-                        }`}
-                      >
-                        {row.predicted_return >= 0 ? "+" : ""}
-                        {row.predicted_return}%
-                      </td>
-                      <td className="p-2 text-right tabular-nums">
-                        {Math.round(row.prob_positive * 100)}%
-                      </td>
-                      <td className="p-2 text-right tabular-nums">
-                        {Math.round(row.prob_target * 100)}%
-                      </td>
-                      <td className="p-2 text-right tabular-nums">{row.combined_score ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </section>
+      <div className="space-y-1">
+        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+          Open a paper trade
+        </span>
+        <div className="flex flex-wrap gap-2">
+          <input
+            placeholder="Ticker"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm uppercase"
+          />
+          <input
+            placeholder="Price"
+            inputMode="decimal"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
+          />
+          <input
+            placeholder="$"
+            inputMode="decimal"
+            value={dollars}
+            onChange={(e) => setDollars(e.target.value)}
+            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
+          />
+          <Button size="sm" onClick={() => void open()} disabled={!ticker || !price}>
+            Add
+          </Button>
+        </div>
+      </div>
     </div>
-
   );
 }
