@@ -1589,6 +1589,15 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
       dedupe_key: `entry:${entry.ticker}:${status.nyDate}`,
     });
   }
+  // Paper strategy race: simulated buys on the same fresh ranking, isolated by
+  // strategy_id and never sent to any broker.
+  try {
+    const { runRacePass } = await import("./race.server");
+    await runRacePass({ phase: "entry" });
+  } catch (error) {
+    console.error("paper race (entry) failed:", error instanceof Error ? error.message : error);
+  }
+
   const insights = await generateInsights(status.nyDate);
 
   return {
