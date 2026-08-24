@@ -972,7 +972,8 @@ async function availableCash(): Promise<number> {
 export async function scalingCapital(): Promise<number> {
   const { data, error } = await supabaseAdmin
     .from("ledger_entries")
-    .select("amount, available_on, kind");
+    .select("amount, available_on, kind")
+    .is("strategy_id", null);
   if (error) throw new Error(error.message);
   let sum = 0;
   for (const row of data ?? []) sum += Number(row.amount);
