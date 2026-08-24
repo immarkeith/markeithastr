@@ -430,6 +430,8 @@ export const fetchTradeHistory = createServerFn({ method: "GET" })
     const { data: trades, error } = await db
       .from("trades")
       .select("*")
+      // Live trade log. The paper race has its own log (Research Log).
+      .is("strategy_id", null)
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);
