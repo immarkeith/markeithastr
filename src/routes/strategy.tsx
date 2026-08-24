@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { LiveTradeTools } from "@/components/LiveTradeTools";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -235,6 +236,16 @@ function StrategyPage() {
         >
           Save strategy
         </Button>
+      </section>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight">Money &amp; positions</h2>
+          <p className="text-sm text-muted-foreground">
+            The capital ladder, logging a trade you placed yourself, and moving cash in or out.
+          </p>
+        </div>
+        <LiveTradeTools />
       </section>
     </div>
   );
