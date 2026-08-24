@@ -1294,6 +1294,12 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
 
   const scan = await runScan();
   const sim = await managePaperTrades();
+  try {
+    const { runRacePass } = await import("./race.server");
+    await runRacePass({ phase: "both" });
+  } catch (error) {
+    console.error("paper race failed:", error instanceof Error ? error.message : error);
+  }
   const { generateInsights } = await import("./notify.server");
   await generateInsights(status.nyDate);
 
