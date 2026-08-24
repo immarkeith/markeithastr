@@ -86,6 +86,8 @@ export const fetchTrades = createServerFn({ method: "GET" })
     const { data, error } = await db
       .from("trades")
       .select("*")
+      // Live book only; paper-race trades live in the Research Log.
+      .is("strategy_id", null)
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
