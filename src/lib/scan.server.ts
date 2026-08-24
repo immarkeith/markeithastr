@@ -753,6 +753,7 @@ export async function adoptUntrackedPositions(): Promise<string[]> {
     .from("trades")
     .select("id, ticker")
     .eq("status", "open")
+    .is("strategy_id", null)
     .eq("mode", "live");
   const known = new Set((openRows ?? []).map((t) => String(t.ticker).toUpperCase()));
   const unknown = positions.filter((p) => !known.has(p.ticker) && p.qty > 0);
