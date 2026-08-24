@@ -831,6 +831,7 @@ export async function reconcileBroker(): Promise<{
     .from("trades")
     .select("id, ticker, dollars, entry_price, status_note")
     .eq("status", "open")
+    .is("strategy_id", null)
     .eq("mode", "live");
   const open = openRows ?? [];
 
