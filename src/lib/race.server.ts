@@ -92,8 +92,8 @@ export async function loadSlots(): Promise<RaceSlot[]> {
 /** Point a slot at a different strategy, or turn it off. */
 export async function setSlot(input: {
   id: number;
-  strategy_id?: string;
-  enabled?: boolean;
+  strategy_id?: string | undefined;
+  enabled?: boolean | undefined;
 }): Promise<{ ok: true }> {
   const patch: Record<string, unknown> = {};
   if (input.strategy_id) {
@@ -574,6 +574,25 @@ async function applySlotLadder(slot: RaceSlot): Promise<void> {
     .eq("id", slot.id);
   slot.stocks_per_day = decision.step.stocks;
   slot.position_dollars = decision.step.dollars;
+}
+
+/** Manually open a simulated position inside one slot (Research Lab tool). */
+export async function openSlotTradeManual(input: {
+  strategy_id: string;
+  ticker: string;
+  entry_price: number;
+  dollars: number;
+}): Promise<{ ok: true; ticker: string }> {
+  const slots = await loadSlots();
+  const slot = slots.find((s) => s.strategy_id === input.strategy_id);
+  if (!slot) throw new Error("That strategy is not in a test slot.");
+  const ticker = input.ticker.trim().toUpperCase();
+  const open = await slotOpenTrades(slot.strategy_id);
+  if (open.some((t) => String(t.ticker).toUpperCase() === ticker)) {
+    throw new Error(`${ticker} is already open in ${slot.name}.`);
+  }
+  await openSlotTrade(slot, ticker, input.entry_price, input.dollars);
+  return { ok: true, ticker };
 }
 
 // ------------------------------------------------------------- standings -----
