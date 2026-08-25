@@ -16,7 +16,6 @@ import { Route as LabRouteImport } from './routes/lab'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as ResearchLogRouteImport } from './routes/research-log'
-import { Route as ScanRouteImport } from './routes/scan'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StrategyRouteImport } from './routes/strategy'
 import { Route as TradeHistoryRouteImport } from './routes/trade-history'
@@ -60,11 +59,6 @@ const ResearchRoute = ResearchRouteImport.update({
 const ResearchLogRoute = ResearchLogRouteImport.update({
   id: '/research-log',
   path: '/research-log',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ScanRoute = ScanRouteImport.update({
-  id: '/scan',
-  path: '/scan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -122,7 +116,6 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/research': typeof ResearchRoute
   '/research-log': typeof ResearchLogRoute
-  '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
@@ -141,7 +134,6 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/research': typeof ResearchRoute
   '/research-log': typeof ResearchLogRoute
-  '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
@@ -161,7 +153,6 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/research': typeof ResearchRoute
   '/research-log': typeof ResearchLogRoute
-  '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
@@ -182,7 +173,6 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/research'
     | '/research-log'
-    | '/scan'
     | '/settings'
     | '/strategy'
     | '/trade-history'
@@ -201,7 +191,6 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/research'
     | '/research-log'
-    | '/scan'
     | '/settings'
     | '/strategy'
     | '/trade-history'
@@ -220,7 +209,6 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/research'
     | '/research-log'
-    | '/scan'
     | '/settings'
     | '/strategy'
     | '/trade-history'
@@ -240,7 +228,6 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   ResearchRoute: typeof ResearchRoute
   ResearchLogRoute: typeof ResearchLogRoute
-  ScanRoute: typeof ScanRoute
   SettingsRoute: typeof SettingsRoute
   StrategyRoute: typeof StrategyRoute
   TradeHistoryRoute: typeof TradeHistoryRoute
@@ -301,13 +288,6 @@ declare module '@tanstack/react-router' {
       path: '/research-log'
       fullPath: '/research-log'
       preLoaderRoute: typeof ResearchLogRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/scan': {
-      id: '/scan'
-      path: '/scan'
-      fullPath: '/scan'
-      preLoaderRoute: typeof ScanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -384,7 +364,6 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   ResearchRoute: ResearchRoute,
   ResearchLogRoute: ResearchLogRoute,
-  ScanRoute: ScanRoute,
   SettingsRoute: SettingsRoute,
   StrategyRoute: StrategyRoute,
   TradeHistoryRoute: TradeHistoryRoute,
