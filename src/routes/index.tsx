@@ -35,6 +35,22 @@ function HomePage() {
   const dash = useQuery(dashboardQuery);
   const d = dash.data;
   const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
+  const runScanFn = useServerFn(runScanNow);
+  const settings = useQuery(settingsQuery);
+  const latest = useQuery(latestRunQuery);
+  const scores = latest.data?.scores ?? [];
+  const tradeable = scores.filter((r) => r.tradeable);
+
+  // Tops up any missing bars, rebuilds indicators and re-ranks — no trading.
+  const rescore = useMutation({
+    mutationFn: () => runScanFn({}),
+    onSuccess: async (res) => {
+      toast.success(`Scored ${res.scored_count} of ${res.universe_size} names.`);
+      await qc.invalidateQueries();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   async function toggleBot(running: boolean) {
     setBusy(true);
