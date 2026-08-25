@@ -247,6 +247,53 @@ function HomePage() {
       </section>
 
       <PnlChart rows={d?.closed ?? []} />
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+              Candidate list
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Every cached name scored on trend, momentum, volume, relative strength and volatility
+              quality. The bot buys from the top of this list.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => rescore.mutate()}
+            disabled={rescore.isPending}
+          >
+            {rescore.isPending ? "Rescoring…" : "Rescore now"}
+          </Button>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <StatTile
+            label="Last scored"
+            value={latest.data?.run ? String(latest.data.run.run_date) : "—"}
+            hint={
+              latest.data?.run?.bars_as_of
+                ? `data through ${String(latest.data.run.bars_as_of)}`
+                : "not run yet"
+            }
+          />
+          <StatTile
+            label="Names scored"
+            value={`${latest.data?.run?.scored_count ?? scores.length}`}
+            hint="cached universe"
+            tone="accent"
+          />
+          <StatTile
+            label="Eligible to buy"
+            value={`${tradeable.length}`}
+            hint={`score ≥ ${settings.data?.min_score_to_trade ?? 60}`}
+            tone={tradeable.length > 0 ? "positive" : "default"}
+          />
+        </div>
+
+        <ScoreTable rows={scores} />
+      </section>
     </div>
   );
 }
