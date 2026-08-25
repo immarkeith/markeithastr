@@ -1,12 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { MarketStatusBar } from "@/components/MarketStatusBar";
 import { PnlChart } from "@/components/PnlChart";
+import { ScoreTable } from "@/components/ScoreTable";
 import { StatTile } from "@/components/StatTile";
-import { dashboardQuery, money } from "@/lib/queries";
-import { setBotRunning } from "@/lib/scan.functions";
+import { Button } from "@/components/ui/button";
+import { dashboardQuery, latestRunQuery, money, settingsQuery } from "@/lib/queries";
+import { runScanNow, setBotRunning } from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
