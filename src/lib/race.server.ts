@@ -891,3 +891,39 @@ export async function maybeSuggestSwitch(): Promise<string | null> {
   });
   return standings.suggestion.name;
 }
+
+/**
+ * The paper race, independent of the live bot switch.
+ *
+ * Scoring and simulated trading must keep running even when live automation is
+ * off (there may be no money in the real account yet), so this tops up any
+ * missing price history, re-scores the universe once, then runs the simulated
+ * pass. Everything it touches carries a strategy_id, so the live book is never
+ * affected. Costs nothing extra: the same cached bars feed both sides.
+ */
+export async function runPaperTesting(
+  phase: "entry" | "exit" | "both",
+): Promise<{ ran: boolean; reason?: string; scored?: number; slots?: RacePassResult["slots"] }> {
+  const { marketStatus } = await import("./market-calendar");
+  const status = marketStatus();
+  if (!status.tradingDay) return { ran: false, reason: "market closed today" };
+
+  let scored: number | undefined;
+  try {
+    const { missingDates, cacheOneDay, runScan } = await import("./scan.server");
+    for (const date of (await missingDates()).slice(-3)) await cacheOneDay(date);
+    scored = (await runScan()).scored_count;
+  } catch (error) {
+    console.error("paper scoring failed:", error instanceof Error ? error.message : error);
+  }
+
+  const pass = await runRacePass({ phase, force: true });
+  if (phase !== "entry") {
+    try {
+      await maybeSuggestSwitch();
+    } catch (error) {
+      console.error("race suggestion failed:", error instanceof Error ? error.message : error);
+    }
+  }
+  return { ran: true, ...(scored === undefined ? {} : { scored }), slots: pass.slots };
+}
