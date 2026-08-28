@@ -613,9 +613,25 @@ export interface RaceEntrant {
   trades: number;
   wins: number;
   rank: number;
-  holdings: { ticker: string; entry_price: number; price: number; pl: number; pl_pct: number }[];
+  holdings: {
+    ticker: string;
+    entry_date: string;
+    entry_price: number;
+    prev_close: number;
+    price: number;
+    dollars: number;
+    pl: number;
+    pl_pct: number;
+    today_pl: number;
+  }[];
   up_next: { ticker: string; score: number; close: number; invalidation: string } | null;
   closed: { exit_date: string; profit: number }[];
+  /** Open-position profit right now, marked to the latest traded price. */
+  unrealized: number;
+  /** How much of that unrealized move happened today. */
+  unrealized_today: number;
+  /** Cash + money at work, used as the percent-change denominator. */
+  basis: number;
 }
 
 /**
@@ -672,17 +688,7 @@ export async function raceStandings(): Promise<{
       trades: closed.length,
       wins,
       rank: 0,
-      holdings: open.map((t) => {
-        const price = Number(closes.get(String(t.ticker)) ?? t.entry_price);
-        const entryPrice = Number(t.entry_price);
-        return {
-          ticker: String(t.ticker),
-          entry_price: entryPrice,
-          price,
-          pl: Number((Number(t.dollars) * (price / entryPrice - 1)).toFixed(2)),
-          pl_pct: Number(((price / entryPrice - 1) * 100).toFixed(2)),
-        };
-      }),
+      holdings: open.map((t) => holdingOf(t as unknown as Record<string, unknown>, closes)),
       up_next: next
         ? {
             ticker: next.ticker,
@@ -692,6 +698,9 @@ export async function raceStandings(): Promise<{
           }
         : null,
       closed,
+      unrealized: 0,
+      unrealized_today: 0,
+      basis: 0,
     });
   }
 
@@ -717,7 +726,7 @@ export async function raceStandings(): Promise<{
   const liveWins = liveClosed.filter((c) => c.profit > 0).length;
   const { data: liveOpen } = await supabaseAdmin
     .from("trades")
-    .select("ticker, entry_price, dollars")
+    .select("ticker, entry_price, dollars, entry_date")
     .is("strategy_id", null)
     .eq("status", "open");
   const liveCloses = await latestCloses((liveOpen ?? []).map((t) => String(t.ticker)));
@@ -751,20 +760,19 @@ export async function raceStandings(): Promise<{
     trades: liveClosed.length,
     wins: liveWins,
     rank: 0,
-    holdings: (liveOpen ?? []).map((t) => {
-      const price = Number(liveCloses.get(String(t.ticker)) ?? t.entry_price);
-      const entryPrice = Number(t.entry_price);
-      return {
-        ticker: String(t.ticker),
-        entry_price: entryPrice,
-        price,
-        pl: Number((Number(t.dollars) * (price / entryPrice - 1)).toFixed(2)),
-        pl_pct: Number(((price / entryPrice - 1) * 100).toFixed(2)),
-      };
-    }),
+    holdings: (liveOpen ?? []).map((t) =>
+      holdingOf(t as unknown as Record<string, unknown>, liveCloses),
+    ),
     up_next: null,
     closed: liveClosed,
+    unrealized: 0,
+    unrealized_today: 0,
+    basis: 0,
   });
+
+  // One free-feed request marks every open position (live and paper) to the
+  // latest traded price, so the "LIVE" graph moves before anything is sold.
+  await markToMarket(entrants);
 
   entrants.sort((a, b) => b.total_pnl - a.total_pnl);
   entrants.forEach((e, i) => {
