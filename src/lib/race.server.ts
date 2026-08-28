@@ -439,9 +439,16 @@ export interface RacePassResult {
  * Never throws into the live pass: each slot is isolated in its own try block.
  */
 export async function runRacePass(
-  options: { phase?: "entry" | "exit" | "both" } = {},
+  options: { phase?: "entry" | "exit" | "both"; force?: boolean } = {},
 ): Promise<RacePassResult> {
   const phase = options.phase ?? "both";
+  // The race owns its own calendar guard: it keeps testing and scoring alive
+  // even when the live bot switch is off, but still skips closed sessions.
+  if (!options.force) {
+    const { marketStatus } = await import("./market-calendar");
+    const status = marketStatus();
+    if (!status.tradingDay) return { slots: [] };
+  }
   const base = await loadSettings();
   const slots = (await loadSlots()).filter((s) => s.enabled);
   const result: RacePassResult = { slots: [] };
@@ -595,7 +602,64 @@ export async function openSlotTradeManual(input: {
   return { ok: true, ticker };
 }
 
+// ------------------------------------------------------------ mark to market --
+
+/** Shape one open trade row into an entrant holding (marked at its last close). */
+function holdingOf(
+  trade: Record<string, unknown>,
+  closes: Map<string, number>,
+): RaceEntrant["holdings"][number] {
+  const ticker = String(trade['ticker']);
+  const entryPrice = Number(trade['entry_price']);
+  const dollars = Number(trade['dollars']);
+  const prevClose = Number(closes.get(ticker) ?? entryPrice);
+  return {
+    ticker,
+    entry_date: String(trade['entry_date'] ?? today()),
+    entry_price: entryPrice,
+    prev_close: prevClose,
+    price: prevClose,
+    dollars,
+    pl: Number((dollars * (prevClose / entryPrice - 1)).toFixed(2)),
+    pl_pct: Number(((prevClose / entryPrice - 1) * 100).toFixed(2)),
+    today_pl: 0,
+  };
+}
+
+/**
+ * Re-price every open position across all entrants in a single request, then
+ * fill in each entrant's unrealized totals and percent basis.
+ */
+async function markToMarket(entrants: RaceEntrant[]): Promise<void> {
+  const tickers = entrants.flatMap((e) => e.holdings.map((h) => h.ticker));
+  const { alpacaLatestPrices } = await import("./market-data.server");
+  const live = tickers.length ? await alpacaLatestPrices(tickers) : new Map<string, number>();
+  const day = today();
+  for (const entrant of entrants) {
+    let unrealized = 0;
+    let todays = 0;
+    let atWork = 0;
+    for (const h of entrant.holdings) {
+      const price = Number(live.get(h.ticker) ?? h.prev_close);
+      h.price = Number(price.toFixed(4));
+      h.pl = Number((h.dollars * (price / h.entry_price - 1)).toFixed(2));
+      h.pl_pct = Number(((price / h.entry_price - 1) * 100).toFixed(2));
+      // Bought today? The whole move is today's. Carried overnight? Only the
+      // move since yesterday's close counts as today.
+      const from = h.entry_date === day ? h.entry_price : h.prev_close;
+      h.today_pl = Number((h.dollars * (price / from - 1)).toFixed(2));
+      unrealized += h.pl;
+      todays += h.today_pl;
+      atWork += h.dollars;
+    }
+    entrant.unrealized = Number(unrealized.toFixed(2));
+    entrant.unrealized_today = Number(todays.toFixed(2));
+    entrant.basis = Number(Math.max(1, entrant.cash.capital + atWork).toFixed(2));
+  }
+}
+
 // ------------------------------------------------------------- standings -----
+
 
 export interface RaceEntrant {
   key: string;
