@@ -439,9 +439,16 @@ export interface RacePassResult {
  * Never throws into the live pass: each slot is isolated in its own try block.
  */
 export async function runRacePass(
-  options: { phase?: "entry" | "exit" | "both" } = {},
+  options: { phase?: "entry" | "exit" | "both"; force?: boolean } = {},
 ): Promise<RacePassResult> {
   const phase = options.phase ?? "both";
+  // The race owns its own calendar guard: it keeps testing and scoring alive
+  // even when the live bot switch is off, but still skips closed sessions.
+  if (!options.force) {
+    const { marketStatus } = await import("./market-calendar");
+    const status = marketStatus();
+    if (!status.tradingDay) return { slots: [] };
+  }
   const base = await loadSettings();
   const slots = (await loadSlots()).filter((s) => s.enabled);
   const result: RacePassResult = { slots: [] };
@@ -595,7 +602,64 @@ export async function openSlotTradeManual(input: {
   return { ok: true, ticker };
 }
 
+// ------------------------------------------------------------ mark to market --
+
+/** Shape one open trade row into an entrant holding (marked at its last close). */
+function holdingOf(
+  trade: Record<string, unknown>,
+  closes: Map<string, number>,
+): RaceEntrant["holdings"][number] {
+  const ticker = String(trade['ticker']);
+  const entryPrice = Number(trade['entry_price']);
+  const dollars = Number(trade['dollars']);
+  const prevClose = Number(closes.get(ticker) ?? entryPrice);
+  return {
+    ticker,
+    entry_date: String(trade['entry_date'] ?? today()),
+    entry_price: entryPrice,
+    prev_close: prevClose,
+    price: prevClose,
+    dollars,
+    pl: Number((dollars * (prevClose / entryPrice - 1)).toFixed(2)),
+    pl_pct: Number(((prevClose / entryPrice - 1) * 100).toFixed(2)),
+    today_pl: 0,
+  };
+}
+
+/**
+ * Re-price every open position across all entrants in a single request, then
+ * fill in each entrant's unrealized totals and percent basis.
+ */
+async function markToMarket(entrants: RaceEntrant[]): Promise<void> {
+  const tickers = entrants.flatMap((e) => e.holdings.map((h) => h.ticker));
+  const { alpacaLatestPrices } = await import("./market-data.server");
+  const live = tickers.length ? await alpacaLatestPrices(tickers) : new Map<string, number>();
+  const day = today();
+  for (const entrant of entrants) {
+    let unrealized = 0;
+    let todays = 0;
+    let atWork = 0;
+    for (const h of entrant.holdings) {
+      const price = Number(live.get(h.ticker) ?? h.prev_close);
+      h.price = Number(price.toFixed(4));
+      h.pl = Number((h.dollars * (price / h.entry_price - 1)).toFixed(2));
+      h.pl_pct = Number(((price / h.entry_price - 1) * 100).toFixed(2));
+      // Bought today? The whole move is today's. Carried overnight? Only the
+      // move since yesterday's close counts as today.
+      const from = h.entry_date === day ? h.entry_price : h.prev_close;
+      h.today_pl = Number((h.dollars * (price / from - 1)).toFixed(2));
+      unrealized += h.pl;
+      todays += h.today_pl;
+      atWork += h.dollars;
+    }
+    entrant.unrealized = Number(unrealized.toFixed(2));
+    entrant.unrealized_today = Number(todays.toFixed(2));
+    entrant.basis = Number(Math.max(1, entrant.cash.capital + atWork).toFixed(2));
+  }
+}
+
 // ------------------------------------------------------------- standings -----
+
 
 export interface RaceEntrant {
   key: string;
@@ -613,9 +677,25 @@ export interface RaceEntrant {
   trades: number;
   wins: number;
   rank: number;
-  holdings: { ticker: string; entry_price: number; price: number; pl: number; pl_pct: number }[];
+  holdings: {
+    ticker: string;
+    entry_date: string;
+    entry_price: number;
+    prev_close: number;
+    price: number;
+    dollars: number;
+    pl: number;
+    pl_pct: number;
+    today_pl: number;
+  }[];
   up_next: { ticker: string; score: number; close: number; invalidation: string } | null;
   closed: { exit_date: string; profit: number }[];
+  /** Open-position profit right now, marked to the latest traded price. */
+  unrealized: number;
+  /** How much of that unrealized move happened today. */
+  unrealized_today: number;
+  /** Cash + money at work, used as the percent-change denominator. */
+  basis: number;
 }
 
 /**
@@ -672,17 +752,7 @@ export async function raceStandings(): Promise<{
       trades: closed.length,
       wins,
       rank: 0,
-      holdings: open.map((t) => {
-        const price = Number(closes.get(String(t.ticker)) ?? t.entry_price);
-        const entryPrice = Number(t.entry_price);
-        return {
-          ticker: String(t.ticker),
-          entry_price: entryPrice,
-          price,
-          pl: Number((Number(t.dollars) * (price / entryPrice - 1)).toFixed(2)),
-          pl_pct: Number(((price / entryPrice - 1) * 100).toFixed(2)),
-        };
-      }),
+      holdings: open.map((t) => holdingOf(t as unknown as Record<string, unknown>, closes)),
       up_next: next
         ? {
             ticker: next.ticker,
@@ -692,6 +762,9 @@ export async function raceStandings(): Promise<{
           }
         : null,
       closed,
+      unrealized: 0,
+      unrealized_today: 0,
+      basis: 0,
     });
   }
 
@@ -717,7 +790,7 @@ export async function raceStandings(): Promise<{
   const liveWins = liveClosed.filter((c) => c.profit > 0).length;
   const { data: liveOpen } = await supabaseAdmin
     .from("trades")
-    .select("ticker, entry_price, dollars")
+    .select("ticker, entry_price, dollars, entry_date")
     .is("strategy_id", null)
     .eq("status", "open");
   const liveCloses = await latestCloses((liveOpen ?? []).map((t) => String(t.ticker)));
@@ -751,20 +824,19 @@ export async function raceStandings(): Promise<{
     trades: liveClosed.length,
     wins: liveWins,
     rank: 0,
-    holdings: (liveOpen ?? []).map((t) => {
-      const price = Number(liveCloses.get(String(t.ticker)) ?? t.entry_price);
-      const entryPrice = Number(t.entry_price);
-      return {
-        ticker: String(t.ticker),
-        entry_price: entryPrice,
-        price,
-        pl: Number((Number(t.dollars) * (price / entryPrice - 1)).toFixed(2)),
-        pl_pct: Number(((price / entryPrice - 1) * 100).toFixed(2)),
-      };
-    }),
+    holdings: (liveOpen ?? []).map((t) =>
+      holdingOf(t as unknown as Record<string, unknown>, liveCloses),
+    ),
     up_next: null,
     closed: liveClosed,
+    unrealized: 0,
+    unrealized_today: 0,
+    basis: 0,
   });
+
+  // One free-feed request marks every open position (live and paper) to the
+  // latest traded price, so the "LIVE" graph moves before anything is sold.
+  await markToMarket(entrants);
 
   entrants.sort((a, b) => b.total_pnl - a.total_pnl);
   entrants.forEach((e, i) => {
@@ -818,4 +890,40 @@ export async function maybeSuggestSwitch(): Promise<string | null> {
     dedupe_key: `race-suggest:${standings.suggestion.strategy_id}:${week}`,
   });
   return standings.suggestion.name;
+}
+
+/**
+ * The paper race, independent of the live bot switch.
+ *
+ * Scoring and simulated trading must keep running even when live automation is
+ * off (there may be no money in the real account yet), so this tops up any
+ * missing price history, re-scores the universe once, then runs the simulated
+ * pass. Everything it touches carries a strategy_id, so the live book is never
+ * affected. Costs nothing extra: the same cached bars feed both sides.
+ */
+export async function runPaperTesting(
+  phase: "entry" | "exit" | "both",
+): Promise<{ ran: boolean; reason?: string; scored?: number; slots?: RacePassResult["slots"] }> {
+  const { marketStatus } = await import("./market-calendar");
+  const status = marketStatus();
+  if (!status.tradingDay) return { ran: false, reason: "market closed today" };
+
+  let scored: number | undefined;
+  try {
+    const { missingDates, cacheOneDay, runScan } = await import("./scan.server");
+    for (const date of (await missingDates()).slice(-3)) await cacheOneDay(date);
+    scored = (await runScan()).scored_count;
+  } catch (error) {
+    console.error("paper scoring failed:", error instanceof Error ? error.message : error);
+  }
+
+  const pass = await runRacePass({ phase, force: true });
+  if (phase !== "entry") {
+    try {
+      await maybeSuggestSwitch();
+    } catch (error) {
+      console.error("race suggestion failed:", error instanceof Error ? error.message : error);
+    }
+  }
+  return { ran: true, ...(scored === undefined ? {} : { scored }), slots: pass.slots };
 }

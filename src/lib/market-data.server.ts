@@ -271,3 +271,28 @@ export async function polygonSymbolBars(
       volume: r.v,
     }));
 }
+
+/**
+ * Latest traded price for a handful of symbols on the free IEX feed.
+ *
+ * Used only for marking open positions to market on the dashboards (at most a
+ * few symbols per call), so it costs one request regardless of how many test
+ * slots are running. Never throws: a missing price falls back to the caller's
+ * cached daily close.
+ */
+export async function alpacaLatestPrices(symbols: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const list = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter((s) => TICKER_OK.test(s)))];
+  if (list.length === 0) return map;
+  try {
+    const params = new URLSearchParams({ symbols: list.join(","), feed: "iex" });
+    const json = await getJson(`${ALPACA_DATA}/v2/stocks/trades/latest?${params}`, alpacaHeaders());
+    for (const [symbol, trade] of Object.entries<any>(json?.trades ?? {})) {
+      const price = Number(trade?.p);
+      if (Number.isFinite(price) && price > 0) map.set(symbol.toUpperCase(), price);
+    }
+  } catch (error) {
+    console.error("latest prices failed:", error instanceof Error ? error.message : error);
+  }
+  return map;
+}

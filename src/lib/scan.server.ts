@@ -1294,12 +1294,6 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
 
   const scan = await runScan();
   const sim = await managePaperTrades();
-  try {
-    const { runRacePass } = await import("./race.server");
-    await runRacePass({ phase: "both" });
-  } catch (error) {
-    console.error("paper race failed:", error instanceof Error ? error.message : error);
-  }
   const { generateInsights } = await import("./notify.server");
   await generateInsights(status.nyDate);
 
@@ -1476,17 +1470,6 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
       dedupe_key: `hold:${hold.ticker}:${status.nyDate}`,
     });
   }
-  // The paper strategy race runs its own exits on the same cached bars. It is
-  // fully isolated (every row carries a strategy_id) and can never block or
-  // change the live book, so a failure here is logged and ignored.
-  try {
-    const { runRacePass, maybeSuggestSwitch } = await import("./race.server");
-    await runRacePass({ phase: "exit" });
-    await maybeSuggestSwitch();
-  } catch (error) {
-    console.error("paper race (exit) failed:", error instanceof Error ? error.message : error);
-  }
-
   const parts: string[] = [];
   if (sim.closed.length) parts.push(`closed ${sim.closed.length}`);
   if (sim.held.length) parts.push(`held ${sim.held.length}`);
@@ -1595,15 +1578,6 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
       dedupe_key: `entry:${entry.ticker}:${status.nyDate}`,
     });
   }
-  // Paper strategy race: simulated buys on the same fresh ranking, isolated by
-  // strategy_id and never sent to any broker.
-  try {
-    const { runRacePass } = await import("./race.server");
-    await runRacePass({ phase: "entry" });
-  } catch (error) {
-    console.error("paper race (entry) failed:", error instanceof Error ? error.message : error);
-  }
-
   const insights = await generateInsights(status.nyDate);
 
   return {
