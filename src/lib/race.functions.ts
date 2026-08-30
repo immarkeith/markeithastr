@@ -116,5 +116,5 @@ export const runRaceNow = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { runRacePass } = await import("./race.server");
-    return runRacePass({ phase: data.phase });
+    return runRacePass({ phase: data.phase, force: true });
   });
