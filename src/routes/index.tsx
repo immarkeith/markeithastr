@@ -34,6 +34,9 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const dash = useQuery(dashboardQuery);
   const d = dash.data;
+  // Open-position profit right now, so the graph keeps moving before a sell.
+  const openPl = (d?.holdings ?? []).reduce((sum, h) => sum + Number(h.pl ?? 0), 0);
+  const heldDollars = (d?.holdings ?? []).reduce((sum, h) => sum + Number(h.dollars ?? 0), 0);
   const [busy, setBusy] = useState(false);
   const qc = useQueryClient();
   const runScanFn = useServerFn(runScanNow);
