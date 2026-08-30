@@ -261,7 +261,16 @@ function SlotCard({
         )}
       </div>
 
-      <PnlChart rows={slot.closed} ranges={LAB_RANGES} initialRange="1w" title="Profit" compact />
+      <PnlChart
+        rows={slot.closed}
+        ranges={LAB_RANGES}
+        initialRange="live"
+        title="Profit"
+        compact
+        unrealized={slot.unrealized}
+        unrealizedToday={slot.unrealized_today}
+        basis={slot.basis}
+      />
 
       <button
         type="button"

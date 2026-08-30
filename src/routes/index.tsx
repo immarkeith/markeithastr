@@ -246,7 +246,12 @@ function HomePage() {
         </div>
       </section>
 
-      <PnlChart rows={d?.closed ?? []} />
+      <PnlChart
+        rows={d?.closed ?? []}
+        unrealized={openPl}
+        unrealizedToday={openPl}
+        basis={(d?.cash.available ?? 0) + heldDollars}
+      />
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
