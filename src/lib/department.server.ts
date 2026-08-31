@@ -426,7 +426,7 @@ interface ResearcherRow {
   mission: string;
   params: LaneParams | Record<string, never>;
   best_params: LaneParams | null;
-  best_evidence: Record<string, unknown>;
+  best_evidence: { label?: string; out_of_sample?: Leg };
   best_edge: number | null;
   generation: number;
   experiments_run: number;
