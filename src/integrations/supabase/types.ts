@@ -672,6 +672,99 @@ export type Database = {
         }
         Relationships: []
       }
+      research_dead_ends: {
+        Row: {
+          created_at: string
+          edge: number | null
+          hits: number
+          id: string
+          label: string
+          lane: string
+          reason: string
+          signature: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          edge?: number | null
+          hits?: number
+          id?: string
+          label?: string
+          lane: string
+          reason?: string
+          signature: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          edge?: number | null
+          hits?: number
+          id?: string
+          label?: string
+          lane?: string
+          reason?: string
+          signature?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      research_findings: {
+        Row: {
+          adopted: boolean
+          change_summary: string
+          confidence: number | null
+          created_at: string
+          edge: number | null
+          evidence: Json
+          generation: number
+          hypothesis: string
+          id: string
+          lane: string
+          lead_note: string | null
+          name: string
+          objections: Json
+          params: Json
+          robustness: number | null
+          verdict: string
+        }
+        Insert: {
+          adopted?: boolean
+          change_summary?: string
+          confidence?: number | null
+          created_at?: string
+          edge?: number | null
+          evidence?: Json
+          generation?: number
+          hypothesis?: string
+          id?: string
+          lane: string
+          lead_note?: string | null
+          name: string
+          objections?: Json
+          params?: Json
+          robustness?: number | null
+          verdict?: string
+        }
+        Update: {
+          adopted?: boolean
+          change_summary?: string
+          confidence?: number | null
+          created_at?: string
+          edge?: number | null
+          evidence?: Json
+          generation?: number
+          hypothesis?: string
+          id?: string
+          lane?: string
+          lead_note?: string | null
+          name?: string
+          objections?: Json
+          params?: Json
+          robustness?: number | null
+          verdict?: string
+        }
+        Relationships: []
+      }
       research_runs: {
         Row: {
           config: Json
@@ -696,6 +789,60 @@ export type Database = {
           kind?: string
           summary?: Json
           warnings?: Json
+        }
+        Relationships: []
+      }
+      researchers: {
+        Row: {
+          best_edge: number | null
+          best_evidence: Json
+          best_params: Json | null
+          created_at: string
+          enabled: boolean
+          experiments_run: number
+          focus: string
+          generation: number
+          id: string
+          lane: string
+          last_run_at: string | null
+          mission: string
+          name: string
+          params: Json
+          updated_at: string
+        }
+        Insert: {
+          best_edge?: number | null
+          best_evidence?: Json
+          best_params?: Json | null
+          created_at?: string
+          enabled?: boolean
+          experiments_run?: number
+          focus?: string
+          generation?: number
+          id?: string
+          lane: string
+          last_run_at?: string | null
+          mission?: string
+          name: string
+          params?: Json
+          updated_at?: string
+        }
+        Update: {
+          best_edge?: number | null
+          best_evidence?: Json
+          best_params?: Json | null
+          created_at?: string
+          enabled?: boolean
+          experiments_run?: number
+          focus?: string
+          generation?: number
+          id?: string
+          lane?: string
+          last_run_at?: string | null
+          mission?: string
+          name?: string
+          params?: Json
+          updated_at?: string
         }
         Relationships: []
       }
