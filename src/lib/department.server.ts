@@ -1001,7 +1001,15 @@ export async function departmentOverview() {
       updated_at: string;
     }[],
     last_run: (runsRes.data ?? [])[0] as
-      | { created_at: string; summary: Record<string, unknown> }
+      | {
+          created_at: string;
+          summary: {
+            baseline_out?: Leg;
+            lanes?: LaneReport[];
+            balanced?: DepartmentResult["balanced"];
+            dead_ends_added?: number;
+          };
+        }
       | undefined,
   };
 }
