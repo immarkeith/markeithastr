@@ -834,8 +834,6 @@ async function leadResearcher(input: {
   }
 
   // A filter is only adopted when at least two independent lanes found it.
-  const gateVotes = (key: keyof LaneParams) =>
-    validated.map((t) => t[key]).filter((v): v is number => typeof v === "number");
   const median = (list: number[]) =>
     list.length ? [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)]! : null;
   const adopt = (key: "rsi_max" | "rsi_min" | "atr_pct_min" | "atr_pct_max" | "rel_volume_min") => {
@@ -844,7 +842,6 @@ async function leadResearcher(input: {
       .filter((v): v is number => typeof v === "number");
     return votes.length >= 2 ? median(votes) : null;
   };
-  void gateVotes;
 
   const candidateParams: LaneParams = {
     weights: normalize(merged),
