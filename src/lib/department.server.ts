@@ -246,6 +246,7 @@ function emptyLeg(): Leg {
     avg_return_pct: 0,
     total_return_pct: 0,
     avg_vs_benchmark_pct: 0,
+    benchmark_picks: 0,
     risk_adjusted: 0,
   };
 }
@@ -272,6 +273,7 @@ function legFrom(picks: PanelRow[]): Leg {
           3,
         )
       : 0,
+    benchmark_picks: bench.length,
     risk_adjusted: sd > 0 ? round(avg / sd, 3) : 0,
   };
 }
