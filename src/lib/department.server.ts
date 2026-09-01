@@ -521,7 +521,9 @@ function skepticReview(trial: Trial, baselineOut: Leg): SkepticVerdict {
     objections.push(
       "Much stronger on the days it was tuned on than on fresh days — classic curve-fitting signature.",
     );
-    vetoed = true;
+    // Likewise, the tuning-vs-fresh gap is only decisive with enough fresh
+    // trades to trust the comparison.
+    if (trial.out_of_sample.picks >= 15) vetoed = true;
   }
   if (trial.down_market.picks >= 5 && trial.down_market.avg_return_pct < 0) {
     objections.push("It loses money on days the market falls, so it is riding the market, not beating it.");
