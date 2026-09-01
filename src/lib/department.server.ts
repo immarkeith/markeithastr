@@ -697,7 +697,7 @@ export async function runDepartment(
 
     if (!best) continue;
 
-    const review = skepticReview(best, baselineOut);
+    const review = skepticReview(best, baselineOut, baselineTrimmed);
     const verdict: LaneReport["verdict"] = review.vetoed
       ? "vetoed"
       : best.edge > 0
