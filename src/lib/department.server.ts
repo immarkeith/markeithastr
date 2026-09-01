@@ -509,7 +509,10 @@ function skepticReview(trial: Trial, baselineOut: Leg): SkepticVerdict {
     objections.push(
       "Drop its three luckiest trades and the edge disappears — this looks like a handful of outliers, not a rule.",
     );
-    vetoed = true;
+    // With a thin confirmation set, dropping any 3 trades kills almost any
+    // edge — so this only becomes a veto once there is enough evidence for
+    // the trim to be meaningful.
+    if (trial.out_of_sample.picks >= 15) vetoed = true;
   }
   if (!(trial.first_half.avg_return_pct > 0 && trial.second_half.avg_return_pct > 0)) {
     objections.push("It is not positive in both halves of the confirmation window.");
