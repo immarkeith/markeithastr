@@ -630,7 +630,14 @@ export async function runDepartment(
   const half = Math.floor(outDates.length / 2);
 
   const base = baselineParams(s);
-  const baselineOut = legFrom(pickRows(rowsByDate, outDates, base, s, share));
+  const baselinePicks = pickRows(rowsByDate, outDates, base, s, share);
+  const baselineOut = legFrom(baselinePicks);
+  const baselineSorted = [...baselinePicks].sort(
+    (a, b) => b.forward_return! - a.forward_return!,
+  );
+  const baselineTrimmed = legFrom(
+    baselineSorted.slice(3, Math.max(3, baselineSorted.length - 3)),
+  );
 
   const researchers = await listResearchers();
   const deadEnds = await loadDeadEnds();
