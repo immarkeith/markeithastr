@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ResearchDepartment } from "@/components/ResearchDepartment";
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
