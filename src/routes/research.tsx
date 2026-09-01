@@ -274,6 +274,9 @@ function ResearchPage() {
           </div>
         </section>
       )}
+
+      <hr className="border-border" />
+      <ResearchDepartment />
     </div>
   );
 }
