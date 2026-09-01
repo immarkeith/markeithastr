@@ -523,7 +523,7 @@ interface SkepticVerdict {
  * The Skeptic never picks stocks. It only looks for reasons an attractive
  * finding should not be trusted, and can veto it outright.
  */
-function skepticReview(trial: Trial, baselineOut: Leg): SkepticVerdict {
+function skepticReview(trial: Trial, baselineOut: Leg, baselineTrimmed: Leg): SkepticVerdict {
   const objections: string[] = [];
   let vetoed = false;
 
@@ -640,6 +640,8 @@ export async function runDepartment(
     const inPicks = pickRows(rowsByDate, inDates, params, s, share);
     const outPicks = pickRows(rowsByDate, outDates, params, s, share);
     const outLeg = legFrom(outPicks);
+    // Symmetric trim: drop the 3 best AND the 3 worst trades. Dropping only
+    // the winners would kill every winner-take-most strategy by construction.
     const sortedOut = [...outPicks].sort((a, b) => b.forward_return! - a.forward_return!);
     return {
       lane,
