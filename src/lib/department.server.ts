@@ -106,8 +106,9 @@ async function buildPanel(universe: number, proxyTicker: string) {
       .from("daily_bars")
       .select("bar_date, open, high, low, close, volume")
       .eq("ticker", proxyTicker.toUpperCase())
-      .order("bar_date", { ascending: true })
+      .order("bar_date", { ascending: false })
       .limit(HISTORY_DAYS + 5);
+    proxyRows?.reverse();
     if (proxyRows?.length) {
       proxy = {
         ticker: proxyTicker.toUpperCase(),
