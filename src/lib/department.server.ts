@@ -98,7 +98,30 @@ async function buildPanel(universe: number, proxyTicker: string) {
     bars: toBars(r.bars),
   }));
 
-  const proxy = series.find((r) => r.ticker === proxyTicker.toUpperCase());
+  // The market proxy (SPY) may fall outside the sampled universe, in which
+  // case fetch its bars directly so benchmark comparisons still work.
+  let proxy = series.find((r) => r.ticker === proxyTicker.toUpperCase());
+  if (!proxy) {
+    const { data: proxyRows } = await supabaseAdmin
+      .from("daily_bars")
+      .select("bar_date, open, high, low, close, volume")
+      .eq("ticker", proxyTicker.toUpperCase())
+      .order("bar_date", { ascending: true })
+      .limit(HISTORY_DAYS + 5);
+    if (proxyRows?.length) {
+      proxy = {
+        ticker: proxyTicker.toUpperCase(),
+        bars: proxyRows.map((b) => ({
+          date: b.bar_date,
+          open: Number(b.open),
+          high: Number(b.high),
+          low: Number(b.low),
+          close: Number(b.close),
+          volume: Number(b.volume),
+        })),
+      };
+    }
+  }
   const proxyIndex = new Map<string, number>();
   proxy?.bars.forEach((b, i) => proxyIndex.set(b.date, i));
 
