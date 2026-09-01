@@ -53,6 +53,8 @@ export interface Leg {
   avg_return_pct: number;
   total_return_pct: number;
   avg_vs_benchmark_pct: number;
+  /** How many picks had a benchmark bar to compare against. */
+  benchmark_picks: number;
   /** Average return divided by its own volatility — the Risk lane's yardstick. */
   risk_adjusted: number;
 }
