@@ -556,7 +556,12 @@ function skepticReview(trial: Trial, baselineOut: Leg): SkepticVerdict {
   if (trial.down_market.picks >= 5 && trial.down_market.avg_return_pct < 0) {
     objections.push("It loses money on days the market falls, so it is riding the market, not beating it.");
   }
-  if (trial.out_of_sample.avg_vs_benchmark_pct <= 0) {
+  // Only lean on the benchmark when the market proxy actually has bars for
+  // most of the picks — otherwise the comparison is measuring missing data.
+  if (
+    trial.out_of_sample.benchmark_picks >= Math.ceil(trial.out_of_sample.picks * 0.5) &&
+    trial.out_of_sample.avg_vs_benchmark_pct <= 0
+  ) {
     objections.push("It does not beat simply holding the market proxy over the same days.");
   }
   return { objections, vetoed };
