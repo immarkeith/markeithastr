@@ -533,7 +533,7 @@ function skepticReview(trial: Trial, baselineOut: Leg, baselineTrimmed: Leg): Sk
     );
     if (trial.out_of_sample.picks < 8) vetoed = true;
   }
-  if (trial.trimmed.avg_return_pct <= baselineOut.avg_return_pct) {
+  if (trial.trimmed.avg_return_pct <= baselineTrimmed.avg_return_pct) {
     objections.push(
       "Drop its three luckiest trades and the edge disappears — this looks like a handful of outliers, not a rule.",
     );
@@ -654,7 +654,7 @@ export async function runDepartment(
       second_half: legFrom(pickRows(rowsByDate, outDates.slice(half), params, s, share)),
       up_market: legFrom(outPicks.filter((p) => (p.benchmark_return ?? 0) >= 0)),
       down_market: legFrom(outPicks.filter((p) => (p.benchmark_return ?? 0) < 0)),
-      trimmed: legFrom(sortedOut.slice(3)),
+      trimmed: legFrom(sortedOut.slice(3, Math.max(3, sortedOut.length - 3))),
       edge: round(outLeg.avg_return_pct - baselineOut.avg_return_pct, 3),
       objective: lane.objective(outLeg),
     };
