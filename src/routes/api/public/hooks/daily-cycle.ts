@@ -16,12 +16,25 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
           // Paper testing is independent of the live switch (see preopen hook).
           const { runPaperTesting } = await import("@/lib/race.server");
           const paper = await runPaperTesting("both");
+          // One research-department generation per market day. Pure replay of
+          // cached bars, so it never costs data calls — and it runs whether or
+          // not the live bot is switched on.
+          const { runDepartment } = await import("@/lib/department.server");
+          let department: unknown = null;
+          try {
+            department = await runDepartment({ universe: 250 });
+          } catch (depError) {
+            console.error(
+              "research department pass failed:",
+              depError instanceof Error ? depError.message : depError,
+            );
+          }
           const settings = await loadSettings();
           if (!(settings as unknown as { auto_run: boolean }).auto_run) {
-            return Response.json({ ran: false, reason: "auto_run is off", paper });
+            return Response.json({ ran: false, reason: "auto_run is off", paper, department });
           }
           const result = await runDailyCycle();
-          return Response.json({ ...result, paper });
+          return Response.json({ ...result, paper, department });
         } catch (error) {
           const message = error instanceof Error ? error.message : "cycle failed";
           console.error("daily-cycle failed:", message);

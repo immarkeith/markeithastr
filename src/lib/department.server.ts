@@ -53,6 +53,8 @@ export interface Leg {
   avg_return_pct: number;
   total_return_pct: number;
   avg_vs_benchmark_pct: number;
+  /** How many picks had a benchmark bar to compare against. */
+  benchmark_picks: number;
   /** Average return divided by its own volatility — the Risk lane's yardstick. */
   risk_adjusted: number;
 }
@@ -98,7 +100,31 @@ async function buildPanel(universe: number, proxyTicker: string) {
     bars: toBars(r.bars),
   }));
 
-  const proxy = series.find((r) => r.ticker === proxyTicker.toUpperCase());
+  // The market proxy (SPY) may fall outside the sampled universe, in which
+  // case fetch its bars directly so benchmark comparisons still work.
+  let proxy = series.find((r) => r.ticker === proxyTicker.toUpperCase());
+  if (!proxy) {
+    const { data: proxyRows } = await supabaseAdmin
+      .from("daily_bars")
+      .select("bar_date, open, high, low, close, volume")
+      .eq("ticker", proxyTicker.toUpperCase())
+      .order("bar_date", { ascending: false })
+      .limit(HISTORY_DAYS + 5);
+    proxyRows?.reverse();
+    if (proxyRows?.length) {
+      proxy = {
+        ticker: proxyTicker.toUpperCase(),
+        bars: proxyRows.map((b) => ({
+          date: b.bar_date,
+          open: Number(b.open),
+          high: Number(b.high),
+          low: Number(b.low),
+          close: Number(b.close),
+          volume: Number(b.volume),
+        })),
+      };
+    }
+  }
   const proxyIndex = new Map<string, number>();
   proxy?.bars.forEach((b, i) => proxyIndex.set(b.date, i));
 
@@ -220,6 +246,7 @@ function emptyLeg(): Leg {
     avg_return_pct: 0,
     total_return_pct: 0,
     avg_vs_benchmark_pct: 0,
+    benchmark_picks: 0,
     risk_adjusted: 0,
   };
 }
@@ -246,6 +273,7 @@ function legFrom(picks: PanelRow[]): Leg {
           3,
         )
       : 0,
+    benchmark_picks: bench.length,
     risk_adjusted: sd > 0 ? round(avg / sd, 3) : 0,
   };
 }
@@ -495,7 +523,7 @@ interface SkepticVerdict {
  * The Skeptic never picks stocks. It only looks for reasons an attractive
  * finding should not be trusted, and can veto it outright.
  */
-function skepticReview(trial: Trial, baselineOut: Leg): SkepticVerdict {
+function skepticReview(trial: Trial, baselineOut: Leg, baselineTrimmed: Leg): SkepticVerdict {
   const objections: string[] = [];
   let vetoed = false;
 
@@ -505,11 +533,14 @@ function skepticReview(trial: Trial, baselineOut: Leg): SkepticVerdict {
     );
     if (trial.out_of_sample.picks < 8) vetoed = true;
   }
-  if (trial.trimmed.avg_return_pct <= baselineOut.avg_return_pct) {
+  if (trial.trimmed.avg_return_pct <= baselineTrimmed.avg_return_pct) {
     objections.push(
       "Drop its three luckiest trades and the edge disappears — this looks like a handful of outliers, not a rule.",
     );
-    vetoed = true;
+    // With a thin confirmation set, dropping any 3 trades kills almost any
+    // edge — so this only becomes a veto once there is enough evidence for
+    // the trim to be meaningful.
+    if (trial.out_of_sample.picks >= 15) vetoed = true;
   }
   if (!(trial.first_half.avg_return_pct > 0 && trial.second_half.avg_return_pct > 0)) {
     objections.push("It is not positive in both halves of the confirmation window.");
@@ -518,12 +549,19 @@ function skepticReview(trial: Trial, baselineOut: Leg): SkepticVerdict {
     objections.push(
       "Much stronger on the days it was tuned on than on fresh days — classic curve-fitting signature.",
     );
-    vetoed = true;
+    // Likewise, the tuning-vs-fresh gap is only decisive with enough fresh
+    // trades to trust the comparison.
+    if (trial.out_of_sample.picks >= 15) vetoed = true;
   }
   if (trial.down_market.picks >= 5 && trial.down_market.avg_return_pct < 0) {
     objections.push("It loses money on days the market falls, so it is riding the market, not beating it.");
   }
-  if (trial.out_of_sample.avg_vs_benchmark_pct <= 0) {
+  // Only lean on the benchmark when the market proxy actually has bars for
+  // most of the picks — otherwise the comparison is measuring missing data.
+  if (
+    trial.out_of_sample.benchmark_picks >= Math.ceil(trial.out_of_sample.picks * 0.5) &&
+    trial.out_of_sample.avg_vs_benchmark_pct <= 0
+  ) {
     objections.push("It does not beat simply holding the market proxy over the same days.");
   }
   return { objections, vetoed };
@@ -592,7 +630,14 @@ export async function runDepartment(
   const half = Math.floor(outDates.length / 2);
 
   const base = baselineParams(s);
-  const baselineOut = legFrom(pickRows(rowsByDate, outDates, base, s, share));
+  const baselinePicks = pickRows(rowsByDate, outDates, base, s, share);
+  const baselineOut = legFrom(baselinePicks);
+  const baselineSorted = [...baselinePicks].sort(
+    (a, b) => b.forward_return! - a.forward_return!,
+  );
+  const baselineTrimmed = legFrom(
+    baselineSorted.slice(3, Math.max(3, baselineSorted.length - 3)),
+  );
 
   const researchers = await listResearchers();
   const deadEnds = await loadDeadEnds();
@@ -602,6 +647,8 @@ export async function runDepartment(
     const inPicks = pickRows(rowsByDate, inDates, params, s, share);
     const outPicks = pickRows(rowsByDate, outDates, params, s, share);
     const outLeg = legFrom(outPicks);
+    // Symmetric trim: drop the 3 best AND the 3 worst trades. Dropping only
+    // the winners would kill every winner-take-most strategy by construction.
     const sortedOut = [...outPicks].sort((a, b) => b.forward_return! - a.forward_return!);
     return {
       lane,
@@ -614,7 +661,7 @@ export async function runDepartment(
       second_half: legFrom(pickRows(rowsByDate, outDates.slice(half), params, s, share)),
       up_market: legFrom(outPicks.filter((p) => (p.benchmark_return ?? 0) >= 0)),
       down_market: legFrom(outPicks.filter((p) => (p.benchmark_return ?? 0) < 0)),
-      trimmed: legFrom(sortedOut.slice(3)),
+      trimmed: legFrom(sortedOut.slice(3, Math.max(3, sortedOut.length - 3))),
       edge: round(outLeg.avg_return_pct - baselineOut.avg_return_pct, 3),
       objective: lane.objective(outLeg),
     };
@@ -650,7 +697,7 @@ export async function runDepartment(
 
     if (!best) continue;
 
-    const review = skepticReview(best, baselineOut);
+    const review = skepticReview(best, baselineOut, baselineTrimmed);
     const verdict: LaneReport["verdict"] = review.vetoed
       ? "vetoed"
       : best.edge > 0
