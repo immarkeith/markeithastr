@@ -45,7 +45,19 @@ export interface LaneParams {
   atr_pct_min: number | null;
   atr_pct_max: number | null;
   rel_volume_min: number | null;
+  /**
+   * How far this researcher currently moves a weight when it experiments.
+   * It starts coarse and narrows every time the current setting survives a
+   * generation, so the search closes in on the strongest region instead of
+   * pushing a value ever higher.
+   */
+  step?: number;
 }
+
+/** Forward horizons the department measures each idea over. */
+export const HORIZONS = [1, 3, 5, 10] as const;
+export type Horizon = (typeof HORIZONS)[number];
+
 
 export interface Leg {
   picks: number;
