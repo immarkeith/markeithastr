@@ -420,6 +420,10 @@ interface Experiment {
   label: string;
   signature: string;
   params: LaneParams;
+  /** What was changed, for the notebook. */
+  variable: string;
+  previous_value: string;
+  new_value: string;
 }
 
 function signature(lane: string, p: LaneParams): string {
@@ -430,42 +434,83 @@ function signature(lane: string, p: LaneParams): string {
   return `${lane}|${w}|s${Math.round(p.min_score_to_trade)}|n${p.num_day_trades}|rsi${p.rsi_max ?? "-"}/${p.rsi_min ?? "-"}|atr${p.atr_pct_min ?? "-"}/${p.atr_pct_max ?? "-"}|rv${p.rel_volume_min ?? "-"}`;
 }
 
-/** One generation of experiments for a lane, seeded from its current params. */
+/**
+ * One generation of experiments for a lane, seeded from its current params.
+ *
+ * The weight search is a genuine hill-climb: it probes the current step size in
+ * both directions plus a half step, so a value can move up, move down, shrink
+ * towards zero or be dropped entirely. The step itself narrows over generations
+ * (see `nextStep`), which is what turns 25 → 30 → 35 into 28 → 30 → 32 once the
+ * strong region has been located.
+ */
 function experiments(lane: Lane, current: LaneParams): Experiment[] {
   const list: Experiment[] = [];
-  const push = (label: string, params: LaneParams) =>
-    list.push({ label, signature: signature(lane.lane, params), params });
+  const step = Math.max(2, Math.round(current.step ?? 12));
+  const push = (
+    label: string,
+    params: LaneParams,
+    variable: string,
+    previous_value: string,
+    new_value: string,
+  ) =>
+    list.push({
+      label,
+      signature: signature(lane.lane, params),
+      params,
+      variable,
+      previous_value,
+      new_value,
+    });
 
-  push("keep the current settings", current);
+  push("keep the current settings", current, "nothing", "current", "current");
 
+  const halfStep = Math.max(1, Math.round(step / 2));
   for (const key of lane.own) {
-    for (const amount of [12, -12, 6]) {
+    const base = current.weights[key] ?? 0;
+    const moves = new Set([step, -step, halfStep, -halfStep]);
+    // A factor can also be removed outright — less of a factor is a real
+    // discovery, not just a smaller number.
+    if (base > 0) moves.add(-base);
+    for (const amount of moves) {
+      if (amount === 0 || base + amount < 0) continue;
       const weights = { ...current.weights };
-      const base = weights[key] ?? 0;
-      if (base + amount < 0) continue;
       weights[key] = base + amount;
-      push(
-        `${key.replace(/_/g, " ")} weight ${amount > 0 ? "up" : "down"} ${Math.abs(amount)}`,
-        { ...current, weights: normalize(weights) },
-      );
+      const pretty = key.replace(/_/g, " ");
+      const label =
+        base + amount === 0
+          ? `drop ${pretty} from the formula`
+          : `${pretty} weight ${amount > 0 ? "up" : "down"} ${Math.abs(amount)}`;
+      push(label, { ...current, weights: normalize(weights) }, `${pretty} weight`, String(round(base, 1)), String(round(base + amount, 1)));
     }
   }
 
-  for (const delta of [-8, -4, 4, 8]) {
+  for (const delta of [-step, -halfStep, halfStep, step]) {
     const gate = current.min_score_to_trade + delta;
     if (gate < 25 || gate > 92) continue;
-    push(`score gate ${gate}`, { ...current, min_score_to_trade: gate });
+    push(`score gate ${gate}`, { ...current, min_score_to_trade: gate }, "score gate", String(current.min_score_to_trade), String(gate));
   }
 
-  for (const gate of lane.gates) push(gate.label, gate.apply(current));
+  for (const gate of lane.gates) {
+    push(gate.label, gate.apply(current), "entry filter", "none", gate.label);
+  }
 
   for (const picks of [Math.max(1, current.num_day_trades - 1), current.num_day_trades + 1]) {
     if (picks === current.num_day_trades) continue;
-    push(`${picks} pick(s) a day`, { ...current, num_day_trades: picks });
+    push(`${picks} pick(s) a day`, { ...current, num_day_trades: picks }, "picks per day", String(current.num_day_trades), String(picks));
   }
 
   return list;
 }
+
+/**
+ * Narrow the search when the current setting survives, widen it a little when
+ * the researcher is still finding better ground.
+ */
+function nextStep(current: LaneParams, movedOn: boolean): number {
+  const step = Math.max(2, Math.round(current.step ?? 12));
+  return movedOn ? Math.min(14, step) : Math.max(2, Math.round(step / 2));
+}
+
 
 // ------------------------------------------------------------ persisted state
 
