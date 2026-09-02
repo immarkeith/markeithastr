@@ -765,6 +765,54 @@ export type Database = {
         }
         Relationships: []
       }
+      research_notebook: {
+        Row: {
+          accepted: boolean
+          conclusion: string
+          created_at: string
+          edge: number | null
+          experiment_no: number
+          generation: number
+          horizons: Json
+          id: string
+          lane: string
+          new_value: string
+          previous_value: string
+          result: string
+          variable: string
+        }
+        Insert: {
+          accepted?: boolean
+          conclusion?: string
+          created_at?: string
+          edge?: number | null
+          experiment_no?: number
+          generation?: number
+          horizons?: Json
+          id?: string
+          lane: string
+          new_value?: string
+          previous_value?: string
+          result?: string
+          variable?: string
+        }
+        Update: {
+          accepted?: boolean
+          conclusion?: string
+          created_at?: string
+          edge?: number | null
+          experiment_no?: number
+          generation?: number
+          horizons?: Json
+          id?: string
+          lane?: string
+          new_value?: string
+          previous_value?: string
+          result?: string
+          variable?: string
+        }
+        Relationships: []
+      }
       research_runs: {
         Row: {
           config: Json
