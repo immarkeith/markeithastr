@@ -50,8 +50,13 @@ function UnlockPage() {
 
   return (
     <div className="mx-auto max-w-sm space-y-6 py-10">
-      <div className="space-y-1 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">ASTR</h1>
+      <div className="space-y-3 text-center">
+        <img
+          src={astrLogo.url}
+          alt="ASTR — explore the market"
+          className="mx-auto w-full max-w-[260px] rounded-xl border border-border/60"
+        />
+        <h1 className="sr-only">ASTR</h1>
         <p className="text-sm text-muted-foreground">
           Enter your passcode. This device stays unlocked for 90 days.
         </p>
