@@ -81,8 +81,9 @@ interface PanelRow {
   rsi14: number;
   rel_volume: number;
   forward_return: number | null;
-  /** Forward return at each研 horizon, keyed by trading days held. */
+  /** Forward return at each research horizon, keyed by trading days held. */
   forward: Partial<Record<Horizon, number>>;
+
 
   benchmark_return: number | null;
 }
