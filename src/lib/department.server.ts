@@ -178,6 +178,11 @@ async function buildPanel(universe: number, proxyTicker: string) {
 
       const extras = extraFactors(window, market);
       const exitBar = bars[i + 1];
+      const forward: Partial<Record<Horizon, number>> = {};
+      for (const h of HORIZONS) {
+        const later = bars[i + h];
+        if (later) forward[h] = pctChange(later.close, snap.close);
+      }
       dates.add(date);
       rows.push({
         ticker: item.ticker,
@@ -195,7 +200,9 @@ async function buildPanel(universe: number, proxyTicker: string) {
         atr_pct: (snap.atr14 / snap.close) * 100,
         rsi14: snap.rsi14,
         rel_volume: snap.relVolume,
+        forward,
         forward_return: exitBar ? pctChange(exitBar.close, snap.close) : null,
+
         benchmark_return: benchmark,
       });
     }
