@@ -155,8 +155,14 @@ function RootComponent() {
         <header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-4 pt-3">
             <div className="flex items-center justify-between gap-3">
-              <Link to="/" className="flex items-baseline gap-2">
-                <span className="text-lg font-extrabold tracking-[0.18em] text-primary">ASTR</span>
+              <Link to="/" className="group flex items-center gap-2.5">
+                <img
+                  src={astrLogo.url}
+                  alt="ASTR — explore the market"
+                  className="h-9 w-auto max-w-[150px] object-contain object-left sm:h-10"
+                  loading="eager"
+                  decoding="async"
+                />
                 <span className="hidden text-[11px] uppercase tracking-widest text-muted-foreground sm:inline">
                   rotation desk
                 </span>
