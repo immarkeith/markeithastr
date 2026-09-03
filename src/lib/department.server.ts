@@ -921,6 +921,7 @@ export async function runDepartment(
         })
         .eq("lane", lane.lane);
     }
+    laneFinal.set(lane.lane, nextParams);
 
     if (verdict === "validated") validated.push(best);
 
