@@ -1331,6 +1331,7 @@ export async function departmentOverview() {
       hits: number;
       updated_at: string;
     }[],
+    notebook: (notebookRes.data ?? []) as unknown as NotebookEntry[],
     last_run: (runsRes.data ?? [])[0] as
       | {
           created_at: string;
@@ -1339,6 +1340,8 @@ export async function departmentOverview() {
             lanes?: LaneReport[];
             balanced?: DepartmentResult["balanced"];
             dead_ends_added?: number;
+            cross_findings?: string[];
+            board?: DepartmentBoard | null;
           };
         }
       | undefined,
