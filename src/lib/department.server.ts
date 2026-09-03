@@ -779,6 +779,8 @@ export interface DepartmentResult {
     out_of_sample: Leg;
   } | null;
   dead_ends_added: number;
+  cross_findings: string[];
+  board: DepartmentBoard | null;
   warnings: string[];
 }
 
