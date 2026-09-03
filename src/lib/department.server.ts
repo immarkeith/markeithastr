@@ -744,6 +744,9 @@ export async function runDepartment(
 
   const reports: LaneReport[] = [];
   const validated: Trial[] = [];
+  /** Each lane's post-evolution parameters — the researcher's current mind. */
+  const laneFinal: Map<string, LaneParams> = new Map();
+
 
   for (const lane of LANES) {
     const row = researchers.find((r) => r.lane === lane.lane);
