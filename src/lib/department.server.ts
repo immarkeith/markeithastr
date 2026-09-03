@@ -1261,8 +1261,24 @@ async function leadResearcher(input: {
 
 // ------------------------------------------------------------------ readers
 
+export interface NotebookEntry {
+  id: string;
+  lane: string;
+  generation: number;
+  experiment_no: number;
+  variable: string;
+  previous_value: string;
+  new_value: string;
+  result: string;
+  conclusion: string;
+  accepted: boolean;
+  edge: number | null;
+  horizons: Partial<Record<string, number>>;
+  created_at: string;
+}
+
 export async function departmentOverview() {
-  const [researchers, findingsRes, deadRes, runsRes] = await Promise.all([
+  const [researchers, findingsRes, deadRes, runsRes, notebookRes] = await Promise.all([
     listResearchers(),
     supabaseAdmin
       .from("research_findings")
@@ -1280,7 +1296,13 @@ export async function departmentOverview() {
       .eq("kind", "department")
       .order("created_at", { ascending: false })
       .limit(1),
+    supabaseAdmin
+      .from("research_notebook")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
+
 
   return {
     researchers,
