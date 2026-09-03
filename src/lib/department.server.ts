@@ -571,7 +571,115 @@ async function recordDeadEnd(lane: string, sig: string, label: string, reason: s
     .insert({ lane, signature: sig, label, reason, edge });
 }
 
+// ------------------------------------------------------------------ the board
+
+export interface BoardStock {
+  ticker: string;
+  close: number;
+  /** Overall score per researcher, keyed by lane. */
+  scores: Record<string, number>;
+  /** Factor points (0–100) for the factors anyone uses. */
+  factors: Partial<Record<FactorKey, number>>;
+  consensus: number;
+  /** Researchers whose score for this stock clears their own bar. */
+  likes: string[];
+}
+
+export interface DepartmentBoard {
+  date: string;
+  stocks: BoardStock[];
+}
+
+/** Rank the latest session's stocks under every researcher's current formula. */
+function boardForLatest(
+  rows: PanelRow[],
+  laneFinal: Map<string, LaneParams>,
+  s: Settings,
+  share: number,
+  date: string,
+): DepartmentBoard {
+  const lanes = [...laneFinal.entries()];
+  const stocks: BoardStock[] = [];
+  for (const row of rows) {
+    const scores: Record<string, number> = {};
+    const likes: string[] = [];
+    for (const [lane, params] of lanes) {
+      if (!passesFilters(row, params, s, share)) continue;
+      const score = round(scoreWith(row, params.weights), 1);
+      scores[lane] = score;
+      if (score >= params.min_score_to_trade) likes.push(lane);
+    }
+    if (!Object.keys(scores).length) continue;
+    const values = Object.values(scores);
+    stocks.push({
+      ticker: row.ticker,
+      close: round(row.close, 2),
+      scores,
+      factors: row.pct,
+      likes,
+      consensus: round(values.reduce((a, b) => a + b, 0) / values.length, 1),
+    });
+  }
+  stocks.sort((a, b) => b.consensus - a.consensus);
+  return { date, stocks: stocks.slice(0, 100) };
+}
+
+// ----------------------------------------------------------- cross findings
+
+/**
+ * Where researchers independently land on the same ground — convergence — and
+ * where they flatly disagree. Both are recorded, neither is forced apart.
+ */
+function crossFindings(laneFinal: Map<string, LaneParams>, reports: LaneReport[]): string[] {
+  const out: string[] = [];
+  const topFactor = (p: LaneParams): FactorKey | null => {
+    const entries = Object.entries(p.weights).filter(([, v]) => (v ?? 0) > 0) as [FactorKey, number][];
+    if (!entries.length) return null;
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries[0]![0];
+  };
+  const groups = new Map<FactorKey, string[]>();
+  for (const [lane, params] of laneFinal) {
+    const top = topFactor(params);
+    if (!top) continue;
+    const g = groups.get(top) ?? [];
+    g.push(lane);
+    groups.set(top, g);
+  }
+  for (const [factor, lanes] of groups) {
+    if (lanes.length >= 3) {
+      out.push(
+        `CONVERGENCE — ${lanes.map((l) => l.charAt(0).toUpperCase() + l.slice(1)).join(", ")} independently lean hardest on ${factor.replace(/_/g, " ")}. Independent agreement like this is a finding, not a coincidence to undo.`,
+      );
+    }
+  }
+  const gateShared = new Map<string, string[]>();
+  for (const [lane, params] of laneFinal) {
+    for (const key of ["rsi_max", "rsi_min", "atr_pct_min", "atr_pct_max", "rel_volume_min"] as const) {
+      const v = params[key];
+      if (v === null || v === undefined) continue;
+      const k = `${key}=${v}`;
+      gateShared.set(k, [...(gateShared.get(k) ?? []), lane]);
+    }
+  }
+  for (const [gate, lanes] of gateShared) {
+    if (lanes.length >= 2) {
+      out.push(
+        `CONVERGENCE — ${lanes.join(" + ")} both converged on the same entry filter (${gate.replace(/_/g, " ")}).`,
+      );
+    }
+  }
+  const vetoed = reports.filter((r) => r.verdict === "vetoed");
+  for (const v of vetoed) {
+    out.push(
+      `DISAGREEMENT — ${v.name} favours "${v.best_label}", but the Skeptic rejected it: ${v.objections[0] ?? "see objections"}. Left unresolved on purpose — this is exactly what the Lead Researcher investigates next.`,
+    );
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------- skeptic
+
 
 interface Trial {
   lane: Lane;
