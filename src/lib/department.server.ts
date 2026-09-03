@@ -952,6 +952,16 @@ export async function runDepartment(
     tickers: panel.tickers,
   });
 
+  // Where researchers agree and where they disagree — both are findings.
+  const cross: string[] = crossFindings(laneFinal, reports);
+
+  // The board: each researcher's current formula ranked against the latest
+  // cached session, so the All Researchers view can show real ranked stocks.
+  const latestDate = panel.dates[panel.dates.length - 1];
+  const board = latestDate
+    ? boardForLatest(rowsByDate.get(latestDate) ?? [], laneFinal, s, share, latestDate)
+    : null;
+
   await supabaseAdmin.from("research_runs").insert({
     kind: "department",
     config: { universe, sessions: usable.length, tickers: panel.tickers } as unknown as Json,
@@ -960,6 +970,8 @@ export async function runDepartment(
       lanes: reports,
       balanced,
       dead_ends_added: deadAdded,
+      cross_findings: cross,
+      board,
     } as unknown as Json,
     warnings: warnings as unknown as Json,
   });
