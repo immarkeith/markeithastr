@@ -274,6 +274,13 @@ function emptyLeg(): Leg {
   };
 }
 
+/** Average forward return for a single horizon, over the picks that reached it. */
+function avgHorizon(picks: PanelRow[], h: Horizon): number {
+  const rets = picks.map((p) => p.forward[h]).filter((v): v is number => typeof v === "number");
+  if (!rets.length) return 0;
+  return round(rets.reduce((a, b) => a + b, 0) / rets.length, 3);
+}
+
 function legFrom(picks: PanelRow[]): Leg {
   if (picks.length === 0) return emptyLeg();
   const rets = picks.map((p) => p.forward_return!);
@@ -564,7 +571,115 @@ async function recordDeadEnd(lane: string, sig: string, label: string, reason: s
     .insert({ lane, signature: sig, label, reason, edge });
 }
 
+// ------------------------------------------------------------------ the board
+
+export interface BoardStock {
+  ticker: string;
+  close: number;
+  /** Overall score per researcher, keyed by lane. */
+  scores: Record<string, number>;
+  /** Factor points (0–100) for the factors anyone uses. */
+  factors: Partial<Record<FactorKey, number>>;
+  consensus: number;
+  /** Researchers whose score for this stock clears their own bar. */
+  likes: string[];
+}
+
+export interface DepartmentBoard {
+  date: string;
+  stocks: BoardStock[];
+}
+
+/** Rank the latest session's stocks under every researcher's current formula. */
+function boardForLatest(
+  rows: PanelRow[],
+  laneFinal: Map<string, LaneParams>,
+  s: Settings,
+  share: number,
+  date: string,
+): DepartmentBoard {
+  const lanes = [...laneFinal.entries()];
+  const stocks: BoardStock[] = [];
+  for (const row of rows) {
+    const scores: Record<string, number> = {};
+    const likes: string[] = [];
+    for (const [lane, params] of lanes) {
+      if (!passesFilters(row, params, s, share)) continue;
+      const score = round(scoreWith(row, params.weights), 1);
+      scores[lane] = score;
+      if (score >= params.min_score_to_trade) likes.push(lane);
+    }
+    if (!Object.keys(scores).length) continue;
+    const values = Object.values(scores);
+    stocks.push({
+      ticker: row.ticker,
+      close: round(row.close, 2),
+      scores,
+      factors: row.pct,
+      likes,
+      consensus: round(values.reduce((a, b) => a + b, 0) / values.length, 1),
+    });
+  }
+  stocks.sort((a, b) => b.consensus - a.consensus);
+  return { date, stocks: stocks.slice(0, 100) };
+}
+
+// ----------------------------------------------------------- cross findings
+
+/**
+ * Where researchers independently land on the same ground — convergence — and
+ * where they flatly disagree. Both are recorded, neither is forced apart.
+ */
+function crossFindings(laneFinal: Map<string, LaneParams>, reports: LaneReport[]): string[] {
+  const out: string[] = [];
+  const topFactor = (p: LaneParams): FactorKey | null => {
+    const entries = Object.entries(p.weights).filter(([, v]) => (v ?? 0) > 0) as [FactorKey, number][];
+    if (!entries.length) return null;
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries[0]![0];
+  };
+  const groups = new Map<FactorKey, string[]>();
+  for (const [lane, params] of laneFinal) {
+    const top = topFactor(params);
+    if (!top) continue;
+    const g = groups.get(top) ?? [];
+    g.push(lane);
+    groups.set(top, g);
+  }
+  for (const [factor, lanes] of groups) {
+    if (lanes.length >= 3) {
+      out.push(
+        `CONVERGENCE — ${lanes.map((l) => l.charAt(0).toUpperCase() + l.slice(1)).join(", ")} independently lean hardest on ${factor.replace(/_/g, " ")}. Independent agreement like this is a finding, not a coincidence to undo.`,
+      );
+    }
+  }
+  const gateShared = new Map<string, string[]>();
+  for (const [lane, params] of laneFinal) {
+    for (const key of ["rsi_max", "rsi_min", "atr_pct_min", "atr_pct_max", "rel_volume_min"] as const) {
+      const v = params[key];
+      if (v === null || v === undefined) continue;
+      const k = `${key}=${v}`;
+      gateShared.set(k, [...(gateShared.get(k) ?? []), lane]);
+    }
+  }
+  for (const [gate, lanes] of gateShared) {
+    if (lanes.length >= 2) {
+      out.push(
+        `CONVERGENCE — ${lanes.join(" + ")} both converged on the same entry filter (${gate.replace(/_/g, " ")}).`,
+      );
+    }
+  }
+  const vetoed = reports.filter((r) => r.verdict === "vetoed");
+  for (const v of vetoed) {
+    out.push(
+      `DISAGREEMENT — ${v.name} favours "${v.best_label}", but the Skeptic rejected it: ${v.objections[0] ?? "see objections"}. Left unresolved on purpose — this is exactly what the Lead Researcher investigates next.`,
+    );
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------- skeptic
+
 
 interface Trial {
   lane: Lane;
@@ -664,6 +779,8 @@ export interface DepartmentResult {
     out_of_sample: Leg;
   } | null;
   dead_ends_added: number;
+  cross_findings: string[];
+  board: DepartmentBoard | null;
   warnings: string[];
 }
 
@@ -737,6 +854,9 @@ export async function runDepartment(
 
   const reports: LaneReport[] = [];
   const validated: Trial[] = [];
+  /** Each lane's post-evolution parameters — the researcher's current mind. */
+  const laneFinal: Map<string, LaneParams> = new Map();
+
 
   for (const lane of LANES) {
     const row = researchers.find((r) => r.lane === lane.lane);
@@ -745,6 +865,8 @@ export async function runDepartment(
       row && row.params && (row.params as LaneParams).weights
         ? (row.params as LaneParams)
         : laneSeedParams(lane, s);
+    const currentSignature = signature(lane.lane, current);
+
 
     const book = experiments(lane, current).filter(
       (e) => !deadEnds.has(e.signature) || e.params === current,
@@ -763,6 +885,20 @@ export async function runDepartment(
     trials.sort((a, b) => b.objective - a.objective);
     const best = trials[0];
 
+    // The notebook: every shortlisted experiment is written down, variable
+    // changed, old value, new value, result and conclusion — across all four
+    // forward horizons, so a "weak tomorrow, strong in a week" pattern is
+    // visible instead of being thrown away.
+    const shortlistBySig = new Map(shortlist.map(({ e }) => [e.signature, e]));
+    const horizonProfile = (params: LaneParams) => {
+      const profile: Record<string, number> = {};
+      for (const h of HORIZONS) {
+        profile[String(h)] = avgHorizon(pickRows(rowsByDate, outDates, params, s, share), h);
+      }
+      return profile;
+    };
+
+
     if (!best) continue;
 
     const review = skepticReview(best, baselineOut, baselineTrimmed);
@@ -771,6 +907,44 @@ export async function runDepartment(
       : best.edge > 0
         ? "validated"
         : "rejected";
+
+    // Write every shortlisted trial into the researcher's permanent notebook.
+    const generation = (row?.generation ?? 0) + 1;
+    const experimentNo = row?.experiments_run ?? 0;
+    const notebookRows = trials.map((t, idx) => {
+      const e = shortlistBySig.get(t.signature);
+      const isBest = t === best;
+      const accepted = isBest && verdict === "validated";
+      const horizons = horizonProfile(t.params);
+      const weak1d = horizons["1"] !== undefined && horizons["1"] <= 0;
+      const longerStrong = (horizons["5"] ?? 0) > 0.4 || (horizons["10"] ?? 0) > 0.8;
+      const result =
+        t.edge > 0
+          ? `Improved (+${t.edge}% per trade vs the current rule)`
+          : `Declined (${t.edge > 0 ? "+" : ""}${t.edge}% per trade vs the current rule)`;
+      const conclusion = accepted
+        ? "Accepted as the current hypothesis."
+        : isBest && verdict === "vetoed"
+          ? `Rejected — the Skeptic vetoed it: ${review.objections[0] ?? "see objections"}`
+          : weak1d && longerStrong
+            ? "Rejected for same-day trading — but this looks like a longer-horizon characteristic. Flagged to the Lead Researcher."
+            : "Rejected — no edge over the current rule on fresh days.";
+      return {
+        lane: lane.lane,
+        generation,
+        experiment_no: experimentNo + idx + 1,
+        variable: e?.variable ?? "unknown",
+        previous_value: e?.previous_value ?? "",
+        new_value: e?.new_value ?? "",
+        result,
+        conclusion,
+        accepted,
+        edge: t.edge,
+        horizons: horizons as unknown as Json,
+      };
+    });
+    await supabaseAdmin.from("research_notebook").insert(notebookRows);
+
 
     // Everything that clearly failed goes into the permanent dead-end ledger so
     // the same experiment is never spent again.
@@ -796,7 +970,7 @@ export async function runDepartment(
 
     await supabaseAdmin.from("research_findings").insert({
       lane: lane.lane,
-      generation: (row?.generation ?? 0) + 1,
+      generation,
       name: `${lane.name} — ${best.label}`,
       hypothesis,
       change_summary: best.label,
@@ -834,24 +1008,30 @@ export async function runDepartment(
     });
 
     // The researcher evolves: a validated finding becomes its new starting
-    // point next generation. A vetoed or flat one leaves it where it was.
+    // point next generation. A vetoed or flat one leaves it where it was —
+    // and narrows the search step, closing in on the region it already knows
+    // is strong instead of wandering.
     const keeps = verdict === "validated";
+    // Progress re-opens the search; standing still closes in on the region.
+    const step = keeps ? 12 : nextStep(current, best.signature !== currentSignature);
+    const nextParams = { ...(keeps ? best.params : current), step };
     if (row) {
       await supabaseAdmin
         .from("researchers")
         .update({
-          params: (keeps ? best.params : current) as unknown as Json,
+          params: nextParams as unknown as Json,
           best_params: (keeps ? best.params : (row.best_params ?? current)) as unknown as Json,
           best_evidence: (keeps
             ? { out_of_sample: best.out_of_sample, label: best.label }
             : row.best_evidence) as unknown as Json,
           best_edge: keeps ? best.edge : row.best_edge,
-          generation: (row.generation ?? 0) + 1,
+          generation,
           experiments_run: (row.experiments_run ?? 0) + book.length,
           last_run_at: new Date().toISOString(),
         })
         .eq("lane", lane.lane);
     }
+    laneFinal.set(lane.lane, nextParams);
 
     if (verdict === "validated") validated.push(best);
 
@@ -882,6 +1062,16 @@ export async function runDepartment(
     tickers: panel.tickers,
   });
 
+  // Where researchers agree and where they disagree — both are findings.
+  const cross: string[] = crossFindings(laneFinal, reports);
+
+  // The board: each researcher's current formula ranked against the latest
+  // cached session, so the All Researchers view can show real ranked stocks.
+  const latestDate = panel.dates[panel.dates.length - 1];
+  const board = latestDate
+    ? boardForLatest(rowsByDate.get(latestDate) ?? [], laneFinal, s, share, latestDate)
+    : null;
+
   await supabaseAdmin.from("research_runs").insert({
     kind: "department",
     config: { universe, sessions: usable.length, tickers: panel.tickers } as unknown as Json,
@@ -890,6 +1080,8 @@ export async function runDepartment(
       lanes: reports,
       balanced,
       dead_ends_added: deadAdded,
+      cross_findings: cross,
+      board,
     } as unknown as Json,
     warnings: warnings as unknown as Json,
   });
@@ -902,6 +1094,8 @@ export async function runDepartment(
     lanes: reports,
     balanced,
     dead_ends_added: deadAdded,
+    cross_findings: cross,
+    board,
     warnings,
   };
 }
@@ -1067,8 +1261,24 @@ async function leadResearcher(input: {
 
 // ------------------------------------------------------------------ readers
 
+export interface NotebookEntry {
+  id: string;
+  lane: string;
+  generation: number;
+  experiment_no: number;
+  variable: string;
+  previous_value: string;
+  new_value: string;
+  result: string;
+  conclusion: string;
+  accepted: boolean;
+  edge: number | null;
+  horizons: Partial<Record<string, number>>;
+  created_at: string;
+}
+
 export async function departmentOverview() {
-  const [researchers, findingsRes, deadRes, runsRes] = await Promise.all([
+  const [researchers, findingsRes, deadRes, runsRes, notebookRes] = await Promise.all([
     listResearchers(),
     supabaseAdmin
       .from("research_findings")
@@ -1086,7 +1296,13 @@ export async function departmentOverview() {
       .eq("kind", "department")
       .order("created_at", { ascending: false })
       .limit(1),
+    supabaseAdmin
+      .from("research_notebook")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
+
 
   return {
     researchers,
@@ -1115,6 +1331,7 @@ export async function departmentOverview() {
       hits: number;
       updated_at: string;
     }[],
+    notebook: (notebookRes.data ?? []) as unknown as NotebookEntry[],
     last_run: (runsRes.data ?? [])[0] as
       | {
           created_at: string;
@@ -1123,6 +1340,8 @@ export async function departmentOverview() {
             lanes?: LaneReport[];
             balanced?: DepartmentResult["balanced"];
             dead_ends_added?: number;
+            cross_findings?: string[];
+            board?: DepartmentBoard | null;
           };
         }
       | undefined,
