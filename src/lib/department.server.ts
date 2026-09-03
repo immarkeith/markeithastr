@@ -1094,6 +1094,8 @@ export async function runDepartment(
     lanes: reports,
     balanced,
     dead_ends_added: deadAdded,
+    cross_findings: cross,
+    board,
     warnings,
   };
 }
