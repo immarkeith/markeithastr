@@ -793,6 +793,44 @@ export async function runDepartment(
         ? "validated"
         : "rejected";
 
+    // Write every shortlisted trial into the researcher's permanent notebook.
+    const generation = (row?.generation ?? 0) + 1;
+    const experimentNo = row?.experiments_run ?? 0;
+    const notebookRows = trials.map((t, idx) => {
+      const e = shortlistBySig.get(t.signature);
+      const isBest = t === best;
+      const accepted = isBest && verdict === "validated";
+      const horizons = horizonProfile(t.params);
+      const weak1d = horizons["1"] !== undefined && horizons["1"] <= 0;
+      const longerStrong = (horizons["5"] ?? 0) > 0.4 || (horizons["10"] ?? 0) > 0.8;
+      const result =
+        t.edge > 0
+          ? `Improved (+${t.edge}% per trade vs the current rule)`
+          : `Declined (${t.edge > 0 ? "+" : ""}${t.edge}% per trade vs the current rule)`;
+      const conclusion = accepted
+        ? "Accepted as the current hypothesis."
+        : isBest && verdict === "vetoed"
+          ? `Rejected — the Skeptic vetoed it: ${review.objections[0] ?? "see objections"}`
+          : weak1d && longerStrong
+            ? "Rejected for same-day trading — but this looks like a longer-horizon characteristic. Flagged to the Lead Researcher."
+            : "Rejected — no edge over the current rule on fresh days.";
+      return {
+        lane: lane.lane,
+        generation,
+        experiment_no: experimentNo + idx + 1,
+        variable: e?.variable ?? "unknown",
+        previous_value: e?.previous_value ?? "",
+        new_value: e?.new_value ?? "",
+        result,
+        conclusion,
+        accepted,
+        edge: t.edge,
+        horizons: horizons as unknown as Json,
+      };
+    });
+    await supabaseAdmin.from("research_notebook").insert(notebookRows);
+
+
     // Everything that clearly failed goes into the permanent dead-end ledger so
     // the same experiment is never spent again.
     for (const t of trials) {
