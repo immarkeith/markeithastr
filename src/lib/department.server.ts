@@ -893,19 +893,23 @@ export async function runDepartment(
     });
 
     // The researcher evolves: a validated finding becomes its new starting
-    // point next generation. A vetoed or flat one leaves it where it was.
+    // point next generation. A vetoed or flat one leaves it where it was —
+    // and narrows the search step, closing in on the region it already knows
+    // is strong instead of wandering.
     const keeps = verdict === "validated";
+    const step = nextStep(current, !keeps && best.signature === currentSignature);
+    const nextParams = { ...(keeps ? best.params : current), step };
     if (row) {
       await supabaseAdmin
         .from("researchers")
         .update({
-          params: (keeps ? best.params : current) as unknown as Json,
+          params: nextParams as unknown as Json,
           best_params: (keeps ? best.params : (row.best_params ?? current)) as unknown as Json,
           best_evidence: (keeps
             ? { out_of_sample: best.out_of_sample, label: best.label }
             : row.best_evidence) as unknown as Json,
           best_edge: keeps ? best.edge : row.best_edge,
-          generation: (row.generation ?? 0) + 1,
+          generation,
           experiments_run: (row.experiments_run ?? 0) + book.length,
           last_run_at: new Date().toISOString(),
         })
