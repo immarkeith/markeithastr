@@ -274,6 +274,13 @@ function emptyLeg(): Leg {
   };
 }
 
+/** Average forward return for a single horizon, over the picks that reached it. */
+function avgHorizon(picks: PanelRow[], h: Horizon): number {
+  const rets = picks.map((p) => p.forward[h]).filter((v): v is number => typeof v === "number");
+  if (!rets.length) return 0;
+  return round(rets.reduce((a, b) => a + b, 0) / rets.length, 3);
+}
+
 function legFrom(picks: PanelRow[]): Leg {
   if (picks.length === 0) return emptyLeg();
   const rets = picks.map((p) => p.forward_return!);
