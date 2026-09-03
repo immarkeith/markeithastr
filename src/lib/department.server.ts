@@ -899,7 +899,8 @@ export async function runDepartment(
     // and narrows the search step, closing in on the region it already knows
     // is strong instead of wandering.
     const keeps = verdict === "validated";
-    const step = nextStep(current, !keeps && best.signature === currentSignature);
+    // Progress re-opens the search; standing still closes in on the region.
+    const step = keeps ? 12 : nextStep(current, best.signature !== currentSignature);
     const nextParams = { ...(keeps ? best.params : current), step };
     if (row) {
       await supabaseAdmin
