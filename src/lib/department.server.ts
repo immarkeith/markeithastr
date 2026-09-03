@@ -763,6 +763,20 @@ export async function runDepartment(
     trials.sort((a, b) => b.objective - a.objective);
     const best = trials[0];
 
+    // The notebook: every shortlisted experiment is written down, variable
+    // changed, old value, new value, result and conclusion — across all four
+    // forward horizons, so a "weak tomorrow, strong in a week" pattern is
+    // visible instead of being thrown away.
+    const shortlistBySig = new Map(shortlist.map(({ e }) => [e.signature, e]));
+    const horizonProfile = (params: LaneParams) => {
+      const profile: Record<string, number> = {};
+      for (const h of HORIZONS) {
+        profile[String(h)] = avgHorizon(pickRows(rowsByDate, outDates, params, s, share), h);
+      }
+      return profile;
+    };
+
+
     if (!best) continue;
 
     const review = skepticReview(best, baselineOut, baselineTrimmed);
