@@ -855,7 +855,7 @@ export async function runDepartment(
 
     await supabaseAdmin.from("research_findings").insert({
       lane: lane.lane,
-      generation: (row?.generation ?? 0) + 1,
+      generation,
       name: `${lane.name} — ${best.label}`,
       hypothesis,
       change_summary: best.label,
