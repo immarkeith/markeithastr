@@ -752,6 +752,8 @@ export async function runDepartment(
       row && row.params && (row.params as LaneParams).weights
         ? (row.params as LaneParams)
         : laneSeedParams(lane, s);
+    const currentSignature = signature(lane.lane, current);
+
 
     const book = experiments(lane, current).filter(
       (e) => !deadEnds.has(e.signature) || e.params === current,
