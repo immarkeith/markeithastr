@@ -21,14 +21,6 @@ const LANE_BLURB: Record<string, string> = {
   skeptic: "Attacks every finding and can veto it.",
 };
 
-const FACTOR_LABEL: Record<string, string> = {
-  trend: "Trend",
-  momentum: "Mom.",
-  volume: "Vol.",
-  relative_strength: "Rel. str.",
-  volatility_quality: "Vol. qual.",
-};
-
 const BOARD_COUNTS = [25, 50, 100, "all"] as const;
 type BoardCount = (typeof BOARD_COUNTS)[number];
 
