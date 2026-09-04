@@ -156,6 +156,10 @@ function LabPage() {
         </Link>{" "}
         never includes them.
       </p>
+
+      <hr className="border-border/60" />
+
+      <ResearchDepartment />
     </div>
   );
 }
