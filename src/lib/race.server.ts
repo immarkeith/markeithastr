@@ -1041,5 +1041,11 @@ export async function runPaperTesting(
     }
   }
 
-  return { ran: true, ...(scored === undefined ? {} : { scored }), slots: pass.slots };
+  return {
+    ran: true,
+    ...(scored === undefined ? {} : { scored }),
+    slots: pass.slots,
+    safety: finalSafety,
+  };
+
 }
