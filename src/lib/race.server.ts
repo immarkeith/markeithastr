@@ -499,30 +499,23 @@ export async function runRacePass(
         ...ranked.slice(0, 10).map((r) => r.ticker),
       ]);
 
-      // Names this slot may carry overnight: still its own top-ranked picks.
-      const holdSlots = Math.max(1, slot.stocks_per_day);
-      const holdSet = new Set(
-        ranked.filter((r) => r.tradeable).slice(0, holdSlots).map((r) => r.ticker),
-      );
-
       // ---- exits
+      // The testers evaluate a same-day (intraday) strategy: whatever a slot
+      // buys during a session is sold in that same session. Nothing is carried
+      // overnight, so there is no hold-qualifying branch and no held-days gate
+      // here. Cash settlement (T+1) is handled separately in closeSlotTrade and
+      // never keeps a position open.
       if (phase !== "entry") {
         for (const trade of open) {
+          if (String(trade.status) !== "open") continue; // already closed: no second sell
           const ticker = String(trade.ticker);
           const score = byTicker.get(ticker);
           const price = Number(closes.get(ticker) ?? score?.close ?? trade.entry_price ?? 0);
           if (!price) continue;
-          const heldDays = Math.round(
-            (Date.parse(`${today()}T00:00:00Z`) -
-              Date.parse(`${String(trade.entry_date)}T00:00:00Z`)) /
-              86400000,
-          );
-          if (heldDays < 1) continue;
-          if (base.hold_qualifying_positions !== false && holdSet.has(ticker)) {
-            entry.held.push(ticker);
-            continue;
-          }
-          const why = "paper day-trade exit before the close";
+          const sameDay = String(trade.entry_date) === today();
+          const why = sameDay
+            ? "paper day-trade exit before the close"
+            : "paper end-of-day safety close (session had ended)";
           const profit = await closeSlotTrade(
             slot,
             trade as unknown as Record<string, unknown>,
@@ -533,6 +526,7 @@ export async function runRacePass(
           );
           entry.closed.push({ ticker, exit: price, profit, why });
         }
+
 
         // Scale this slot's own ladder once per trading day, after its exits.
         await applySlotLadder(slot);
