@@ -14,7 +14,20 @@ export const Route = createFileRoute("/api/public/hooks/health")({
         if (denied) return denied;
         try {
           const { runHealthCheck } = await import("@/lib/health.server");
-          return Response.json(await runHealthCheck());
+          // Research testers trade intraday only: sweep up any simulated
+          // position still open after its own session (weekends and holidays
+          // included). Idempotent — an already-sold position is left alone.
+          const { safetyCloseStalePaper } = await import("@/lib/race.server");
+          let paper_safety: unknown = null;
+          try {
+            paper_safety = await safetyCloseStalePaper();
+          } catch (safetyError) {
+            console.error(
+              "paper safety close failed:",
+              safetyError instanceof Error ? safetyError.message : safetyError,
+            );
+          }
+          return Response.json({ ...(await runHealthCheck()), paper_safety });
         } catch (error) {
           const message = error instanceof Error ? error.message : "health check failed";
           console.error("health check failed:", message);
