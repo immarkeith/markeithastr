@@ -579,6 +579,77 @@ export async function runRacePass(
   return result;
 }
 
+export interface SafetyCloseResult {
+  closed: { slot: number; ticker: string; exit: number; profit: number; why: string }[];
+  checked: number;
+}
+
+/**
+ * End-of-day safety net for the research testers.
+ *
+ * Guarantees no simulated position survives its own trading session, even if
+ * the pre-close pass failed, was skipped, or errored — and cleans up anything
+ * left open over a weekend or holiday. Idempotent: it only ever touches rows
+ * still marked `open`, and `closeSlotTrade` claims the row atomically, so a
+ * position that was already sold is recognised as CLOSED and left alone.
+ *
+ * Note this closes the STOCK only. Sale proceeds keep following T+1 on the
+ * trading calendar; unsettled cash is never a reason to hold a position open.
+ */
+export async function safetyCloseStalePaper(
+  options: { force?: boolean } = {},
+): Promise<SafetyCloseResult> {
+  const day = today();
+  const parts = nyParts();
+  const sessionOver =
+    !isTradingDay(day, parts.weekday) || parts.minutes >= sessionCloseMinutes(day);
+  const base = await loadSettings();
+  const settlementDays = Number(base.settlement_days);
+  const keepPct = Number(base.profit_keep_pct);
+  const out: SafetyCloseResult = { closed: [], checked: 0 };
+
+  // Every slot, enabled or not: a disabled slot must not strand a position.
+  for (const slot of await loadSlots()) {
+    try {
+      const open = await slotOpenTrades(slot.strategy_id);
+      out.checked += open.length;
+      const stale = open.filter((t) => {
+        const entered = String(t.entry_date);
+        if (entered < day) return true; // its session ended days ago
+        return options.force === true || sessionOver; // today's session is done
+      });
+      if (stale.length === 0) continue;
+      const closes = await latestCloses(stale.map((t) => String(t.ticker)));
+      for (const trade of stale) {
+        const ticker = String(trade.ticker);
+        const price = Number(closes.get(ticker) ?? trade.entry_price ?? 0);
+        if (!price) continue;
+        const why =
+          String(trade.entry_date) < day
+            ? "paper safety close — position outlived its research session"
+            : "paper safety close — session ended with the position still open";
+        const profit = await closeSlotTrade(
+          slot,
+          trade as unknown as Record<string, unknown>,
+          price,
+          why,
+          settlementDays,
+          keepPct,
+        );
+        if (profit === null) continue; // already closed: never sell twice
+        out.closed.push({ slot: slot.id, ticker, exit: price, profit, why });
+      }
+    } catch (error) {
+      console.error(
+        `paper safety close failed for slot ${slot.id}:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+  return out;
+}
+
+
 /** Per-slot capital ladder: same rules as live, its own counters. */
 async function applySlotLadder(slot: RaceSlot): Promise<void> {
   const day = today();
