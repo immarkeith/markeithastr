@@ -376,6 +376,11 @@ async function openSlotTrade(
   });
 }
 
+/**
+ * Sell one simulated position. Idempotent: the update only matches a row that
+ * is still `open`, so a retry or the safety close can never book a second sell,
+ * duplicate P&L, or duplicate cash. Returns null when the row was already closed.
+ */
 async function closeSlotTrade(
   slot: RaceSlot,
   trade: Record<string, unknown>,
@@ -383,13 +388,13 @@ async function closeSlotTrade(
   why: string,
   settlementDays: number,
   keepPct: number,
-): Promise<number> {
+): Promise<number | null> {
   const dollars = Number(trade['dollars']);
   const entry = Number(trade['entry_price']);
   const profit = dollars * (price / entry - 1);
   const kept = profit > 0 ? profit * keepPct : profit;
 
-  const { error } = await supabaseAdmin
+  const { data: claimed, error } = await supabaseAdmin
     .from("trades")
     .update({
       exit_date: today(),
@@ -400,8 +405,12 @@ async function closeSlotTrade(
       status: "closed",
       status_note: why,
     })
-    .eq("id", trade['id'] as string);
+    .eq("id", trade['id'] as string)
+    .eq("status", "open")
+    .select("id");
   if (error) throw new Error(error.message);
+  if ((claimed ?? []).length === 0) return null; // someone else already sold it
+
 
   // Cash settles on the trading calendar (T+1 skips weekends and holidays).
   // This affects when the money is spendable — never whether the stock closed.
