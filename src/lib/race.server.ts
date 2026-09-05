@@ -15,6 +15,14 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { evaluateLadder, STANDARD_DOLLARS, type LadderState } from "./capital.server";
+import {
+  isTradingDay,
+  marketStatus,
+  nextTradingDay,
+  nyParts,
+  sessionCloseMinutes,
+} from "./market-calendar";
+
 import { HISTORY_DAYS, loadSettings, scoreConfig, volumeShare, type Settings } from "./scan.server";
 import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
 
@@ -47,9 +55,23 @@ const MAX_SLOTS = 3;
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
 
+/** Today's New York trading date — the calendar the market actually keeps. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return nyParts().date;
 }
+
+/**
+ * Settlement date for a sale made on `from`, counted in TRADING days.
+ * Weekends and market holidays are not settlement days, so T+1 on a Friday
+ * lands on Monday (or the next open session after a holiday).
+ */
+export function settlementDate(from: string, days: number): string {
+  let cursor = from;
+  for (let i = 0; i < Math.max(0, Math.round(days)); i++) cursor = nextTradingDay(cursor);
+  return cursor;
+}
+
+
 
 // ------------------------------------------------------------------ slots ----
 
@@ -354,6 +376,11 @@ async function openSlotTrade(
   });
 }
 
+/**
+ * Sell one simulated position. Idempotent: the update only matches a row that
+ * is still `open`, so a retry or the safety close can never book a second sell,
+ * duplicate P&L, or duplicate cash. Returns null when the row was already closed.
+ */
 async function closeSlotTrade(
   slot: RaceSlot,
   trade: Record<string, unknown>,
@@ -361,13 +388,13 @@ async function closeSlotTrade(
   why: string,
   settlementDays: number,
   keepPct: number,
-): Promise<number> {
+): Promise<number | null> {
   const dollars = Number(trade['dollars']);
   const entry = Number(trade['entry_price']);
   const profit = dollars * (price / entry - 1);
   const kept = profit > 0 ? profit * keepPct : profit;
 
-  const { error } = await supabaseAdmin
+  const { data: claimed, error } = await supabaseAdmin
     .from("trades")
     .update({
       exit_date: today(),
@@ -378,12 +405,17 @@ async function closeSlotTrade(
       status: "closed",
       status_note: why,
     })
-    .eq("id", trade['id'] as string);
+    .eq("id", trade['id'] as string)
+    .eq("status", "open")
+    .select("id");
   if (error) throw new Error(error.message);
+  if ((claimed ?? []).length === 0) return null; // someone else already sold it
 
-  const available = new Date();
-  available.setUTCDate(available.getUTCDate() + settlementDays);
-  const availableOn = available.toISOString().slice(0, 10);
+
+  // Cash settles on the trading calendar (T+1 skips weekends and holidays).
+  // This affects when the money is spendable — never whether the stock closed.
+  const availableOn = settlementDate(today(), settlementDays);
+
   const rows: Record<string, unknown>[] = [
     {
       kind: "settle",
@@ -476,30 +508,23 @@ export async function runRacePass(
         ...ranked.slice(0, 10).map((r) => r.ticker),
       ]);
 
-      // Names this slot may carry overnight: still its own top-ranked picks.
-      const holdSlots = Math.max(1, slot.stocks_per_day);
-      const holdSet = new Set(
-        ranked.filter((r) => r.tradeable).slice(0, holdSlots).map((r) => r.ticker),
-      );
-
       // ---- exits
+      // The testers evaluate a same-day (intraday) strategy: whatever a slot
+      // buys during a session is sold in that same session. Nothing is carried
+      // overnight, so there is no hold-qualifying branch and no held-days gate
+      // here. Cash settlement (T+1) is handled separately in closeSlotTrade and
+      // never keeps a position open.
       if (phase !== "entry") {
         for (const trade of open) {
+          if (String(trade.status) !== "open") continue; // already closed: no second sell
           const ticker = String(trade.ticker);
           const score = byTicker.get(ticker);
           const price = Number(closes.get(ticker) ?? score?.close ?? trade.entry_price ?? 0);
           if (!price) continue;
-          const heldDays = Math.round(
-            (Date.parse(`${today()}T00:00:00Z`) -
-              Date.parse(`${String(trade.entry_date)}T00:00:00Z`)) /
-              86400000,
-          );
-          if (heldDays < 1) continue;
-          if (base.hold_qualifying_positions !== false && holdSet.has(ticker)) {
-            entry.held.push(ticker);
-            continue;
-          }
-          const why = "paper day-trade exit before the close";
+          const sameDay = String(trade.entry_date) === today();
+          const why = sameDay
+            ? "paper day-trade exit before the close"
+            : "paper end-of-day safety close (session had ended)";
           const profit = await closeSlotTrade(
             slot,
             trade as unknown as Record<string, unknown>,
@@ -508,8 +533,11 @@ export async function runRacePass(
             settlementDays,
             keepPct,
           );
+          if (profit === null) continue; // already closed elsewhere
           entry.closed.push({ ticker, exit: price, profit, why });
+
         }
+
 
         // Scale this slot's own ladder once per trading day, after its exits.
         await applySlotLadder(slot);
@@ -550,6 +578,77 @@ export async function runRacePass(
   }
   return result;
 }
+
+export interface SafetyCloseResult {
+  closed: { slot: number; ticker: string; exit: number; profit: number; why: string }[];
+  checked: number;
+}
+
+/**
+ * End-of-day safety net for the research testers.
+ *
+ * Guarantees no simulated position survives its own trading session, even if
+ * the pre-close pass failed, was skipped, or errored — and cleans up anything
+ * left open over a weekend or holiday. Idempotent: it only ever touches rows
+ * still marked `open`, and `closeSlotTrade` claims the row atomically, so a
+ * position that was already sold is recognised as CLOSED and left alone.
+ *
+ * Note this closes the STOCK only. Sale proceeds keep following T+1 on the
+ * trading calendar; unsettled cash is never a reason to hold a position open.
+ */
+export async function safetyCloseStalePaper(
+  options: { force?: boolean } = {},
+): Promise<SafetyCloseResult> {
+  const day = today();
+  const parts = nyParts();
+  const sessionOver =
+    !isTradingDay(day, parts.weekday) || parts.minutes >= sessionCloseMinutes(day);
+  const base = await loadSettings();
+  const settlementDays = Number(base.settlement_days);
+  const keepPct = Number(base.profit_keep_pct);
+  const out: SafetyCloseResult = { closed: [], checked: 0 };
+
+  // Every slot, enabled or not: a disabled slot must not strand a position.
+  for (const slot of await loadSlots()) {
+    try {
+      const open = await slotOpenTrades(slot.strategy_id);
+      out.checked += open.length;
+      const stale = open.filter((t) => {
+        const entered = String(t.entry_date);
+        if (entered < day) return true; // its session ended days ago
+        return options.force === true || sessionOver; // today's session is done
+      });
+      if (stale.length === 0) continue;
+      const closes = await latestCloses(stale.map((t) => String(t.ticker)));
+      for (const trade of stale) {
+        const ticker = String(trade.ticker);
+        const price = Number(closes.get(ticker) ?? trade.entry_price ?? 0);
+        if (!price) continue;
+        const why =
+          String(trade.entry_date) < day
+            ? "paper safety close — position outlived its research session"
+            : "paper safety close — session ended with the position still open";
+        const profit = await closeSlotTrade(
+          slot,
+          trade as unknown as Record<string, unknown>,
+          price,
+          why,
+          settlementDays,
+          keepPct,
+        );
+        if (profit === null) continue; // already closed: never sell twice
+        out.closed.push({ slot: slot.id, ticker, exit: price, profit, why });
+      }
+    } catch (error) {
+      console.error(
+        `paper safety close failed for slot ${slot.id}:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+  return out;
+}
+
 
 /** Per-slot capital ladder: same rules as live, its own counters. */
 async function applySlotLadder(slot: RaceSlot): Promise<void> {
@@ -903,10 +1002,18 @@ export async function maybeSuggestSwitch(): Promise<string | null> {
  */
 export async function runPaperTesting(
   phase: "entry" | "exit" | "both",
-): Promise<{ ran: boolean; reason?: string; scored?: number; slots?: RacePassResult["slots"] }> {
-  const { marketStatus } = await import("./market-calendar");
+): Promise<{
+  ran: boolean;
+  reason?: string;
+  scored?: number;
+  slots?: RacePassResult["slots"];
+  safety?: SafetyCloseResult;
+}> {
   const status = marketStatus();
-  if (!status.tradingDay) return { ran: false, reason: "market closed today" };
+  // The safety net runs on every pass, including closed days: a position left
+  // open from an earlier session must never survive into the next one.
+  const safety = await safetyCloseStalePaper();
+  if (!status.tradingDay) return { ran: false, reason: "market closed today", safety };
 
   let scored: number | undefined;
   try {
@@ -918,12 +1025,27 @@ export async function runPaperTesting(
   }
 
   const pass = await runRacePass({ phase, force: true });
+  let finalSafety = safety;
   if (phase !== "entry") {
+    // After the pre-close pass: force-close anything the normal exit missed,
+    // so the session cannot end with an open research position.
+    const second = await safetyCloseStalePaper({ force: true });
+    finalSafety = {
+      closed: [...safety.closed, ...second.closed],
+      checked: safety.checked + second.checked,
+    };
     try {
       await maybeSuggestSwitch();
     } catch (error) {
       console.error("race suggestion failed:", error instanceof Error ? error.message : error);
     }
   }
-  return { ran: true, ...(scored === undefined ? {} : { scored }), slots: pass.slots };
+
+  return {
+    ran: true,
+    ...(scored === undefined ? {} : { scored }),
+    slots: pass.slots,
+    safety: finalSafety,
+  };
+
 }
