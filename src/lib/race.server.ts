@@ -15,6 +15,14 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { evaluateLadder, STANDARD_DOLLARS, type LadderState } from "./capital.server";
+import {
+  isTradingDay,
+  marketStatus,
+  nextTradingDay,
+  nyParts,
+  sessionCloseMinutes,
+} from "./market-calendar";
+
 import { HISTORY_DAYS, loadSettings, scoreConfig, volumeShare, type Settings } from "./scan.server";
 import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
 
