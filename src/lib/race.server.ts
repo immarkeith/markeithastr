@@ -1002,10 +1002,18 @@ export async function maybeSuggestSwitch(): Promise<string | null> {
  */
 export async function runPaperTesting(
   phase: "entry" | "exit" | "both",
-): Promise<{ ran: boolean; reason?: string; scored?: number; slots?: RacePassResult["slots"] }> {
-  const { marketStatus } = await import("./market-calendar");
+): Promise<{
+  ran: boolean;
+  reason?: string;
+  scored?: number;
+  slots?: RacePassResult["slots"];
+  safety?: SafetyCloseResult;
+}> {
   const status = marketStatus();
-  if (!status.tradingDay) return { ran: false, reason: "market closed today" };
+  // The safety net runs on every pass, including closed days: a position left
+  // open from an earlier session must never survive into the next one.
+  const safety = await safetyCloseStalePaper();
+  if (!status.tradingDay) return { ran: false, reason: "market closed today", safety };
 
   let scored: number | undefined;
   try {
@@ -1017,12 +1025,21 @@ export async function runPaperTesting(
   }
 
   const pass = await runRacePass({ phase, force: true });
+  let finalSafety = safety;
   if (phase !== "entry") {
+    // After the pre-close pass: force-close anything the normal exit missed,
+    // so the session cannot end with an open research position.
+    const second = await safetyCloseStalePaper({ force: true });
+    finalSafety = {
+      closed: [...safety.closed, ...second.closed],
+      checked: safety.checked + second.checked,
+    };
     try {
       await maybeSuggestSwitch();
     } catch (error) {
       console.error("race suggestion failed:", error instanceof Error ? error.message : error);
     }
   }
+
   return { ran: true, ...(scored === undefined ? {} : { scored }), slots: pass.slots };
 }
