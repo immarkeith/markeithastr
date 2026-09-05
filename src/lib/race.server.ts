@@ -533,7 +533,9 @@ export async function runRacePass(
             settlementDays,
             keepPct,
           );
+          if (profit === null) continue; // already closed elsewhere
           entry.closed.push({ ticker, exit: price, profit, why });
+
         }
 
 
