@@ -403,9 +403,10 @@ async function closeSlotTrade(
     .eq("id", trade['id'] as string);
   if (error) throw new Error(error.message);
 
-  const available = new Date();
-  available.setUTCDate(available.getUTCDate() + settlementDays);
-  const availableOn = available.toISOString().slice(0, 10);
+  // Cash settles on the trading calendar (T+1 skips weekends and holidays).
+  // This affects when the money is spendable — never whether the stock closed.
+  const availableOn = settlementDate(today(), settlementDays);
+
   const rows: Record<string, unknown>[] = [
     {
       kind: "settle",
