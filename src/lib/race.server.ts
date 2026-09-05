@@ -47,9 +47,24 @@ const MAX_SLOTS = 3;
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
 
+/** Today's New York trading date — the calendar the market actually keeps. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  const { nyParts } = require("./market-calendar") as typeof import("./market-calendar");
+  return nyParts().date;
 }
+
+/**
+ * Settlement date for a sale made on `from`, counted in TRADING days.
+ * Weekends and market holidays are not settlement days, so T+1 on a Friday
+ * lands on Monday (or the next open session after a holiday).
+ */
+export function settlementDate(from: string, days: number): string {
+  const { nextTradingDay } = require("./market-calendar") as typeof import("./market-calendar");
+  let cursor = from;
+  for (let i = 0; i < Math.max(0, Math.round(days)); i++) cursor = nextTradingDay(cursor);
+  return cursor;
+}
+
 
 // ------------------------------------------------------------------ slots ----
 
