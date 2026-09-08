@@ -1072,6 +1072,102 @@ export type Database = {
           },
         ]
       }
+      verification_reports: {
+        Row: {
+          assistant_id: string
+          backtest_version: string
+          comparable_signals: number
+          conclusion: string
+          confidence: string
+          created_at: string
+          data_quality: string
+          data_source: string
+          dedupe_key: string
+          direction: string
+          entry_conditions: Json
+          exit_conditions: Json
+          formula: Json
+          history_end: string | null
+          history_start: string | null
+          id: string
+          lane: string
+          limitations: Json
+          lookback_sessions: number
+          reason: string
+          results: Json
+          sample_size: number
+          scientist_name: string
+          signal_at: string
+          signal_date: string
+          signal_strength: number | null
+          strategy_id: string
+          strategy_version: string
+          ticker: string
+        }
+        Insert: {
+          assistant_id: string
+          backtest_version: string
+          comparable_signals?: number
+          conclusion: string
+          confidence: string
+          created_at?: string
+          data_quality?: string
+          data_source?: string
+          dedupe_key: string
+          direction: string
+          entry_conditions?: Json
+          exit_conditions?: Json
+          formula?: Json
+          history_end?: string | null
+          history_start?: string | null
+          id?: string
+          lane: string
+          limitations?: Json
+          lookback_sessions?: number
+          reason?: string
+          results?: Json
+          sample_size?: number
+          scientist_name: string
+          signal_at?: string
+          signal_date: string
+          signal_strength?: number | null
+          strategy_id: string
+          strategy_version: string
+          ticker: string
+        }
+        Update: {
+          assistant_id?: string
+          backtest_version?: string
+          comparable_signals?: number
+          conclusion?: string
+          confidence?: string
+          created_at?: string
+          data_quality?: string
+          data_source?: string
+          dedupe_key?: string
+          direction?: string
+          entry_conditions?: Json
+          exit_conditions?: Json
+          formula?: Json
+          history_end?: string | null
+          history_start?: string | null
+          id?: string
+          lane?: string
+          limitations?: Json
+          lookback_sessions?: number
+          reason?: string
+          results?: Json
+          sample_size?: number
+          scientist_name?: string
+          signal_at?: string
+          signal_date?: string
+          signal_strength?: number | null
+          strategy_id?: string
+          strategy_version?: string
+          ticker?: string
+        }
+        Relationships: []
+      }
       watchlist_candidates: {
         Row: {
           approved_at: string | null
