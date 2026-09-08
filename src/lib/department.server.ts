@@ -71,7 +71,7 @@ export interface Leg {
   risk_adjusted: number;
 }
 
-interface PanelRow {
+export interface PanelRow {
   ticker: string;
   date: string;
   pct: Record<FactorKey, number>;
@@ -104,7 +104,7 @@ function toBars(raw: RawBars): Bar[] {
 
 // ---------------------------------------------------------------- the panel
 
-async function buildPanel(universe: number, proxyTicker: string) {
+export async function buildPanel(universe: number, proxyTicker: string) {
   const { data, error } = await supabaseAdmin.rpc("scan_input", {
     p_days: HISTORY_DAYS,
     p_limit: universe,
@@ -213,7 +213,7 @@ async function buildPanel(universe: number, proxyTicker: string) {
 
 // -------------------------------------------------------------- evaluation
 
-function normalize(weights: Partial<Record<FactorKey, number>>): Partial<Record<FactorKey, number>> {
+export function normalize(weights: Partial<Record<FactorKey, number>>): Partial<Record<FactorKey, number>> {
   const entries = Object.entries(weights).filter(([, v]) => (v ?? 0) > 0) as [FactorKey, number][];
   const total = entries.reduce((a, [, v]) => a + v, 0);
   if (!total) return { trend: 100 };
@@ -222,7 +222,7 @@ function normalize(weights: Partial<Record<FactorKey, number>>): Partial<Record<
   return out;
 }
 
-function scoreWith(row: PanelRow, weights: Partial<Record<FactorKey, number>>): number {
+export function scoreWith(row: PanelRow, weights: Partial<Record<FactorKey, number>>): number {
   let total = 0;
   for (const key of Object.keys(weights) as FactorKey[]) {
     const w = weights[key] ?? 0;
@@ -232,7 +232,7 @@ function scoreWith(row: PanelRow, weights: Partial<Record<FactorKey, number>>): 
   return total;
 }
 
-function passesFilters(row: PanelRow, p: LaneParams, s: Settings, share: number): boolean {
+export function passesFilters(row: PanelRow, p: LaneParams, s: Settings, share: number): boolean {
   if (row.close < Number(s.min_price)) return false;
   if (row.avg_dollar_volume < Number(s.min_avg_dollar_volume) * share) return false;
   if (p.rsi_max !== null && row.rsi14 > p.rsi_max) return false;
@@ -391,7 +391,7 @@ export const LANES: Lane[] = [
   },
 ];
 
-function laneSeedParams(lane: Lane, s: Settings): LaneParams {
+export function laneSeedParams(lane: Lane, s: Settings): LaneParams {
   return {
     weights: normalize(lane.seed()),
     min_score_to_trade: Number(s.min_score_to_trade),
@@ -433,7 +433,7 @@ interface Experiment {
   new_value: string;
 }
 
-function signature(lane: string, p: LaneParams): string {
+export function signature(lane: string, p: LaneParams): string {
   const w = Object.entries(normalize(p.weights))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}:${Math.round(v as number)}`)
