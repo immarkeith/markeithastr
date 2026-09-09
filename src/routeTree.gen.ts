@@ -20,6 +20,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StrategyRouteImport } from './routes/strategy'
 import { Route as TradeHistoryRouteImport } from './routes/trade-history'
 import { Route as UnlockRouteImport } from './routes/unlock'
+import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
@@ -81,6 +82,11 @@ const UnlockRoute = UnlockRouteImport.update({
   path: '/unlock',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VerificationRoute = VerificationRouteImport.update({
+  id: '/verification',
+  path: '/verification',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WatchlistRoute = WatchlistRouteImport.update({
   id: '/watchlist',
   path: '/watchlist',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
   '/unlock': typeof UnlockRoute
+  '/verification': typeof VerificationRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
   '/unlock': typeof UnlockRoute
+  '/verification': typeof VerificationRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
   '/unlock': typeof UnlockRoute
+  '/verification': typeof VerificationRoute
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/strategy'
     | '/trade-history'
     | '/unlock'
+    | '/verification'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/health'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/strategy'
     | '/trade-history'
     | '/unlock'
+    | '/verification'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/health'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/strategy'
     | '/trade-history'
     | '/unlock'
+    | '/verification'
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/health'
@@ -232,6 +244,7 @@ export interface RootRouteChildren {
   StrategyRoute: typeof StrategyRoute
   TradeHistoryRoute: typeof TradeHistoryRoute
   UnlockRoute: typeof UnlockRoute
+  VerificationRoute: typeof VerificationRoute
   WatchlistRoute: typeof WatchlistRoute
   ApiPublicHooksDailyCycleRoute: typeof ApiPublicHooksDailyCycleRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
@@ -318,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UnlockRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/verification': {
+      id: '/verification'
+      path: '/verification'
+      fullPath: '/verification'
+      preLoaderRoute: typeof VerificationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/watchlist': {
       id: '/watchlist'
       path: '/watchlist'
@@ -368,6 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   StrategyRoute: StrategyRoute,
   TradeHistoryRoute: TradeHistoryRoute,
   UnlockRoute: UnlockRoute,
+  VerificationRoute: VerificationRoute,
   WatchlistRoute: WatchlistRoute,
   ApiPublicHooksDailyCycleRoute: ApiPublicHooksDailyCycleRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
