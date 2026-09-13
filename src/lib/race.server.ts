@@ -853,6 +853,44 @@ async function markToMarket(entrants: RaceEntrant[]): Promise<void> {
 
 // ------------------------------------------------------------- standings -----
 
+/** One time-horizon's performance profile for a paper entrant. */
+export interface HorizonStats {
+  total_pnl: number;
+  trades: number;
+  wins: number;
+  win_rate: number | null;
+  return_pct: number | null;
+  /** Portfolio value on this horizon: money put in plus this horizon's P&L. */
+  value: number;
+  /** Chart series, keyed by day the result belongs to. */
+  rows: { exit_date: string; profit: number }[];
+}
+
+/** Money actually put into (or taken out of) a book, the percent denominator. */
+function depositsOf(rows: LedgerRow[]): number {
+  let total = 0;
+  for (const row of rows) {
+    if (row.kind === "deposit" || row.kind === "withdrawal") total += row.amount;
+  }
+  return Number(total.toFixed(2));
+}
+
+function horizonStats(
+  rows: { date: string; profit: number }[],
+  deposits: number,
+): HorizonStats {
+  const total = rows.reduce((sum, r) => sum + r.profit, 0);
+  const wins = rows.filter((r) => r.profit > 0).length;
+  return {
+    total_pnl: Number(total.toFixed(2)),
+    trades: rows.length,
+    wins,
+    win_rate: rows.length ? Math.round((wins / rows.length) * 100) : null,
+    return_pct: deposits > 0 ? Number(((total / deposits) * 100).toFixed(2)) : null,
+    value: Number((deposits + total).toFixed(2)),
+    rows: rows.map((r) => ({ exit_date: r.date, profit: Number(r.profit.toFixed(2)) })),
+  };
+}
 
 export interface RaceEntrant {
   key: string;
@@ -870,6 +908,15 @@ export interface RaceEntrant {
   trades: number;
   wins: number;
   rank: number;
+  /** Money put into this book, used as the return-percent denominator. */
+  deposits: number;
+  /**
+   * The hypothetical short-term leg: what each position would have made if it
+   * had been sold at the normal same-day exit time. Paper research only.
+   */
+  same_day: HorizonStats;
+  /** The real paper leg: positions held for 3 trading days, then sold. */
+  three_day: HorizonStats;
   holdings: {
     ticker: string;
     entry_date: string;
@@ -890,6 +937,7 @@ export interface RaceEntrant {
   /** Cash + money at work, used as the percent-change denominator. */
   basis: number;
 }
+
 
 /**
  * Everything the Research Lab and the paper trade log render: one entrant per
