@@ -1270,11 +1270,16 @@ export type Database = {
           exit_date: string | null
           exit_price: number | null
           hold_days: number
+          hold_target_date: string | null
           id: string
           kept: number | null
           kind: string
           mode: string
           profit: number | null
+          same_day_at: string | null
+          same_day_pct: number | null
+          same_day_price: number | null
+          same_day_profit: number | null
           status: string
           status_note: string | null
           strategy_id: string | null
@@ -1290,11 +1295,16 @@ export type Database = {
           exit_date?: string | null
           exit_price?: number | null
           hold_days?: number
+          hold_target_date?: string | null
           id?: string
           kept?: number | null
           kind?: string
           mode?: string
           profit?: number | null
+          same_day_at?: string | null
+          same_day_pct?: number | null
+          same_day_price?: number | null
+          same_day_profit?: number | null
           status?: string
           status_note?: string | null
           strategy_id?: string | null
@@ -1310,11 +1320,16 @@ export type Database = {
           exit_date?: string | null
           exit_price?: number | null
           hold_days?: number
+          hold_target_date?: string | null
           id?: string
           kept?: number | null
           kind?: string
           mode?: string
           profit?: number | null
+          same_day_at?: string | null
+          same_day_pct?: number | null
+          same_day_price?: number | null
+          same_day_profit?: number | null
           status?: string
           status_note?: string | null
           strategy_id?: string | null

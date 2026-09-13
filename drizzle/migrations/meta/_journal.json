@@ -8,6 +8,13 @@
       "when": 1789329768647,
       "tag": "0000_master_formula_and_rotation",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789331955398,
+      "tag": "0001_paper_same_day_and_hold_target",
+      "breakpoints": true
     }
   ]
 }
