@@ -107,11 +107,45 @@ export const getScoreboard = createServerFn({ method: "GET" })
       })),
     ];
 
+    const latestLead = master.lead_tests[0] ?? null;
+    const activeRules = master.rules.filter((rule) => rule.status === "active");
+    const observationRules = master.rules.filter((rule) => rule.status === "observation");
+
     return {
       sources,
       watchlist: watchlist.data ?? [],
       assistants: verification.latest,
       lead: department.last_run?.summary?.balanced ?? null,
+      master: {
+        version: master.versions[0]?.version ?? null,
+        change_summary: master.versions[0]?.change_summary ?? null,
+        skeptic_note: master.versions[0]?.skeptic_note ?? null,
+        active_rules: activeRules.map((rule) => ({
+          label: rule.label,
+          discovered_by: rule.discovered_by,
+          confirmations: rule.confirmations,
+        })),
+        observation_rules: observationRules.map((rule) => ({
+          label: rule.label,
+          discovered_by: rule.discovered_by,
+          confirmations: rule.confirmations,
+        })),
+        retired: master.rules.filter((rule) => rule.status === "retired").length,
+        lead_test: latestLead
+          ? {
+              test_date: latestLead.test_date,
+              master_version: latestLead.master_version,
+              picks: latestLead.picks.map((pick) => pick.ticker),
+              same_day: Number(latestLead.horizons["same_day"] ?? 0),
+              three_day: Number(latestLead.horizons["3"] ?? 0),
+              edge: latestLead.edge,
+              verdict: latestLead.verdict,
+              note: latestLead.note,
+              contributing_rules: latestLead.contributing_rules,
+            }
+          : null,
+      },
       findings: department.findings.slice(0, 12),
     };
+
   });
