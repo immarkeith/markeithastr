@@ -851,6 +851,32 @@ export async function runDepartment(
   const researchers = await listResearchers();
   const deadEnds = await loadDeadEnds();
   let deadAdded = 0;
+  const latestDate = panel.dates[panel.dates.length - 1];
+
+  // The rotation: only two of the six backup scientists run a test on any one
+  // day. Whoever has waited longest goes first, ties broken by who has run the
+  // fewest experiments, so every lane gets regular turns. The Lead Researcher
+  // is never in this rotation — it tests the Master Formula every pass.
+  const enabledLanes = LANES.filter(
+    (l) => researchers.find((r) => r.lane === l.lane)?.enabled !== false,
+  );
+  const queue = [...enabledLanes].sort((a, b) => {
+    const ra = researchers.find((r) => r.lane === a.lane);
+    const rb = researchers.find((r) => r.lane === b.lane);
+    const ta = ra?.last_run_at ? Date.parse(String(ra.last_run_at)) : 0;
+    const tb = rb?.last_run_at ? Date.parse(String(rb.last_run_at)) : 0;
+    if (ta !== tb) return ta - tb;
+    return (ra?.experiments_run ?? 0) - (rb?.experiments_run ?? 0);
+  });
+  const forced = options.force_lanes?.length
+    ? enabledLanes.filter((l) => options.force_lanes!.includes(l.lane))
+    : null;
+  const selected = (forced?.length ? forced : queue.slice(0, ROTATION_PER_DAY));
+  const rotation = {
+    tested: selected.map((l) => l.lane),
+    sitting_out: enabledLanes.filter((l) => !selected.includes(l)).map((l) => l.lane),
+    next: queue.filter((l) => !selected.includes(l)).slice(0, ROTATION_PER_DAY).map((l) => l.lane),
+  };
 
   const evaluate = (lane: Lane, label: string, sig: string, params: LaneParams): Trial => {
     const inPicks = pickRows(rowsByDate, inDates, params, s, share);
