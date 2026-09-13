@@ -20,6 +20,8 @@ export const Route = createFileRoute("/settings")({
       },
       { property: "og:title", content: "Settings — ASTR Daily Rotation Desk" },
       { property: "og:description", content: "Factor weights, liquidity gates and sizing rules." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: SettingsPage,

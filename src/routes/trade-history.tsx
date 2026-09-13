@@ -171,6 +171,11 @@ function TradeCard({ row }: { row: TradeHistoryRow }) {
         )}
       </div>
 
+      <div className="mt-2 rounded border border-border/70 px-2 py-1.5 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">Actor: {row.source_name}</span>
+        {row.source_description ? ` · ${row.source_description}` : ""}
+      </div>
+
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <div className="rounded-md border border-border/70 p-2 text-xs">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Bought</div>
@@ -229,23 +234,39 @@ function TradeCard({ row }: { row: TradeHistoryRow }) {
 
 type ModeFilter = "all" | "live" | "paper";
 type StateFilter = "all" | "open" | "closed";
+type RangeFilter = "recent" | "all";
 
 function TradeHistoryPage() {
   const { data, isLoading } = useQuery(tradeHistoryQuery);
   const [mode, setMode] = useState<ModeFilter>("all");
   const [state, setState] = useState<StateFilter>("all");
+  const [range, setRange] = useState<RangeFilter>("recent");
 
   const all = (data?.trades ?? []) as TradeHistoryRow[];
-  const rows = useMemo(
-    () =>
-      all.filter((t) => {
+  const rows = useMemo(() => {
+      const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+      const recentIds = new Set(
+        all
+          .filter((trade) => {
+            const timestamp = new Date(trade.exit_at ?? trade.entry_at ?? trade.entry_date).getTime();
+            return Number.isFinite(timestamp) && timestamp >= cutoff;
+          })
+          .map((trade) => trade.id),
+      );
+      if (range === "recent") {
+        for (const source of new Set(all.map((trade) => trade.source_name))) {
+          const latest = all.find((trade) => trade.source_name === source);
+          if (latest) recentIds.add(latest.id);
+        }
+      }
+      return all.filter((t) => {
+        if (range === "recent" && !recentIds.has(t.id)) return false;
         if (mode !== "all" && t.mode !== mode) return false;
         if (state === "open" && t.status !== "open") return false;
         if (state === "closed" && t.status === "open") return false;
         return true;
-      }),
-    [all, mode, state],
-  );
+      });
+    }, [all, mode, state, range]);
 
   const totals = useMemo(() => {
     const done = rows.filter((t) => t.status === "closed");
@@ -266,7 +287,7 @@ function TradeHistoryPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Trade log</h1>
         <p className="text-sm text-muted-foreground">
-          Every buy and sell, with the formulas that made each name score high.
+          Recent live and research activity, with the actor and recorded score context for each trade.
           {data?.strategy_name ? ` Active strategy: ${data.strategy_name}.` : ""}
         </p>
       </div>
@@ -297,32 +318,37 @@ function TradeHistoryPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        {(["recent", "all"] as RangeFilter[]).map((value) => (
+          <Button
+            key={value}
+            variant={range === value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setRange(value)}
+          >
+            {value === "recent" ? "Last 72 hours" : "Full history"}
+          </Button>
+        ))}
+        <span className="mx-1 w-px bg-border" />
         {(["all", "live", "paper"] as ModeFilter[]).map((m) => (
-          <button
+          <Button
             key={m}
+            variant={mode === m ? "default" : "outline"}
+            size="sm"
             onClick={() => setMode(m)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              mode === m
-                ? "bg-primary text-primary-foreground"
-                : "border border-border text-muted-foreground hover:text-foreground"
-            }`}
           >
             {m === "all" ? "All modes" : m === "live" ? "Live" : "Simulated"}
-          </button>
+          </Button>
         ))}
         <span className="mx-1 w-px bg-border" />
         {(["all", "open", "closed"] as StateFilter[]).map((s) => (
-          <button
+          <Button
             key={s}
+            variant={state === s ? "default" : "outline"}
+            size="sm"
             onClick={() => setState(s)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              state === s
-                ? "bg-primary text-primary-foreground"
-                : "border border-border text-muted-foreground hover:text-foreground"
-            }`}
           >
             {s === "all" ? "All trades" : s === "open" ? "Open" : "Closed"}
-          </button>
+          </Button>
         ))}
       </div>
 

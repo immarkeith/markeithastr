@@ -1,16 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { MarketStatusBar } from "@/components/MarketStatusBar";
 import { PnlChart } from "@/components/PnlChart";
-import { ScoreTable } from "@/components/ScoreTable";
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
-import { dashboardQuery, latestRunQuery, money, settingsQuery } from "@/lib/queries";
-import { runScanNow, setBotRunning } from "@/lib/scan.functions";
+import { dashboardQuery, money } from "@/lib/queries";
+import { setBotRunning } from "@/lib/scan.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -26,6 +23,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Live balance, open positions, queued buys and profit/loss over time.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: HomePage,
@@ -38,22 +37,6 @@ function HomePage() {
   const openPl = (d?.holdings ?? []).reduce((sum, h) => sum + Number(h.pl ?? 0), 0);
   const heldDollars = (d?.holdings ?? []).reduce((sum, h) => sum + Number(h.dollars ?? 0), 0);
   const [busy, setBusy] = useState(false);
-  const qc = useQueryClient();
-  const runScanFn = useServerFn(runScanNow);
-  const settings = useQuery(settingsQuery);
-  const latest = useQuery(latestRunQuery);
-  const scores = latest.data?.scores ?? [];
-  const tradeable = scores.filter((r) => r.tradeable);
-
-  // Tops up any missing bars, rebuilds indicators and re-ranks — no trading.
-  const rescore = useMutation({
-    mutationFn: () => runScanFn({}),
-    onSuccess: async (res) => {
-      toast.success(`Scored ${res.scored_count} of ${res.universe_size} names.`);
-      await qc.invalidateQueries();
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
 
   async function toggleBot(running: boolean) {
     setBusy(true);
@@ -87,26 +70,24 @@ function HomePage() {
               No scheduled scoring, buying or selling will happen until you start it again.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
             disabled={busy}
             onClick={() => toggleBot(true)}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
             {busy ? "Starting…" : "Start bot"}
-          </button>
+          </Button>
         </section>
       ) : null}
       {d?.bot_running ? (
         <div className="flex justify-end">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => toggleBot(false)}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
           >
             {busy ? "Stopping…" : "Stop bot"}
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -188,41 +169,14 @@ function HomePage() {
         )}
       </section>
 
-      <section className="grid gap-3 lg:grid-cols-2">
-        <div className="space-y-3 rounded-md border border-border bg-card p-4">
-          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Up next</h2>
-          <p className="text-xs text-muted-foreground">
-            Bought only if it still passes the next scheduled score check.
-          </p>
-          {(d?.up_next.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing is queued right now.</p>
-          ) : (
-            <ul className="space-y-2">
-              {d?.up_next.map((row) => (
-                <li key={row.ticker} className="rounded border border-primary/30 bg-primary/5 p-3">
-                  <div className="flex items-baseline justify-between">
-                    <span className="font-bold">{row.ticker}</span>
-                    <span className="tabular-nums text-primary">{row.score.toFixed(1)} pts</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Plan {money(row.stake)} at ~${row.close.toFixed(2)}
-                    {d?.cash && d.cash.available < row.stake
-                      ? " — waiting on cash to clear"
-                      : ""}
-                  </p>
-                  {row.invalidation ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{row.invalidation}</p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
+      <section className="space-y-3">
         <div className="space-y-3 rounded-md border border-border bg-card p-4">
           <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-            Longer-term ideas
+            5 long-term hold suggestions
           </h2>
+          <p className="text-xs text-muted-foreground">
+            Suggestions noticed during ASTR&apos;s normal scans. They are not automatic buys.
+          </p>
           {(d?.suggestions.length ?? 0) === 0 ? (
             <p className="text-sm text-muted-foreground">No hold suggestions yet.</p>
           ) : (
@@ -239,8 +193,8 @@ function HomePage() {
                       {s.permanent ? " — permanent hold candidate" : ""}
                     </p>
                   </div>
-                  <Link to="/watchlist" className="text-xs text-primary hover:underline">
-                    Review
+                  <Link to="/scoreboard" className="text-xs text-primary hover:underline">
+                    Scoreboard
                   </Link>
                 </li>
               ))}
@@ -256,52 +210,6 @@ function HomePage() {
         basis={(d?.cash.available ?? 0) + heldDollars}
       />
 
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="space-y-1">
-            <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-              Candidate list
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Every cached name scored on trend, momentum, volume, relative strength and volatility
-              quality. The bot buys from the top of this list.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => rescore.mutate()}
-            disabled={rescore.isPending}
-          >
-            {rescore.isPending ? "Rescoring…" : "Rescore now"}
-          </Button>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          <StatTile
-            label="Last scored"
-            value={latest.data?.run ? String(latest.data.run.run_date) : "—"}
-            hint={
-              latest.data?.run?.bars_as_of
-                ? `data through ${String(latest.data.run.bars_as_of)}`
-                : "not run yet"
-            }
-          />
-          <StatTile
-            label="Names scored"
-            value={`${latest.data?.run?.scored_count ?? scores.length}`}
-            hint="cached universe"
-            tone="accent"
-          />
-          <StatTile
-            label="Eligible to buy"
-            value={`${tradeable.length}`}
-            hint={`score ≥ ${settings.data?.min_score_to_trade ?? 60}`}
-            tone={tradeable.length > 0 ? "positive" : "default"}
-          />
-        </div>
-
-        <ScoreTable rows={scores} />
-      </section>
     </div>
   );
 }
