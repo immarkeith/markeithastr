@@ -20,14 +20,17 @@ export const getScoreboard = createServerFn({ method: "GET" })
     ]);
 
 
-    const [department, slots, verification, latestRun, watchlist, settings] = await Promise.all([
-      departmentOverview(),
-      loadSlots(),
-      verificationOverview(),
-      supabaseAdmin.from("scan_runs").select("id, run_date").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      supabaseAdmin.from("watchlist_candidates").select("ticker, streak_days, status, best_pick_ever"),
-      supabaseAdmin.from("app_settings").select("active_strategy_id").eq("id", 1).maybeSingle(),
-    ]);
+    const [department, slots, verification, master, latestRun, watchlist, settings] =
+      await Promise.all([
+        departmentOverview(),
+        loadSlots(),
+        verificationOverview(),
+        masterFormulaOverview(),
+        supabaseAdmin.from("scan_runs").select("id, run_date").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        supabaseAdmin.from("watchlist_candidates").select("ticker, streak_days, status, best_pick_ever"),
+        supabaseAdmin.from("app_settings").select("active_strategy_id").eq("id", 1).maybeSingle(),
+      ]);
+
 
     const paperRanks = await rankSlots(slots.filter((slot) => slot.enabled));
     const run = latestRun.data;
