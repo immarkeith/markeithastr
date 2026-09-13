@@ -17,6 +17,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { HISTORY_DAYS, loadSettings, volumeShare, type Settings } from "./scan.server";
 import { extraFactors, marketContext, FACTOR_KEYS, type FactorKey } from "./factors";
 import { scoreSecurity, snapshot, type Bar, type Weights } from "./scoring";
+import type { RuleCandidate } from "./master-formula.server";
 
 type RawBars = [string, number, number, number, number, number][];
 
