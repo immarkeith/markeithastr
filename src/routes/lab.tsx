@@ -202,29 +202,38 @@ function SlotCard({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded border border-border p-2">
-          <p className="text-[10px] uppercase text-muted-foreground">P&amp;L</p>
-          <p
-            className={`text-sm font-bold tabular-nums ${
-              slot.total_pnl >= 0 ? "text-success" : "text-destructive"
-            }`}
-          >
-            {slot.total_pnl >= 0 ? "+" : ""}
-            {money(slot.total_pnl)}
-          </p>
-        </div>
-        <div className="rounded border border-border p-2">
-          <p className="text-[10px] uppercase text-muted-foreground">Win rate</p>
-          <p className="text-sm font-bold tabular-nums">
-            {slot.win_rate === null ? "—" : `${slot.win_rate}%`}
-          </p>
-        </div>
-        <div className="rounded border border-border p-2">
-          <p className="text-[10px] uppercase text-muted-foreground">Cash</p>
-          <p className="text-sm font-bold tabular-nums">{money(slot.cash.available)}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-2">
+        <DualMetric
+          label="P&amp;L"
+          sameDay={`${slot.same_day.total_pnl >= 0 ? "+" : ""}${money(slot.same_day.total_pnl)}`}
+          threeDay={`${slot.three_day.total_pnl >= 0 ? "+" : ""}${money(slot.three_day.total_pnl)}`}
+        />
+        <DualMetric
+          label="Win rate"
+          sameDay={slot.same_day.win_rate === null ? "—" : `${slot.same_day.win_rate}%`}
+          threeDay={slot.three_day.win_rate === null ? "—" : `${slot.three_day.win_rate}%`}
+        />
+        <DualMetric
+          label="Return"
+          sameDay={
+            slot.same_day.return_pct === null
+              ? "—"
+              : `${slot.same_day.return_pct >= 0 ? "+" : ""}${slot.same_day.return_pct}%`
+          }
+          threeDay={
+            slot.three_day.return_pct === null
+              ? "—"
+              : `${slot.three_day.return_pct >= 0 ? "+" : ""}${slot.three_day.return_pct}%`
+          }
+        />
+        <DualMetric
+          label="Value"
+          sameDay={money(slot.same_day.value)}
+          threeDay={money(slot.three_day.value)}
+          hint={`${money(slot.cash.available)} cash ready`}
+        />
       </div>
+
 
       <div className="space-y-1">
         <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Holding</p>
