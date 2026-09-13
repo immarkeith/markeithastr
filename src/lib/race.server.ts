@@ -816,6 +816,8 @@ function holdingOf(
     pl: Number((dollars * (prevClose / entryPrice - 1)).toFixed(2)),
     pl_pct: Number(((prevClose / entryPrice - 1) * 100).toFixed(2)),
     today_pl: 0,
+    hold_until: holdTarget(trade),
+
   };
 }
 
@@ -927,6 +929,9 @@ export interface RaceEntrant {
     pl: number;
     pl_pct: number;
     today_pl: number;
+    /** The trading day this paper position is due to be sold (3-day hold). */
+    hold_until: string;
+
   }[];
   up_next: { ticker: string; score: number; close: number; invalidation: string } | null;
   closed: { exit_date: string; profit: number }[];
