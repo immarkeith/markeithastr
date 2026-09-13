@@ -32,6 +32,8 @@ export const Route = createFileRoute("/notifications")({
         property: "og:description",
         content: "1-day buys, hold ideas and sector rotations, pushed to your phone.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: NotificationsPage,

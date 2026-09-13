@@ -23,6 +23,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Live balance, open positions, queued buys and profit/loss over time.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: HomePage,
