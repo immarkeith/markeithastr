@@ -5,13 +5,20 @@ import { requireGate } from "./gate-middleware";
 export const getScoreboard = createServerFn({ method: "GET" })
   .middleware([requireGate])
   .handler(async () => {
-    const [{ departmentOverview }, { loadSlots, rankSlots }, { verificationOverview }, { supabaseAdmin }] =
-      await Promise.all([
-        import("./department.server"),
-        import("./race.server"),
-        import("./verification.server"),
-        import("@/integrations/supabase/client.server"),
-      ]);
+    const [
+      { departmentOverview },
+      { loadSlots, rankSlots },
+      { verificationOverview },
+      { masterFormulaOverview },
+      { supabaseAdmin },
+    ] = await Promise.all([
+      import("./department.server"),
+      import("./race.server"),
+      import("./verification.server"),
+      import("./master-formula.server"),
+      import("@/integrations/supabase/client.server"),
+    ]);
+
 
     const [department, slots, verification, latestRun, watchlist, settings] = await Promise.all([
       departmentOverview(),
