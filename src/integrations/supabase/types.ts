@@ -161,6 +161,75 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_tests: {
+        Row: {
+          created_at: string
+          discoveries: Json
+          edge: number | null
+          entry_conditions: Json
+          escalate: boolean
+          exit_conditions: Json
+          failed: Json
+          formula_version: string
+          horizons: Json
+          id: string
+          lane: string
+          market_conditions: Json
+          note: string | null
+          params: Json
+          picks: Json
+          problems: Json
+          repeatable: boolean
+          researcher_name: string
+          test_date: string
+          worked: Json
+        }
+        Insert: {
+          created_at?: string
+          discoveries?: Json
+          edge?: number | null
+          entry_conditions?: Json
+          escalate?: boolean
+          exit_conditions?: Json
+          failed?: Json
+          formula_version: string
+          horizons?: Json
+          id?: string
+          lane: string
+          market_conditions?: Json
+          note?: string | null
+          params?: Json
+          picks?: Json
+          problems?: Json
+          repeatable?: boolean
+          researcher_name: string
+          test_date: string
+          worked?: Json
+        }
+        Update: {
+          created_at?: string
+          discoveries?: Json
+          edge?: number | null
+          entry_conditions?: Json
+          escalate?: boolean
+          exit_conditions?: Json
+          failed?: Json
+          formula_version?: string
+          horizons?: Json
+          id?: string
+          lane?: string
+          market_conditions?: Json
+          note?: string | null
+          params?: Json
+          picks?: Json
+          problems?: Json
+          repeatable?: boolean
+          researcher_name?: string
+          test_date?: string
+          worked?: Json
+        }
+        Relationships: []
+      }
       capital_ladder_events: {
         Row: {
           capital: number
@@ -317,6 +386,69 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_tests: {
+        Row: {
+          contributing_rules: Json
+          created_at: string
+          edge: number | null
+          entry_conditions: Json
+          evidence: Json
+          exit_conditions: Json
+          factor_contributions: Json
+          horizons: Json
+          id: string
+          losing_conditions: Json
+          market_conditions: Json
+          master_version: string
+          note: string | null
+          params: Json
+          picks: Json
+          test_date: string
+          verdict: string
+          winning_conditions: Json
+        }
+        Insert: {
+          contributing_rules?: Json
+          created_at?: string
+          edge?: number | null
+          entry_conditions?: Json
+          evidence?: Json
+          exit_conditions?: Json
+          factor_contributions?: Json
+          horizons?: Json
+          id?: string
+          losing_conditions?: Json
+          market_conditions?: Json
+          master_version: string
+          note?: string | null
+          params?: Json
+          picks?: Json
+          test_date: string
+          verdict: string
+          winning_conditions?: Json
+        }
+        Update: {
+          contributing_rules?: Json
+          created_at?: string
+          edge?: number | null
+          entry_conditions?: Json
+          evidence?: Json
+          exit_conditions?: Json
+          factor_contributions?: Json
+          horizons?: Json
+          id?: string
+          losing_conditions?: Json
+          market_conditions?: Json
+          master_version?: string
+          note?: string | null
+          params?: Json
+          picks?: Json
+          test_date?: string
+          verdict?: string
+          winning_conditions?: Json
+        }
+        Relationships: []
+      }
       ledger_entries: {
         Row: {
           amount: number
@@ -367,6 +499,132 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      master_formula_versions: {
+        Row: {
+          after_performance: Json
+          before_performance: Json
+          change_summary: string
+          created_at: string
+          discovered_by: string | null
+          evidence: Json
+          id: string
+          params: Json
+          reason: string
+          rules: Json
+          skeptic_note: string | null
+          tests: number
+          version: string
+        }
+        Insert: {
+          after_performance?: Json
+          before_performance?: Json
+          change_summary: string
+          created_at?: string
+          discovered_by?: string | null
+          evidence?: Json
+          id?: string
+          params?: Json
+          reason: string
+          rules?: Json
+          skeptic_note?: string | null
+          tests?: number
+          version: string
+        }
+        Update: {
+          after_performance?: Json
+          before_performance?: Json
+          change_summary?: string
+          created_at?: string
+          discovered_by?: string | null
+          evidence?: Json
+          id?: string
+          params?: Json
+          reason?: string
+          rules?: Json
+          skeptic_note?: string | null
+          tests?: number
+          version?: string
+        }
+        Relationships: []
+      }
+      master_rules: {
+        Row: {
+          band_high: number | null
+          band_low: number | null
+          best_edge: number | null
+          confirmations: number
+          created_at: string
+          discovered_by: string
+          evidence: Json
+          factor: string | null
+          failures: number
+          filter_key: string | null
+          filter_value: number | null
+          first_seen_on: string
+          id: string
+          kind: string
+          label: string
+          last_edge: number | null
+          promoted_on: string | null
+          retired_on: string | null
+          signature: string
+          skeptic_note: string | null
+          status: string
+          updated_at: string
+          weight: number | null
+        }
+        Insert: {
+          band_high?: number | null
+          band_low?: number | null
+          best_edge?: number | null
+          confirmations?: number
+          created_at?: string
+          discovered_by: string
+          evidence?: Json
+          factor?: string | null
+          failures?: number
+          filter_key?: string | null
+          filter_value?: number | null
+          first_seen_on?: string
+          id?: string
+          kind: string
+          label: string
+          last_edge?: number | null
+          promoted_on?: string | null
+          retired_on?: string | null
+          signature: string
+          skeptic_note?: string | null
+          status?: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Update: {
+          band_high?: number | null
+          band_low?: number | null
+          best_edge?: number | null
+          confirmations?: number
+          created_at?: string
+          discovered_by?: string
+          evidence?: Json
+          factor?: string | null
+          failures?: number
+          filter_key?: string | null
+          filter_value?: number | null
+          first_seen_on?: string
+          id?: string
+          kind?: string
+          label?: string
+          last_edge?: number | null
+          promoted_on?: string | null
+          retired_on?: string | null
+          signature?: string
+          skeptic_note?: string | null
+          status?: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Relationships: []
       }
       model_predictions: {
         Row: {

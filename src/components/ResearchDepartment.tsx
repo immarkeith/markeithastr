@@ -118,6 +118,17 @@ export function ResearchDepartment() {
   const notebook = data?.notebook ?? [];
   const balanced = data?.last_run?.summary?.balanced ?? null;
   const cross = data?.last_run?.summary?.cross_findings ?? [];
+  const rotation = data?.last_run?.summary?.rotation ?? null;
+  const master = data?.master;
+  const rules = master?.rules ?? [];
+  const activeRules = rules.filter((r) => r.status === "active");
+  const watchRules = rules.filter((r) => r.status === "observation");
+  const retiredRules = rules.filter((r) => r.status === "retired");
+  const versions = master?.versions ?? [];
+  const leadTest = (master?.lead_tests ?? [])[0] ?? null;
+  const todayBackups = (master?.backup_tests ?? []).filter(
+    (b) => b.test_date === (master?.backup_tests ?? [])[0]?.test_date,
+  );
   const objections = findings.filter((f) => f.verdict === "vetoed").slice(0, 6);
   const latestByLane = new Map<string, (typeof findings)[number]>();
   for (const f of findings) if (!latestByLane.has(f.lane)) latestByLane.set(f.lane, f);
@@ -144,11 +155,11 @@ export function ResearchDepartment() {
       <header className="space-y-2">
         <h2 className="text-lg font-bold tracking-tight">Research department</h2>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Five specialists with genuinely different philosophies, each tuning only its own
-          variables, plus a Skeptic that tries to break their conclusions and a Lead Researcher
-          that merges the survivors into one Balanced Strategy proposal. Every experiment is
-          written into a permanent notebook — including the failures — and when researchers
-          independently agree, that agreement is treated as a finding, not forced apart.
+          One permanent Lead Researcher and six backup scientists. Each market day the Lead tests
+          the current Master Formula and two of the six backups get a test slot, so every lane gets
+          regular turns. Backups may change their own formulas freely; only the Lead can change the
+          Master Formula, and only after a finding has been confirmed on separate days it was never
+          tuned on. Every experiment is written down — including the failures.
         </p>
       </header>
 
@@ -165,10 +176,14 @@ export function ResearchDepartment() {
           hint={data?.last_run ? `last pass ${data.last_run.created_at.slice(0, 10)}` : "no pass yet"}
         />
         <StatTile
-          label="Balanced Strategy"
-          value={balanced ? `${balanced.edge >= 0 ? "+" : ""}${balanced.edge}%` : "—"}
-          hint={balanced ? (balanced.filed ? "filed as a candidate" : "not better than the current rule") : "waiting on a pass"}
-          tone={balanced?.filed ? "positive" : "default"}
+          label="Master Formula"
+          value={leadTest ? `v${leadTest.master_version}` : "—"}
+          hint={
+            leadTest
+              ? `${activeRules.length} validated rule(s) · ${leadTest.verdict}`
+              : `${activeRules.length} validated rule(s)`
+          }
+          tone={leadTest && Number(leadTest.edge ?? 0) > 0 ? "positive" : "default"}
         />
         <StatTile
           label="Known dead ends"
@@ -222,6 +237,84 @@ export function ResearchDepartment() {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {(leadTest || todayBackups.length > 0) && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+              Today's three tests
+            </h3>
+            {rotation ? (
+              <p className="text-xs text-muted-foreground">
+                Sitting out: {rotation.sitting_out.join(", ") || "nobody"} · next up:{" "}
+                {rotation.next.join(", ") || "—"}
+              </p>
+            ) : null}
+          </div>
+          <div className="grid gap-3 lg:grid-cols-3">
+            {leadTest ? (
+              <article className="space-y-2 rounded-md border border-primary/40 bg-primary/10 p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h4 className="font-semibold text-primary">Lead Researcher</h4>
+                  <span className="text-[11px] text-muted-foreground">
+                    Master Formula v{leadTest.master_version}
+                  </span>
+                </div>
+                <p className="text-sm">
+                  Picked{" "}
+                  {leadTest.picks.length
+                    ? leadTest.picks.map((p) => p.ticker).join(", ")
+                    : "nothing — nothing cleared its conditions"}
+                </p>
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  same day <Signed value={Number(leadTest.horizons['same_day'] ?? 0)} /> · 1d{" "}
+                  <Signed value={Number(leadTest.horizons['1'] ?? 0)} /> · 5d{" "}
+                  <Signed value={Number(leadTest.horizons['5'] ?? 0)} /> · edge{" "}
+                  <Signed value={Number(leadTest.edge ?? 0)} />
+                </p>
+                <p className="text-xs text-muted-foreground">{leadTest.note}</p>
+                <button
+                  type="button"
+                  onClick={() => setTab("lead")}
+                  className="text-xs text-primary hover:underline"
+                >
+                  See the Master Formula
+                </button>
+              </article>
+            ) : null}
+            {todayBackups.slice(0, 2).map((b) => (
+              <article key={b.id} className="space-y-2 rounded-md border border-border bg-card p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h4 className="font-semibold">{b.researcher_name}</h4>
+                  <span className="text-[11px] text-muted-foreground">{b.formula_version}</span>
+                </div>
+                <p className="text-sm">
+                  Picked{" "}
+                  {b.picks.length
+                    ? b.picks.map((p) => p.ticker).join(", ")
+                    : "nothing that met its own bar"}
+                </p>
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  same day <Signed value={Number(b.horizons['same_day'] ?? 0)} /> · 1d{" "}
+                  <Signed value={Number(b.horizons['1'] ?? 0)} /> · 5d{" "}
+                  <Signed value={Number(b.horizons['5'] ?? 0)} /> · edge{" "}
+                  <Signed value={Number(b.edge ?? 0)} />
+                </p>
+                {b.worked.length > 0 && (
+                  <p className="text-xs text-success">Worked: {b.worked[0]}</p>
+                )}
+                {b.failed.length > 0 && (
+                  <p className="text-xs text-warning">Fell short: {b.failed[0]}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {b.repeatable ? "Repeatable across both halves. " : "Not repeatable yet. "}
+                  {b.note}
+                </p>
+              </article>
+            ))}
+          </div>
         </section>
       )}
 
@@ -299,6 +392,124 @@ export function ResearchDepartment() {
 
       {tab === "lead" && (
         <section className="space-y-4">
+          <div className="space-y-3 rounded-md border border-border bg-card p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="font-semibold">
+                Master Formula {leadTest ? `v${leadTest.master_version}` : ""}
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                {activeRules.length} validated · {watchRules.length} still being watched ·{" "}
+                {retiredRules.length} retired
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Only the Lead Researcher changes this. A finding joins after three separate
+              confirmations on days it was never tuned on, and leaves only after four sustained
+              failures — so one good or bad day never moves it.
+            </p>
+
+            {activeRules.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No rule has cleared the bar yet. Until one does, the Lead tests the current live
+                weights as a placeholder.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {activeRules.map((r) => (
+                  <li key={r.id} className="rounded border border-success/30 bg-success/5 p-2">
+                    <p className="text-sm font-medium">{r.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      found by {r.discovered_by} · confirmed {r.confirmations}x · last test{" "}
+                      <Signed value={Number(r.last_edge ?? 0)} />
+                      {r.promoted_on ? ` · added ${r.promoted_on}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {watchRules.length > 0 && (
+              <div className="space-y-1">
+                <h4 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                  Being watched, not yet trusted
+                </h4>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {watchRules.slice(0, 8).map((r) => (
+                    <li key={r.id}>
+                      {r.label} — {r.confirmations} of 3 confirmations ({r.discovered_by})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {retiredRules.length > 0 && (
+              <div className="space-y-1">
+                <h4 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                  Retired
+                </h4>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {retiredRules.slice(0, 6).map((r) => (
+                    <li key={r.id}>
+                      {r.label} — dropped after {r.failures} failed re-tests
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {leadTest && (
+            <div className="space-y-2 rounded-md border border-border bg-card p-4">
+              <h3 className="font-semibold">
+                The Lead's own test — {leadTest.test_date} · {leadTest.verdict}
+              </h3>
+              <p className="text-sm">
+                Entry: {leadTest.entry_conditions.join("; ") || "—"}. Exit:{" "}
+                {leadTest.exit_conditions.join("; ") || "—"}.
+              </p>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                same day <Signed value={Number(leadTest.horizons['same_day'] ?? 0)} /> · 1d{" "}
+                <Signed value={Number(leadTest.horizons['1'] ?? 0)} /> · 3d{" "}
+                <Signed value={Number(leadTest.horizons['3'] ?? 0)} /> · 5d{" "}
+                <Signed value={Number(leadTest.horizons['5'] ?? 0)} /> · 10d{" "}
+                <Signed value={Number(leadTest.horizons['10'] ?? 0)} />
+              </p>
+              {leadTest.winning_conditions.length > 0 && (
+                <p className="text-xs text-success">
+                  Winning conditions: {leadTest.winning_conditions.join(" · ")}
+                </p>
+              )}
+              {leadTest.losing_conditions.length > 0 && (
+                <p className="text-xs text-warning">
+                  Losing conditions: {leadTest.losing_conditions.join(" · ")}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">{leadTest.note}</p>
+            </div>
+          )}
+
+          {versions.length > 0 && (
+            <div className="space-y-2 rounded-md border border-border bg-card p-4">
+              <h3 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+                Version history
+              </h3>
+              <ul className="space-y-2">
+                {versions.map((v) => (
+                  <li key={v.id} className="border-t border-border/60 pt-2 first:border-0 first:pt-0">
+                    <p className="text-sm font-medium">
+                      v{v.version}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {v.created_at.slice(0, 10)} · {v.tests} test(s)
+                      </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">{v.change_summary}</p>
+                    <p className="text-xs text-muted-foreground">{v.reason}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {balanced ? (
             <div className="space-y-2 rounded-md border border-primary/40 bg-primary/10 p-4">
               <h3 className="font-semibold text-primary">Lead Researcher — Balanced Strategy</h3>

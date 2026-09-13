@@ -17,6 +17,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { HISTORY_DAYS, loadSettings, volumeShare, type Settings } from "./scan.server";
 import { extraFactors, marketContext, FACTOR_KEYS, type FactorKey } from "./factors";
 import { scoreSecurity, snapshot, type Bar, type Weights } from "./scoring";
+import type { RuleCandidate } from "./master-formula.server";
 
 type RawBars = [string, number, number, number, number, number][];
 
@@ -83,6 +84,11 @@ export interface PanelRow {
   forward_return: number | null;
   /** Forward return at each research horizon, keyed by trading days held. */
   forward: Partial<Record<Horizon, number>>;
+  /**
+   * Buy at the next session's open, sell at that session's close — the
+   * same-day result the research tester actually trades.
+   */
+  same_day: number | null;
 
 
   benchmark_return: number | null;
@@ -202,6 +208,7 @@ export async function buildPanel(universe: number, proxyTicker: string) {
         rel_volume: snap.relVolume,
         forward,
         forward_return: exitBar ? pctChange(exitBar.close, snap.close) : null,
+        same_day: exitBar ? pctChange(exitBar.close, exitBar.open) : null,
 
         benchmark_return: benchmark,
       });
@@ -281,7 +288,7 @@ function avgHorizon(picks: PanelRow[], h: Horizon): number {
   return round(rets.reduce((a, b) => a + b, 0) / rets.length, 3);
 }
 
-function legFrom(picks: PanelRow[]): Leg {
+export function legFrom(picks: PanelRow[]): Leg {
   if (picks.length === 0) return emptyLeg();
   const rets = picks.map((p) => p.forward_return!);
   const total = rets.reduce((a, b) => a + b, 0);
@@ -388,6 +395,21 @@ export const LANES: Lane[] = [
       { label: "avoid overbought risk (RSI under 75)", apply: (p) => ({ ...p, rsi_max: 75 }) },
     ],
     objective: (l) => l.risk_adjusted * 3 + l.avg_return_pct,
+  },
+  {
+    // The Skeptic is a challenger, not a stock picker. Its test slot is spent
+    // trying to break the strongest recent idea rather than to find a winner,
+    // so its objective rewards evidence that survives hard conditions.
+    lane: "skeptic",
+    name: "Skeptic",
+    own: ["trend", "momentum", "volatility_quality", "low_drawdown", "worst_day"],
+    seed: () => ({ trend: 25, momentum: 25, volatility_quality: 20, low_drawdown: 15, worst_day: 15 }),
+    gates: [
+      { label: "test it only on calm days (ATR under 4%)", apply: (p) => ({ ...p, atr_pct_max: 4 }) },
+      { label: "test it only on hot names (RSI over 60)", apply: (p) => ({ ...p, rsi_min: 60 }) },
+      { label: "test it without volume help", apply: (p) => ({ ...p, rel_volume_min: null }) },
+    ],
+    objective: (l) => Math.min(l.avg_return_pct, l.risk_adjusted),
   },
 ];
 
@@ -782,10 +804,34 @@ export interface DepartmentResult {
   cross_findings: string[];
   board: DepartmentBoard | null;
   warnings: string[];
+  /** Which two backup scientists tested today, who sat out, who is next. */
+  rotation: { tested: string[]; sitting_out: string[]; next: string[] };
+  master: {
+    version: string;
+    version_changed: boolean;
+    active_rules: number;
+    observation_rules: number;
+    promoted: string[];
+    retired: string[];
+    summary: string;
+    lead_test: {
+      date: string;
+      version: string;
+      picks: { ticker: string; score: number; close: number }[];
+      horizons: Record<string, number>;
+      edge: number;
+      verdict: string;
+      note: string;
+      contributing_rules: string[];
+    } | null;
+  };
 }
 
+/** Backup scientists that get a test slot on any one market day. */
+const ROTATION_PER_DAY = 2;
+
 export async function runDepartment(
-  options: { universe?: number } = {},
+  options: { universe?: number; force_lanes?: string[] } = {},
 ): Promise<DepartmentResult> {
   const s = await loadSettings();
   const share = await volumeShare(s);
@@ -827,6 +873,32 @@ export async function runDepartment(
   const researchers = await listResearchers();
   const deadEnds = await loadDeadEnds();
   let deadAdded = 0;
+  const latestDate = panel.dates[panel.dates.length - 1];
+
+  // The rotation: only two of the six backup scientists run a test on any one
+  // day. Whoever has waited longest goes first, ties broken by who has run the
+  // fewest experiments, so every lane gets regular turns. The Lead Researcher
+  // is never in this rotation — it tests the Master Formula every pass.
+  const enabledLanes = LANES.filter(
+    (l) => researchers.find((r) => r.lane === l.lane)?.enabled !== false,
+  );
+  const queue = [...enabledLanes].sort((a, b) => {
+    const ra = researchers.find((r) => r.lane === a.lane);
+    const rb = researchers.find((r) => r.lane === b.lane);
+    const ta = ra?.last_run_at ? Date.parse(String(ra.last_run_at)) : 0;
+    const tb = rb?.last_run_at ? Date.parse(String(rb.last_run_at)) : 0;
+    if (ta !== tb) return ta - tb;
+    return (ra?.experiments_run ?? 0) - (rb?.experiments_run ?? 0);
+  });
+  const forced = options.force_lanes?.length
+    ? enabledLanes.filter((l) => options.force_lanes!.includes(l.lane))
+    : null;
+  const selected = (forced?.length ? forced : queue.slice(0, ROTATION_PER_DAY));
+  const rotation = {
+    tested: selected.map((l) => l.lane),
+    sitting_out: enabledLanes.filter((l) => !selected.includes(l)).map((l) => l.lane),
+    next: queue.filter((l) => !selected.includes(l)).slice(0, ROTATION_PER_DAY).map((l) => l.lane),
+  };
 
   const evaluate = (lane: Lane, label: string, sig: string, params: LaneParams): Trial => {
     const inPicks = pickRows(rowsByDate, inDates, params, s, share);
@@ -854,13 +926,25 @@ export async function runDepartment(
 
   const reports: LaneReport[] = [];
   const validated: Trial[] = [];
+  /** Individual findings escalated to the Lead Researcher this pass. */
+  const masterCandidates: RuleCandidate[] = [];
+  const { candidatesFrom, runMasterCycle } = await import("./master-formula.server");
   /** Each lane's post-evolution parameters — the researcher's current mind. */
   const laneFinal: Map<string, LaneParams> = new Map();
 
-
+  // Lanes sitting out today keep the formula they already had — their notebooks
+  // and dead-end memory are untouched, and their board still ranks stocks.
   for (const lane of LANES) {
     const row = researchers.find((r) => r.lane === lane.lane);
-    if (row && row.enabled === false) continue;
+    const held =
+      row && row.params && (row.params as LaneParams).weights
+        ? (row.params as LaneParams)
+        : laneSeedParams(lane, s);
+    laneFinal.set(lane.lane, held);
+  }
+
+  for (const lane of selected) {
+    const row = researchers.find((r) => r.lane === lane.lane);
     const current =
       row && row.params && (row.params as LaneParams).weights
         ? (row.params as LaneParams)
@@ -1035,6 +1119,119 @@ export async function runDepartment(
 
     if (verdict === "validated") validated.push(best);
 
+    // The backup scientist's own test record for the day: what it ran, which
+    // stocks its formula picked, how those picks did over each horizon, what
+    // worked, what failed, and whether the Lead should look at it.
+    const bestPicks = pickRows(rowsByDate, outDates, best.params, s, share);
+    const bestHorizons = horizonProfile(best.params);
+    const laneEntry: string[] = [`score at least ${best.params.min_score_to_trade}`];
+    if (best.params.rsi_max !== null) laneEntry.push(`RSI under ${best.params.rsi_max}`);
+    if (best.params.rsi_min !== null) laneEntry.push(`RSI over ${best.params.rsi_min}`);
+    if (best.params.atr_pct_min !== null)
+      laneEntry.push(`daily range at least ${best.params.atr_pct_min}%`);
+    if (best.params.atr_pct_max !== null)
+      laneEntry.push(`daily range under ${best.params.atr_pct_max}%`);
+    if (best.params.rel_volume_min !== null)
+      laneEntry.push(`volume at least ${best.params.rel_volume_min}x average`);
+
+    const worked: string[] = [];
+    const failed: string[] = [];
+    if (best.edge > 0) worked.push(`beat the current rule by ${best.edge}% per trade on fresh days`);
+    else failed.push(`no edge on fresh days (${best.edge}% per trade vs the current rule)`);
+    if (best.up_market.picks >= 5)
+      (best.up_market.avg_return_pct > 0 ? worked : failed).push(
+        `rising markets: ${best.up_market.avg_return_pct}% per trade over ${best.up_market.picks} trades`,
+      );
+    if (best.down_market.picks >= 5)
+      (best.down_market.avg_return_pct > 0 ? worked : failed).push(
+        `falling markets: ${best.down_market.avg_return_pct}% per trade over ${best.down_market.picks} trades`,
+      );
+    if (best.trimmed.avg_return_pct <= baselineOut.avg_return_pct)
+      failed.push("the edge relies on a handful of lucky trades");
+    const repeatable =
+      best.first_half.avg_return_pct > 0 &&
+      best.second_half.avg_return_pct > 0 &&
+      best.out_of_sample.picks >= 15;
+
+    const bestLatest = latestDate
+      ? (rowsByDate.get(latestDate) ?? [])
+          .filter((r) => passesFilters(r, best.params, s, share))
+          .map((r) => ({
+            ticker: r.ticker,
+            close: round(r.close, 2),
+            score: round(scoreWith(r, best.params.weights), 1),
+          }))
+          .filter((r) => r.score >= best.params.min_score_to_trade)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, Math.max(1, best.params.num_day_trades))
+      : [];
+
+    const escalate = verdict === "validated" && repeatable;
+    await supabaseAdmin.from("backup_tests").upsert(
+      {
+        test_date: new Date().toISOString().slice(0, 10),
+        lane: lane.lane,
+        researcher_name: lane.name,
+        formula_version: `gen ${generation}`,
+        params: best.params as unknown as Json,
+        picks: bestLatest as unknown as Json,
+        entry_conditions: laneEntry as unknown as Json,
+        exit_conditions: [
+          "sell the same session, before the close",
+          "no overnight or weekend holding",
+        ] as unknown as Json,
+        horizons: {
+          same_day: round(
+            bestPicks.length
+              ? bestPicks.reduce((a, p) => a + (p.same_day ?? 0), 0) / bestPicks.length
+              : 0,
+            3,
+          ),
+          ...bestHorizons,
+        } as unknown as Json,
+        market_conditions: {
+          up_market: best.up_market,
+          down_market: best.down_market,
+          sessions: usable.length,
+          tickers: panel.tickers,
+        } as unknown as Json,
+        worked: worked as unknown as Json,
+        failed: failed as unknown as Json,
+        repeatable,
+        discoveries: (verdict === "validated" ? [best.label] : []) as unknown as Json,
+        problems: review.objections as unknown as Json,
+        escalate,
+        edge: best.edge,
+        note:
+          verdict === "vetoed"
+            ? `The Skeptic blocked this: ${review.objections[0] ?? "see objections"}`
+            : escalate
+              ? "Sent to the Lead Researcher for validation."
+              : "Kept in this researcher's own notebook — not strong enough to escalate.",
+      },
+      { onConflict: "test_date,lane" },
+    );
+
+    if (escalate) {
+      masterCandidates.push(
+        ...candidatesFrom({
+          lane: lane.lane,
+          laneName: lane.name,
+          label: best.label,
+          params: best.params,
+          picks: bestPicks,
+          evidence: {
+            edge: best.edge,
+            out_of_sample: best.out_of_sample,
+            first_half: best.first_half,
+            second_half: best.second_half,
+            sessions: usable.length,
+          },
+          skepticNote: review.objections[0] ?? null,
+        }),
+      );
+    }
+
     reports.push({
       lane: lane.lane,
       name: lane.name,
@@ -1049,8 +1246,10 @@ export async function runDepartment(
     });
   }
 
-  const balanced = await leadResearcher({
-    validated,
+  // The Lead Researcher: validates escalated findings one at a time, maintains
+  // the Master Formula, and tests the Master Formula as a complete strategy.
+  const master = await runMasterCycle({
+    candidates: masterCandidates,
     base,
     baselineOut,
     rowsByDate,
@@ -1060,14 +1259,22 @@ export async function runDepartment(
     share,
     sessions: usable.length,
     tickers: panel.tickers,
+    latestDate: latestDate ?? null,
   });
+
+  const balanced = {
+    filed: master.version_changed && master.active_rules > 0 && (master.lead_test?.edge ?? 0) > 0,
+    edge: master.lead_test?.edge ?? 0,
+    summary: master.summary,
+    note: master.lead_test?.note ?? "",
+    out_of_sample: master.lead_test?.out_of_sample ?? baselineOut,
+  };
 
   // Where researchers agree and where they disagree — both are findings.
   const cross: string[] = crossFindings(laneFinal, reports);
 
   // The board: each researcher's current formula ranked against the latest
   // cached session, so the All Researchers view can show real ranked stocks.
-  const latestDate = panel.dates[panel.dates.length - 1];
   const board = latestDate
     ? boardForLatest(rowsByDate.get(latestDate) ?? [], laneFinal, s, share, latestDate)
     : null;
@@ -1082,6 +1289,8 @@ export async function runDepartment(
       dead_ends_added: deadAdded,
       cross_findings: cross,
       board,
+      rotation,
+      master,
     } as unknown as Json,
     warnings: warnings as unknown as Json,
   });
@@ -1097,6 +1306,28 @@ export async function runDepartment(
     cross_findings: cross,
     board,
     warnings,
+    rotation,
+    master: {
+      version: master.version,
+      version_changed: master.version_changed,
+      active_rules: master.active_rules,
+      observation_rules: master.observation_rules,
+      promoted: master.promoted,
+      retired: master.retired,
+      summary: master.summary,
+      lead_test: master.lead_test
+        ? {
+            date: master.lead_test.date,
+            version: master.lead_test.version,
+            picks: master.lead_test.picks,
+            horizons: master.lead_test.horizons,
+            edge: master.lead_test.edge,
+            verdict: master.lead_test.verdict,
+            note: master.lead_test.note,
+            contributing_rules: master.lead_test.contributing_rules,
+          }
+        : null,
+    },
   };
 }
 
@@ -1342,8 +1573,14 @@ export async function departmentOverview() {
             dead_ends_added?: number;
             cross_findings?: string[];
             board?: DepartmentBoard | null;
+            rotation?: DepartmentResult["rotation"];
+            master?: DepartmentResult["master"];
           };
         }
       | undefined,
+    ...(await (async () => {
+      const { masterFormulaOverview } = await import("./master-formula.server");
+      return { master: await masterFormulaOverview() };
+    })()),
   };
 }
