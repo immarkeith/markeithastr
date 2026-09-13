@@ -176,10 +176,14 @@ export function ResearchDepartment() {
           hint={data?.last_run ? `last pass ${data.last_run.created_at.slice(0, 10)}` : "no pass yet"}
         />
         <StatTile
-          label="Balanced Strategy"
-          value={balanced ? `${balanced.edge >= 0 ? "+" : ""}${balanced.edge}%` : "—"}
-          hint={balanced ? (balanced.filed ? "filed as a candidate" : "not better than the current rule") : "waiting on a pass"}
-          tone={balanced?.filed ? "positive" : "default"}
+          label="Master Formula"
+          value={leadTest ? `v${leadTest.master_version}` : "—"}
+          hint={
+            leadTest
+              ? `${activeRules.length} validated rule(s) · ${leadTest.verdict}`
+              : `${activeRules.length} validated rule(s)`
+          }
+          tone={leadTest && Number(leadTest.edge ?? 0) > 0 ? "positive" : "default"}
         />
         <StatTile
           label="Known dead ends"
