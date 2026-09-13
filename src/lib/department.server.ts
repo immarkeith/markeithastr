@@ -83,6 +83,11 @@ export interface PanelRow {
   forward_return: number | null;
   /** Forward return at each research horizon, keyed by trading days held. */
   forward: Partial<Record<Horizon, number>>;
+  /**
+   * Buy at the next session's open, sell at that session's close — the
+   * same-day result the research tester actually trades.
+   */
+  same_day: number | null;
 
 
   benchmark_return: number | null;
