@@ -5,6 +5,7 @@ import { useState } from "react";
 import { MarketStatusBar } from "@/components/MarketStatusBar";
 import { PnlChart } from "@/components/PnlChart";
 import { StatTile } from "@/components/StatTile";
+import { Button } from "@/components/ui/button";
 import { dashboardQuery, money } from "@/lib/queries";
 import { setBotRunning } from "@/lib/scan.functions";
 
@@ -67,26 +68,24 @@ function HomePage() {
               No scheduled scoring, buying or selling will happen until you start it again.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
             disabled={busy}
             onClick={() => toggleBot(true)}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
             {busy ? "Starting…" : "Start bot"}
-          </button>
+          </Button>
         </section>
       ) : null}
       {d?.bot_running ? (
         <div className="flex justify-end">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => toggleBot(false)}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
           >
             {busy ? "Stopping…" : "Stop bot"}
-          </button>
+          </Button>
         </div>
       ) : null}
 

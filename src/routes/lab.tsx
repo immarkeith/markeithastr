@@ -147,14 +147,10 @@ function LabPage() {
 
       <p className="text-xs text-muted-foreground">
         Every simulated trade is written to the{" "}
-        <Link to="/research-log" className="text-primary hover:underline">
-          Research Log
-        </Link>{" "}
-        with its own strategy tag. The live{" "}
         <Link to="/trade-history" className="text-primary hover:underline">
           Trade Log
         </Link>{" "}
-        never includes them.
+        with its own strategy tag, alongside clearly labeled live activity.
       </p>
 
       <hr className="border-border/60" />
