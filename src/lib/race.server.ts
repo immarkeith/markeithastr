@@ -1060,6 +1060,24 @@ export async function raceStandings(): Promise<{
   const liveCloses = await latestCloses((liveOpen ?? []).map((t) => String(t.ticker)));
   const { loadLadder } = await import("./capital.server");
   const ladder = await loadLadder();
+  const liveLedger: LedgerRow[] =
+    (
+      await supabaseAdmin
+        .from("ledger_entries")
+        .select("amount, available_on, kind")
+        .is("strategy_id", null)
+    ).data?.map((r) => ({
+      amount: Number(r.amount),
+      available_on: String(r.available_on),
+      kind: String(r.kind),
+    })) ?? [];
+  const liveDeposits = depositsOf(liveLedger);
+  // The live strategy already exits the same session it enters, so both
+  // horizons are the same thing for it: its own realised results.
+  const liveHorizon = horizonStats(
+    liveClosed.map((c) => ({ date: c.exit_date, profit: c.profit })),
+    liveDeposits,
+  );
 
   entrants.push({
     key: "live",
@@ -1071,23 +1089,15 @@ export async function raceStandings(): Promise<{
     started_on: null,
     stake: Number(ladder.position_dollars),
     stocks_per_day: Number(ladder.stocks_per_day),
-    cash: cashOf(
-      (
-        await supabaseAdmin
-          .from("ledger_entries")
-          .select("amount, available_on, kind")
-          .is("strategy_id", null)
-      ).data?.map((r) => ({
-        amount: Number(r.amount),
-        available_on: String(r.available_on),
-        kind: String(r.kind),
-      })) ?? [],
-    ),
+    cash: cashOf(liveLedger),
     total_pnl: Number(liveClosed.reduce((sum, c) => sum + c.profit, 0).toFixed(2)),
     win_rate: liveClosed.length ? Math.round((liveWins / liveClosed.length) * 100) : null,
     trades: liveClosed.length,
     wins: liveWins,
     rank: 0,
+    deposits: liveDeposits,
+    same_day: liveHorizon,
+    three_day: liveHorizon,
     holdings: (liveOpen ?? []).map((t) =>
       holdingOf(t as unknown as Record<string, unknown>, liveCloses),
     ),
@@ -1097,6 +1107,7 @@ export async function raceStandings(): Promise<{
     unrealized_today: 0,
     basis: 0,
   });
+
 
   // One free-feed request marks every open position (live and paper) to the
   // latest traded price, so the "LIVE" graph moves before anything is sold.
