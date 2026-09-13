@@ -549,9 +549,11 @@ export async function runRacePass(
       name: slot.name,
       opened: [] as { ticker: string; price: number }[],
       closed: [] as { ticker: string; exit: number; profit: number; why: string }[],
+      same_day: [] as { ticker: string; price: number; profit: number }[],
       held: [] as string[],
       skipped: null as string | null,
     };
+
     try {
       const ranked = rankings.get(slot.id) ?? [];
       const byTicker = new Map(ranked.map((r) => [r.ticker, r]));
