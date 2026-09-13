@@ -287,7 +287,7 @@ function avgHorizon(picks: PanelRow[], h: Horizon): number {
   return round(rets.reduce((a, b) => a + b, 0) / rets.length, 3);
 }
 
-function legFrom(picks: PanelRow[]): Leg {
+export function legFrom(picks: PanelRow[]): Leg {
   if (picks.length === 0) return emptyLeg();
   const rets = picks.map((p) => p.forward_return!);
   const total = rets.reduce((a, b) => a + b, 0);
