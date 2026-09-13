@@ -907,10 +907,19 @@ export async function runDepartment(
   /** Each lane's post-evolution parameters — the researcher's current mind. */
   const laneFinal: Map<string, LaneParams> = new Map();
 
-
+  // Lanes sitting out today keep the formula they already had — their notebooks
+  // and dead-end memory are untouched, and their board still ranks stocks.
   for (const lane of LANES) {
     const row = researchers.find((r) => r.lane === lane.lane);
-    if (row && row.enabled === false) continue;
+    const held =
+      row && row.params && (row.params as LaneParams).weights
+        ? (row.params as LaneParams)
+        : laneSeedParams(lane, s);
+    laneFinal.set(lane.lane, held);
+  }
+
+  for (const lane of selected) {
+    const row = researchers.find((r) => r.lane === lane.lane);
     const current =
       row && row.params && (row.params as LaneParams).weights
         ? (row.params as LaneParams)
