@@ -956,7 +956,7 @@ export async function raceStandings(): Promise<{
   const entrants: RaceEntrant[] = [];
 
   for (const slot of slots) {
-    const [ledger, open, closedRows] = await Promise.all([
+    const [ledger, open, closedRows, sameDayRows] = await Promise.all([
       slotLedger(slot.strategy_id),
       slotOpenTrades(slot.strategy_id),
       supabaseAdmin
@@ -965,6 +965,13 @@ export async function raceStandings(): Promise<{
         .eq("strategy_id", slot.strategy_id)
         .eq("status", "closed")
         .order("exit_date", { ascending: true })
+        .limit(400),
+      supabaseAdmin
+        .from("trades")
+        .select("entry_date, same_day_profit")
+        .eq("strategy_id", slot.strategy_id)
+        .not("same_day_profit", "is", null)
+        .order("entry_date", { ascending: true })
         .limit(400),
     ]);
     const closed = (closedRows.data ?? []).map((r) => ({
@@ -976,6 +983,18 @@ export async function raceStandings(): Promise<{
     const wins = closed.filter((c) => c.profit > 0).length;
     const heldTickers = new Set(open.map((t) => String(t.ticker)));
     const next = ranked.find((r) => r.tradeable && !heldTickers.has(r.ticker)) ?? null;
+    const deposits = depositsOf(ledger);
+    const sameDay = horizonStats(
+      ((sameDayRows.data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+        date: String(r['entry_date']),
+        profit: Number(r['same_day_profit'] ?? 0),
+      })),
+      deposits,
+    );
+    const threeDay = horizonStats(
+      closed.map((c) => ({ date: c.exit_date, profit: c.profit })),
+      deposits,
+    );
 
     entrants.push({
       key: `slot-${slot.id}`,
@@ -993,6 +1012,9 @@ export async function raceStandings(): Promise<{
       trades: closed.length,
       wins,
       rank: 0,
+      deposits,
+      same_day: sameDay,
+      three_day: threeDay,
       holdings: open.map((t) => holdingOf(t as unknown as Record<string, unknown>, closes)),
       up_next: next
         ? {
@@ -1008,6 +1030,7 @@ export async function raceStandings(): Promise<{
       basis: 0,
     });
   }
+
 
   // The live strategy as the control line.
   const { data: liveStrategy } = base.active_strategy_id
