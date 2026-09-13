@@ -169,22 +169,104 @@ function ScoreboardPage() {
           ))}
         </div>
 
-        <article className="space-y-2 rounded-md border border-primary/40 bg-primary/10 p-4">
-          <h3 className="font-semibold text-primary">Lead Researcher decision</h3>
-          {board.data?.lead ? (
+        <article className="space-y-3 rounded-md border border-primary/40 bg-primary/10 p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-semibold text-primary">Lead Researcher decision</h3>
+            {board.data?.master?.version ? (
+              <span className="text-[11px] text-muted-foreground">
+                Master Formula v{board.data.master.version}
+              </span>
+            ) : null}
+          </div>
+
+          {board.data?.master?.lead_test ? (
             <>
-              <p className="text-sm">{board.data.lead.summary}</p>
-              <p className="text-xs text-muted-foreground">{board.data.lead.note}</p>
-              <p className="text-xs tabular-nums text-muted-foreground">
-                {board.data.lead.filed ? "Filed as a candidate" : "Not filed"} · edge {board.data.lead.edge >= 0 ? "+" : ""}{board.data.lead.edge}%
+              <p className="text-sm">
+                {board.data.master.lead_test.picks.length
+                  ? `Tested the Master Formula on ${board.data.master.lead_test.picks.join(", ")}`
+                  : "Ran the Master Formula test — nothing cleared its conditions"}{" "}
+                <span className="text-xs text-muted-foreground">
+                  ({board.data.master.lead_test.test_date})
+                </span>
               </p>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                <span className="text-chart-4">Same-Day</span>{" "}
+                {board.data.master.lead_test.same_day >= 0 ? "+" : ""}
+                {board.data.master.lead_test.same_day}% ·{" "}
+                <span className="text-chart-2">3-Day</span>{" "}
+                {board.data.master.lead_test.three_day >= 0 ? "+" : ""}
+                {board.data.master.lead_test.three_day}% · edge{" "}
+                {(board.data.master.lead_test.edge ?? 0) >= 0 ? "+" : ""}
+                {board.data.master.lead_test.edge ?? 0}%
+              </p>
+              <p className="text-sm">{board.data.master.lead_test.verdict}</p>
+              {board.data.master.lead_test.note ? (
+                <p className="text-xs text-muted-foreground">
+                  {board.data.master.lead_test.note}
+                </p>
+              ) : null}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No Balanced Strategy decision has been recorded. The existing safeguard requires enough validated evidence first.
+              The Lead Researcher has not recorded a Master Formula test yet.
             </p>
           )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                Proven rules in the Master Formula
+              </p>
+              {board.data?.master?.active_rules.length ? (
+                <ul className="mt-1 space-y-0.5 text-xs">
+                  {board.data.master.active_rules.map((rule) => (
+                    <li key={rule.label}>
+                      {rule.label}{" "}
+                      <span className="text-muted-foreground">
+                        — {rule.discovered_by}, {rule.confirmations} confirmations
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  None yet — a finding needs three separate confirmations plus the Skeptic's review.
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                Under observation
+              </p>
+              {board.data?.master?.observation_rules.length ? (
+                <ul className="mt-1 space-y-0.5 text-xs">
+                  {board.data.master.observation_rules.slice(0, 6).map((rule) => (
+                    <li key={rule.label}>
+                      {rule.label}{" "}
+                      <span className="text-muted-foreground">
+                        — {rule.discovered_by}, {rule.confirmations}/3
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">Nothing waiting on evidence.</p>
+              )}
+            </div>
+          </div>
+
+          {board.data?.master?.skeptic_note ? (
+            <p className="text-xs text-muted-foreground">
+              Skeptic: {board.data.master.skeptic_note}
+            </p>
+          ) : null}
+          {board.data?.lead ? (
+            <p className="border-t border-primary/20 pt-2 text-xs text-muted-foreground">
+              {board.data.lead.summary} — {board.data.lead.filed ? "filed as a candidate" : "not filed"}
+            </p>
+          ) : null}
         </article>
+
       </section>
     </div>
   );
