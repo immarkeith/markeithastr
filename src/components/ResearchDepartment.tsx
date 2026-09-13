@@ -118,6 +118,17 @@ export function ResearchDepartment() {
   const notebook = data?.notebook ?? [];
   const balanced = data?.last_run?.summary?.balanced ?? null;
   const cross = data?.last_run?.summary?.cross_findings ?? [];
+  const rotation = data?.last_run?.summary?.rotation ?? null;
+  const master = data?.master;
+  const rules = master?.rules ?? [];
+  const activeRules = rules.filter((r) => r.status === "active");
+  const watchRules = rules.filter((r) => r.status === "observation");
+  const retiredRules = rules.filter((r) => r.status === "retired");
+  const versions = master?.versions ?? [];
+  const leadTest = (master?.lead_tests ?? [])[0] ?? null;
+  const todayBackups = (master?.backup_tests ?? []).filter(
+    (b) => b.test_date === (master?.backup_tests ?? [])[0]?.test_date,
+  );
   const objections = findings.filter((f) => f.verdict === "vetoed").slice(0, 6);
   const latestByLane = new Map<string, (typeof findings)[number]>();
   for (const f of findings) if (!latestByLane.has(f.lane)) latestByLane.set(f.lane, f);
