@@ -54,6 +54,13 @@ export interface RankRow {
 const MAX_SLOTS = 3;
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
+/**
+ * How long a research paper position is held, counted in TRADING days with the
+ * entry day as day 1. Paper research only — the live strategy still exits the
+ * same session it entered.
+ */
+export const HOLD_TRADING_DAYS = 3;
+
 
 /** Today's New York trading date — the calendar the market actually keeps. */
 function today(): string {
@@ -351,18 +358,22 @@ async function openSlotTrade(
   price: number,
   dollars: number,
 ): Promise<void> {
+  const day = today();
   const { data, error } = await supabaseAdmin
     .from("trades")
     .insert({
       ticker,
       kind: "day",
-      entry_date: today(),
+      entry_date: day,
       entry_at: new Date().toISOString(),
       entry_price: price,
       dollars,
       status: "open",
       mode: "paper",
       strategy_id: slot.strategy_id,
+      // The 3-trading-day research hold: entry day counts as day 1, so the
+      // exit lands two further trading days later (weekends/holidays skipped).
+      hold_target_date: settlementDate(day, HOLD_TRADING_DAYS - 1),
     })
     .select("id")
     .single();
@@ -375,6 +386,45 @@ async function openSlotTrade(
     note: `[${slot.name}] paper buy ${ticker} @ ${price.toFixed(2)}`,
   });
 }
+
+/** The trading day this paper position is due to be sold. */
+function holdTarget(trade: Record<string, unknown>): string {
+  const stored = trade['hold_target_date'];
+  if (stored) return String(stored);
+  return settlementDate(String(trade['entry_date'] ?? today()), HOLD_TRADING_DAYS - 1);
+}
+
+/**
+ * Record what this paper position WOULD have made if it had been sold at the
+ * normal same-day exit time. Nothing is sold and no cash moves — this is the
+ * hypothetical short-term leg of the two-horizon comparison. Written once: the
+ * update only matches a row that has no same-day figure yet.
+ */
+async function recordSameDay(
+  trade: Record<string, unknown>,
+  price: number,
+): Promise<number | null> {
+  const dollars = Number(trade['dollars']);
+  const entryPrice = Number(trade['entry_price']);
+  if (!entryPrice || !price) return null;
+  const profit = dollars * (price / entryPrice - 1);
+  const pct = (price / entryPrice - 1) * 100;
+  const { data, error } = await supabaseAdmin
+    .from("trades")
+    .update({
+      same_day_price: Number(price.toFixed(4)),
+      same_day_profit: Number(profit.toFixed(2)),
+      same_day_pct: Number(pct.toFixed(2)),
+      same_day_at: new Date().toISOString(),
+    })
+    .eq("id", trade['id'] as string)
+    .is("same_day_profit", null)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if ((data ?? []).length === 0) return null;
+  return Number(profit.toFixed(2));
+}
+
 
 /**
  * Sell one simulated position. Idempotent: the update only matches a row that
