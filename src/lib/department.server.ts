@@ -804,6 +804,27 @@ export interface DepartmentResult {
   cross_findings: string[];
   board: DepartmentBoard | null;
   warnings: string[];
+  /** Which two backup scientists tested today, who sat out, who is next. */
+  rotation: { tested: string[]; sitting_out: string[]; next: string[] };
+  master: {
+    version: string;
+    version_changed: boolean;
+    active_rules: number;
+    observation_rules: number;
+    promoted: string[];
+    retired: string[];
+    summary: string;
+    lead_test: {
+      date: string;
+      version: string;
+      picks: { ticker: string; score: number; close: number }[];
+      horizons: Record<string, number>;
+      edge: number;
+      verdict: string;
+      note: string;
+      contributing_rules: string[];
+    } | null;
+  };
 }
 
 /** Backup scientists that get a test slot on any one market day. */
