@@ -164,6 +164,44 @@ function LabPage() {
 
 type Entrant = NonNullable<Awaited<ReturnType<typeof fetchRace>>>["entrants"][number];
 
+/**
+ * One metric with both research horizons side by side: the hypothetical
+ * same-day sale and the real 3-trading-day paper hold.
+ */
+function DualMetric({
+  label,
+  sameDay,
+  threeDay,
+  hint,
+}: {
+  label: string;
+  sameDay: string;
+  threeDay: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded border border-border p-2">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <div className="mt-1 space-y-0.5">
+        <p className="flex items-baseline justify-between gap-2 text-sm font-bold tabular-nums text-chart-4">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            SD
+          </span>
+          {sameDay}
+        </p>
+        <p className="flex items-baseline justify-between gap-2 text-sm font-bold tabular-nums text-chart-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            3D
+          </span>
+          {threeDay}
+        </p>
+      </div>
+      {hint ? <p className="mt-1 text-[10px] text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
+
 function SlotCard({
   slot,
   strategies,
@@ -274,15 +312,19 @@ function SlotCard({
       </div>
 
       <PnlChart
-        rows={slot.closed}
+        rows={slot.three_day.rows}
+        compareRows={slot.same_day.rows}
+        primaryLabel="3-Day"
+        compareLabel="Same-Day"
         ranges={LAB_RANGES}
-        initialRange="live"
-        title="Profit"
+        initialRange="1m"
+        title="Profit — Same-Day vs 3-Day"
         compact
         unrealized={slot.unrealized}
         unrealizedToday={slot.unrealized_today}
         basis={slot.basis}
       />
+
 
       <button
         type="button"
