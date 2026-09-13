@@ -42,6 +42,9 @@ const isoDaysAgo = (n: number) => {
  * the current open-position move so the line keeps updating before anything is
  * sold. Shared by the Home dashboard and every Research Lab slot so the two
  * always read the same way.
+ *
+ * A second series can be supplied (`compareRows`) to draw both research time
+ * horizons — Same-Day and 3-Day — as two lines on one graph with a legend.
  */
 export function PnlChart({
   rows,
@@ -52,6 +55,9 @@ export function PnlChart({
   unrealized = 0,
   unrealizedToday = 0,
   basis = 0,
+  compareRows,
+  primaryLabel,
+  compareLabel,
 }: {
   rows: { exit_date: string | null; profit: number }[];
   ranges?: PnlRange[];
@@ -64,47 +70,92 @@ export function PnlChart({
   unrealizedToday?: number;
   /** Cash + money at work, used as the percent denominator. */
   basis?: number;
+  /** Optional second line, e.g. the hypothetical same-day results. */
+  compareRows?: { exit_date: string | null; profit: number }[];
+  primaryLabel?: string;
+  compareLabel?: string;
 }) {
   const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
   const active = ranges.find((r) => r.key === range) ?? ranges[0]!;
 
-  const series = useMemo(() => {
+  const window = useMemo(() => {
     const today = isoDaysAgo(0);
     const from = active.endYesterday ? isoDaysAgo(active.days) : isoDaysAgo(active.days - 1);
     const until = active.endYesterday ? isoDaysAgo(1) : today;
-    const byDay = new Map<string, number>();
-    for (const row of rows) {
-      if (!row.exit_date || row.exit_date < from || row.exit_date > until) continue;
-      byDay.set(row.exit_date, (byDay.get(row.exit_date) ?? 0) + Number(row.profit ?? 0));
-    }
+    return { today, from, until };
+  }, [active]);
+
+  const daily = useMemo(() => {
+    const build = (
+      source: { exit_date: string | null; profit: number }[],
+      open: number,
+    ): Map<string, number> => {
+      const byDay = new Map<string, number>();
+      for (const row of source) {
+        if (!row.exit_date || row.exit_date < window.from || row.exit_date > window.until) continue;
+        byDay.set(row.exit_date, (byDay.get(row.exit_date) ?? 0) + Number(row.profit ?? 0));
+      }
+      if (open !== 0) byDay.set(window.today, (byDay.get(window.today) ?? 0) + open);
+      return byDay;
+    };
     // Open positions still count: the whole move for LIVE (today only), the
     // full open profit for any window that runs up to right now.
     const open = active.endYesterday ? 0 : active.live ? unrealizedToday : unrealized;
-    if (open !== 0) byDay.set(today, (byDay.get(today) ?? 0) + open);
+    return {
+      primary: build(rows, open),
+      // The same-day line is fully hypothetical and already booked per day, so
+      // it never adds an open-position move.
+      compare: compareRows ? build(compareRows, 0) : null,
+    };
+  }, [rows, compareRows, window, active, unrealized, unrealizedToday]);
 
-    const days = [...byDay.keys()].sort();
+  const days = useMemo(() => {
+    const all = new Set<string>([...daily.primary.keys(), ...(daily.compare?.keys() ?? [])]);
+    return [...all].sort();
+  }, [daily]);
+
+  const cumulate = (byDay: Map<string, number> | null) => {
+    if (!byDay) return null;
     let running = 0;
     return days.map((day) => {
       running += byDay.get(day) ?? 0;
       return { day, daily: byDay.get(day) ?? 0, cumulative: Number(running.toFixed(2)) };
     });
-  }, [rows, active, unrealized, unrealizedToday]);
+  };
+
+  const series = cumulate(daily.primary) ?? [];
+  const compareSeries = cumulate(daily.compare);
 
   const total = series.length > 0 ? series[series.length - 1]!.cumulative : 0;
+  const compareTotal =
+    compareSeries && compareSeries.length > 0
+      ? compareSeries[compareSeries.length - 1]!.cumulative
+      : null;
   const pct = basis > 0 ? (total / basis) * 100 : null;
   const up = total >= 0;
   const tone = up ? "text-success" : "text-destructive";
   const width = 100;
   const height = 40;
-  const max = Math.max(0.01, ...series.map((p) => Math.abs(p.cumulative)));
-  const points = series.length === 1 ? [...series, ...series] : series;
-  const path = points
-    .map((point, i) => {
-      const x = (i / Math.max(1, points.length - 1)) * width;
-      const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
-      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
+  const max = Math.max(
+    0.01,
+    ...series.map((p) => Math.abs(p.cumulative)),
+    ...(compareSeries ?? []).map((p) => Math.abs(p.cumulative)),
+  );
+
+  const pathOf = (points: { cumulative: number }[]) => {
+    const list = points.length === 1 ? [...points, ...points] : points;
+    return list
+      .map((point, i) => {
+        const x = (i / Math.max(1, list.length - 1)) * width;
+        const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
+        return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+  };
+
+  const twoLine = compareSeries !== null;
+  const primaryStroke = twoLine ? "text-chart-2" : tone;
+  const compareStroke = "text-chart-4";
 
   return (
     <section
@@ -114,17 +165,37 @@ export function PnlChart({
     >
       <div className="space-y-0.5">
         <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground">{title}</h2>
-        <p className={`font-bold tabular-nums ${compact ? "text-xl" : "text-3xl"}`}>
-          {up ? "+" : ""}
-          {money(total)}
-        </p>
-        <p className={`text-xs font-medium tabular-nums ${tone}`}>
-          {up ? "▲" : "▼"} {pct === null ? "" : `${Math.abs(pct).toFixed(2)}% · `}
+        {twoLine ? (
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
+            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} text-chart-2`}>
+              <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {primaryLabel ?? "3-Day"}
+              </span>
+              {total >= 0 ? "+" : ""}
+              {money(total)}
+            </p>
+            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} text-chart-4`}>
+              <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {compareLabel ?? "Same-Day"}
+              </span>
+              {(compareTotal ?? 0) >= 0 ? "+" : ""}
+              {money(compareTotal ?? 0)}
+            </p>
+          </div>
+        ) : (
+          <p className={`font-bold tabular-nums ${compact ? "text-xl" : "text-3xl"}`}>
+            {up ? "+" : ""}
+            {money(total)}
+          </p>
+        )}
+        <p className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : tone}`}>
+          {twoLine ? "" : up ? "▲ " : "▼ "}
+          {pct === null ? "" : `${Math.abs(pct).toFixed(2)}% · `}
           {active.label === "LIVE" ? "today, live" : active.label}
         </p>
       </div>
 
-      {series.length === 0 ? (
+      {series.length === 0 && (compareSeries?.length ?? 0) === 0 ? (
         <p className="text-xs text-muted-foreground">
           Flat for this window — the line moves once a position is open or sold.
         </p>
@@ -146,17 +217,43 @@ export function PnlChart({
             className="text-muted-foreground/60"
             vectorEffect="non-scaling-stroke"
           />
-          <path
-            d={path}
-            fill="none"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            stroke="currentColor"
-            className={tone}
-            vectorEffect="non-scaling-stroke"
-          />
+          {compareSeries && compareSeries.length > 0 ? (
+            <path
+              d={pathOf(compareSeries)}
+              fill="none"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              stroke="currentColor"
+              className={compareStroke}
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null}
+          {series.length > 0 ? (
+            <path
+              d={pathOf(series)}
+              fill="none"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              stroke="currentColor"
+              className={primaryStroke}
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null}
         </svg>
       )}
+
+      {twoLine ? (
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-0.5 w-4 rounded bg-chart-2" />
+            {primaryLabel ?? "3-Day"}
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-0.5 w-4 rounded bg-chart-4" />
+            {compareLabel ?? "Same-Day"}
+          </span>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-1">
         {ranges.map((r) => (
@@ -166,7 +263,7 @@ export function PnlChart({
             onClick={() => setRange(r.key)}
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
               r.key === range
-                ? `bg-foreground/10 ${tone}`
+                ? `bg-foreground/10 ${twoLine ? "text-foreground" : tone}`
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -194,3 +291,4 @@ export function PnlChart({
     </section>
   );
 }
+
