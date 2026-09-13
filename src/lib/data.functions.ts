@@ -513,6 +513,22 @@ export const fetchTradeHistory = createServerFn({ method: "GET" })
       });
     }
 
+    // The strategy that is currently driving the scoring weights.
+    const { data: settings } = await db
+      .from("app_settings")
+      .select("active_strategy_id, strategy_enabled, ml_enabled")
+      .eq("id", 1)
+      .maybeSingle();
+    let strategy_name: string | null = null;
+    if (settings?.active_strategy_id) {
+      const { data: strat } = await db
+        .from("strategies")
+        .select("name")
+        .eq("id", settings.active_strategy_id as string)
+        .maybeSingle();
+      strategy_name = (strat?.name as string | null) ?? null;
+    }
+
     const history: TradeHistoryRow[] = rows.map((t) => {
       const ticker = String(t.ticker).toUpperCase();
       const dollars = Number(t.dollars);
@@ -551,22 +567,6 @@ export const fetchTradeHistory = createServerFn({ method: "GET" })
           : strategy_name,
       };
     });
-
-    // The strategy that is currently driving the scoring weights.
-    const { data: settings } = await db
-      .from("app_settings")
-      .select("active_strategy_id, strategy_enabled, ml_enabled")
-      .eq("id", 1)
-      .maybeSingle();
-    let strategy_name: string | null = null;
-    if (settings?.active_strategy_id) {
-      const { data: strat } = await db
-        .from("strategies")
-        .select("name")
-        .eq("id", settings.active_strategy_id as string)
-        .maybeSingle();
-      strategy_name = (strat?.name as string | null) ?? null;
-    }
 
     return {
       trades: history,
