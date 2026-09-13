@@ -1117,7 +1117,6 @@ export async function runDepartment(
 
   // The board: each researcher's current formula ranked against the latest
   // cached session, so the All Researchers view can show real ranked stocks.
-  const latestDate = panel.dates[panel.dates.length - 1];
   const board = latestDate
     ? boardForLatest(rowsByDate.get(latestDate) ?? [], laneFinal, s, share, latestDate)
     : null;
