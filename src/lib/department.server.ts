@@ -1573,8 +1573,14 @@ export async function departmentOverview() {
             dead_ends_added?: number;
             cross_findings?: string[];
             board?: DepartmentBoard | null;
+            rotation?: DepartmentResult["rotation"];
+            master?: DepartmentResult["master"];
           };
         }
       | undefined,
+    ...(await (async () => {
+      const { masterFormulaOverview } = await import("./master-formula.server");
+      return { master: await masterFormulaOverview() };
+    })()),
   };
 }
