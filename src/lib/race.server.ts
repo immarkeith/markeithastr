@@ -664,13 +664,14 @@ export interface SafetyCloseResult {
 }
 
 /**
- * End-of-day safety net for the research testers.
+ * Safety net for the research testers.
  *
- * Guarantees no simulated position survives its own trading session, even if
- * the pre-close pass failed, was skipped, or errored — and cleans up anything
- * left open over a weekend or holiday. Idempotent: it only ever touches rows
- * still marked `open`, and `closeSlotTrade` claims the row atomically, so a
- * position that was already sold is recognised as CLOSED and left alone.
+ * A paper position is meant to live for 3 trading days, so this no longer
+ * closes anything just because a session ended. It closes positions that are
+ * PAST their hold target date (a missed or failed pre-close pass, a weekend or
+ * holiday in between), and it back-fills a missing same-day figure so the
+ * short-term leg of the comparison is never lost. Idempotent: it only touches
+ * rows still marked `open`, and `closeSlotTrade` claims the row atomically.
  *
  * Note this closes the STOCK only. Sale proceeds keep following T+1 on the
  * trading calendar; unsettled cash is never a reason to hold a position open.
@@ -692,21 +693,34 @@ export async function safetyCloseStalePaper(
     try {
       const open = await slotOpenTrades(slot.strategy_id);
       out.checked += open.length;
+      const marks = await latestCloses(open.map((t) => String(t.ticker)));
+
+      // Back-fill the hypothetical same-day result for anything that has moved
+      // past its entry session without one recorded.
+      for (const trade of open) {
+        const row = trade as unknown as Record<string, unknown>;
+        if (row['same_day_profit'] !== null && row['same_day_profit'] !== undefined) continue;
+        const pastEntrySession = String(trade.entry_date) < day || sessionOver;
+        if (!pastEntrySession && options.force !== true) continue;
+        const price = Number(marks.get(String(trade.ticker)) ?? trade.entry_price ?? 0);
+        if (price) await recordSameDay(row, price);
+      }
+
       const stale = open.filter((t) => {
-        const entered = String(t.entry_date);
-        if (entered < day) return true; // its session ended days ago
-        return options.force === true || sessionOver; // today's session is done
+        const target = holdTarget(t as unknown as Record<string, unknown>);
+        if (target < day) return true; // the 3-day hold ended on an earlier session
+        if (target === day) return options.force === true || sessionOver;
+        return false;
       });
       if (stale.length === 0) continue;
-      const closes = await latestCloses(stale.map((t) => String(t.ticker)));
       for (const trade of stale) {
         const ticker = String(trade.ticker);
-        const price = Number(closes.get(ticker) ?? trade.entry_price ?? 0);
+        const price = Number(marks.get(ticker) ?? trade.entry_price ?? 0);
         if (!price) continue;
         const why =
-          String(trade.entry_date) < day
-            ? "paper safety close — position outlived its research session"
-            : "paper safety close — session ended with the position still open";
+          holdTarget(trade as unknown as Record<string, unknown>) < day
+            ? "paper safety close — the 3-day research hold had already ended"
+            : "paper 3-trading-day hold complete (safety close)";
         const profit = await closeSlotTrade(
           slot,
           trade as unknown as Record<string, unknown>,
@@ -718,6 +732,7 @@ export async function safetyCloseStalePaper(
         if (profit === null) continue; // already closed: never sell twice
         out.closed.push({ slot: slot.id, ticker, exit: price, profit, why });
       }
+
     } catch (error) {
       console.error(
         `paper safety close failed for slot ${slot.id}:`,
