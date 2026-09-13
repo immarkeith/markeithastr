@@ -57,7 +57,7 @@ export interface MasterRule {
   filter_value: number | null;
   weight: number | null;
   discovered_by: string;
-  evidence: Record<string, unknown>;
+  evidence: Json;
   status: RuleStatus;
   confirmations: number;
   failures: number;
@@ -427,7 +427,7 @@ export async function runMasterCycle(input: {
         promoted_on: status === "active" && rule.status !== "active" ? today : rule.promoted_on,
         retired_on: status === "retired" ? today : rule.retired_on,
         evidence: {
-          ...(rule.evidence ?? {}),
+          ...((rule.evidence as Record<string, unknown>) ?? {}),
           last_test: { edge, leg, trimmed, up_market: up, down_market: down, reasons },
         } as unknown as Json,
       })
