@@ -47,6 +47,7 @@ export const getScoreboard = createServerFn({ method: "GET" })
         id: "live",
         name: "Live Trading Bot",
         kind: "live" as const,
+        enabled: true,
         description:
           strategyById.get(String(settings.data?.active_strategy_id ?? ""))?.description ??
           "The formula currently used by ASTR's live trading bot.",

@@ -16,6 +16,7 @@ import { Route as LabRouteImport } from './routes/lab'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as ResearchLogRouteImport } from './routes/research-log'
+import { Route as ScoreboardRouteImport } from './routes/scoreboard'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StrategyRouteImport } from './routes/strategy'
 import { Route as TradeHistoryRouteImport } from './routes/trade-history'
@@ -60,6 +61,11 @@ const ResearchRoute = ResearchRouteImport.update({
 const ResearchLogRoute = ResearchLogRouteImport.update({
   id: '/research-log',
   path: '/research-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScoreboardRoute = ScoreboardRouteImport.update({
+  id: '/scoreboard',
+  path: '/scoreboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/research': typeof ResearchRoute
   '/research-log': typeof ResearchLogRoute
+  '/scoreboard': typeof ScoreboardRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/research': typeof ResearchRoute
   '/research-log': typeof ResearchLogRoute
+  '/scoreboard': typeof ScoreboardRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/research': typeof ResearchRoute
   '/research-log': typeof ResearchLogRoute
+  '/scoreboard': typeof ScoreboardRoute
   '/settings': typeof SettingsRoute
   '/strategy': typeof StrategyRoute
   '/trade-history': typeof TradeHistoryRoute
@@ -182,6 +191,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/research'
     | '/research-log'
+    | '/scoreboard'
     | '/settings'
     | '/strategy'
     | '/trade-history'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/research'
     | '/research-log'
+    | '/scoreboard'
     | '/settings'
     | '/strategy'
     | '/trade-history'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/research'
     | '/research-log'
+    | '/scoreboard'
     | '/settings'
     | '/strategy'
     | '/trade-history'
@@ -240,6 +252,7 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   ResearchRoute: typeof ResearchRoute
   ResearchLogRoute: typeof ResearchLogRoute
+  ScoreboardRoute: typeof ScoreboardRoute
   SettingsRoute: typeof SettingsRoute
   StrategyRoute: typeof StrategyRoute
   TradeHistoryRoute: typeof TradeHistoryRoute
@@ -301,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/research-log'
       fullPath: '/research-log'
       preLoaderRoute: typeof ResearchLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scoreboard': {
+      id: '/scoreboard'
+      path: '/scoreboard'
+      fullPath: '/scoreboard'
+      preLoaderRoute: typeof ScoreboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -384,6 +404,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   ResearchRoute: ResearchRoute,
   ResearchLogRoute: ResearchLogRoute,
+  ScoreboardRoute: ScoreboardRoute,
   SettingsRoute: SettingsRoute,
   StrategyRoute: StrategyRoute,
   TradeHistoryRoute: TradeHistoryRoute,
