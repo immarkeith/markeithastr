@@ -395,6 +395,21 @@ export const LANES: Lane[] = [
     ],
     objective: (l) => l.risk_adjusted * 3 + l.avg_return_pct,
   },
+  {
+    // The Skeptic is a challenger, not a stock picker. Its test slot is spent
+    // trying to break the strongest recent idea rather than to find a winner,
+    // so its objective rewards evidence that survives hard conditions.
+    lane: "skeptic",
+    name: "Skeptic",
+    own: ["trend", "momentum", "volatility_quality", "low_drawdown", "worst_day"],
+    seed: () => ({ trend: 25, momentum: 25, volatility_quality: 20, low_drawdown: 15, worst_day: 15 }),
+    gates: [
+      { label: "test it only on calm days (ATR under 4%)", apply: (p) => ({ ...p, atr_pct_max: 4 }) },
+      { label: "test it only on hot names (RSI over 60)", apply: (p) => ({ ...p, rsi_min: 60 }) },
+      { label: "test it without volume help", apply: (p) => ({ ...p, rel_volume_min: null }) },
+    ],
+    objective: (l) => Math.min(l.avg_return_pct, l.risk_adjusted),
+  },
 ];
 
 export function laneSeedParams(lane: Lane, s: Settings): LaneParams {
