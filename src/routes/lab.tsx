@@ -283,7 +283,13 @@ function SlotCard({
         ) : (
           slot.holdings.map((h) => (
             <div key={h.ticker} className="flex items-baseline justify-between text-sm">
-              <span className="font-semibold">{h.ticker}</span>
+              <span className="font-semibold">
+                {h.ticker}{" "}
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  held to {h.hold_until}
+                </span>
+              </span>
+
               <span
                 className={`tabular-nums ${h.pl >= 0 ? "text-success" : "text-destructive"}`}
               >
