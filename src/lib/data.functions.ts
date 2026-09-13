@@ -341,7 +341,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       .select("ticker, streak_days, status, best_pick_ever")
       .in("status", ["suggested", "requested", "approved"])
       .order("streak_days", { ascending: false })
-      .limit(3);
+      .limit(5);
 
     return {
       mode,
@@ -417,6 +417,8 @@ export interface TradeHistoryRow {
   pct: number | null;
   entry_score: ScoreSnapshot | null;
   exit_score: ScoreSnapshot | null;
+  source_name: string;
+  source_description: string | null;
 }
 
 /**
@@ -430,13 +432,19 @@ export const fetchTradeHistory = createServerFn({ method: "GET" })
     const { data: trades, error } = await db
       .from("trades")
       .select("*")
-      // Live trade log. The paper race has its own log (Research Log).
-      .is("strategy_id", null)
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);
     if (error) throw new Error(error.message);
     const rows = trades ?? [];
+
+    const strategyIds = Array.from(
+      new Set(rows.map((t) => t.strategy_id as string | null).filter((id): id is string => !!id)),
+    );
+    const { data: strategies } = strategyIds.length
+      ? await db.from("strategies").select("id, name, description").in("id", strategyIds)
+      : { data: [] as Array<{ id: string; name: string; description: string | null }> };
+    const strategyById = new Map((strategies ?? []).map((s) => [String(s.id), s]));
 
     const tickers = Array.from(new Set(rows.map((t) => String(t.ticker).toUpperCase())));
     const dates = Array.from(
@@ -535,6 +543,12 @@ export const fetchTradeHistory = createServerFn({ method: "GET" })
             : Number(((exitPrice / entryPrice - 1) * 100).toFixed(2)),
         entry_score: snapKey.get(`${ticker}|${String(t.entry_date)}`) ?? null,
         exit_score: t.exit_date ? (snapKey.get(`${ticker}|${String(t.exit_date)}`) ?? null) : null,
+        source_name: t.strategy_id
+          ? String(strategyById.get(String(t.strategy_id))?.name ?? "Research formula")
+          : "Live Trading Bot",
+        source_description: t.strategy_id
+          ? ((strategyById.get(String(t.strategy_id))?.description as string | null | undefined) ?? null)
+          : strategy_name,
       };
     });
 
