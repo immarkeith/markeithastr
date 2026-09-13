@@ -1094,6 +1094,119 @@ export async function runDepartment(
 
     if (verdict === "validated") validated.push(best);
 
+    // The backup scientist's own test record for the day: what it ran, which
+    // stocks its formula picked, how those picks did over each horizon, what
+    // worked, what failed, and whether the Lead should look at it.
+    const bestPicks = pickRows(rowsByDate, outDates, best.params, s, share);
+    const bestHorizons = horizonProfile(best.params);
+    const laneEntry: string[] = [`score at least ${best.params.min_score_to_trade}`];
+    if (best.params.rsi_max !== null) laneEntry.push(`RSI under ${best.params.rsi_max}`);
+    if (best.params.rsi_min !== null) laneEntry.push(`RSI over ${best.params.rsi_min}`);
+    if (best.params.atr_pct_min !== null)
+      laneEntry.push(`daily range at least ${best.params.atr_pct_min}%`);
+    if (best.params.atr_pct_max !== null)
+      laneEntry.push(`daily range under ${best.params.atr_pct_max}%`);
+    if (best.params.rel_volume_min !== null)
+      laneEntry.push(`volume at least ${best.params.rel_volume_min}x average`);
+
+    const worked: string[] = [];
+    const failed: string[] = [];
+    if (best.edge > 0) worked.push(`beat the current rule by ${best.edge}% per trade on fresh days`);
+    else failed.push(`no edge on fresh days (${best.edge}% per trade vs the current rule)`);
+    if (best.up_market.picks >= 5)
+      (best.up_market.avg_return_pct > 0 ? worked : failed).push(
+        `rising markets: ${best.up_market.avg_return_pct}% per trade over ${best.up_market.picks} trades`,
+      );
+    if (best.down_market.picks >= 5)
+      (best.down_market.avg_return_pct > 0 ? worked : failed).push(
+        `falling markets: ${best.down_market.avg_return_pct}% per trade over ${best.down_market.picks} trades`,
+      );
+    if (best.trimmed.avg_return_pct <= baselineOut.avg_return_pct)
+      failed.push("the edge relies on a handful of lucky trades");
+    const repeatable =
+      best.first_half.avg_return_pct > 0 &&
+      best.second_half.avg_return_pct > 0 &&
+      best.out_of_sample.picks >= 15;
+
+    const bestLatest = latestDate
+      ? (rowsByDate.get(latestDate) ?? [])
+          .filter((r) => passesFilters(r, best.params, s, share))
+          .map((r) => ({
+            ticker: r.ticker,
+            close: round(r.close, 2),
+            score: round(scoreWith(r, best.params.weights), 1),
+          }))
+          .filter((r) => r.score >= best.params.min_score_to_trade)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, Math.max(1, best.params.num_day_trades))
+      : [];
+
+    const escalate = verdict === "validated" && repeatable;
+    await supabaseAdmin.from("backup_tests").upsert(
+      {
+        test_date: new Date().toISOString().slice(0, 10),
+        lane: lane.lane,
+        researcher_name: lane.name,
+        formula_version: `gen ${generation}`,
+        params: best.params as unknown as Json,
+        picks: bestLatest as unknown as Json,
+        entry_conditions: laneEntry as unknown as Json,
+        exit_conditions: [
+          "sell the same session, before the close",
+          "no overnight or weekend holding",
+        ] as unknown as Json,
+        horizons: {
+          same_day: round(
+            bestPicks.length
+              ? bestPicks.reduce((a, p) => a + (p.same_day ?? 0), 0) / bestPicks.length
+              : 0,
+            3,
+          ),
+          ...bestHorizons,
+        } as unknown as Json,
+        market_conditions: {
+          up_market: best.up_market,
+          down_market: best.down_market,
+          sessions: usable.length,
+          tickers: panel.tickers,
+        } as unknown as Json,
+        worked: worked as unknown as Json,
+        failed: failed as unknown as Json,
+        repeatable,
+        discoveries: (verdict === "validated" ? [best.label] : []) as unknown as Json,
+        problems: review.objections as unknown as Json,
+        escalate,
+        edge: best.edge,
+        note:
+          verdict === "vetoed"
+            ? `The Skeptic blocked this: ${review.objections[0] ?? "see objections"}`
+            : escalate
+              ? "Sent to the Lead Researcher for validation."
+              : "Kept in this researcher's own notebook — not strong enough to escalate.",
+      },
+      { onConflict: "test_date,lane" },
+    );
+
+    if (escalate) {
+      masterCandidates.push(
+        ...candidatesFrom({
+          lane: lane.lane,
+          laneName: lane.name,
+          label: best.label,
+          params: best.params,
+          picks: bestPicks,
+          evidence: {
+            edge: best.edge,
+            out_of_sample: best.out_of_sample,
+            first_half: best.first_half,
+            second_half: best.second_half,
+            sessions: usable.length,
+          },
+          skepticNote: review.objections[0] ?? null,
+        }),
+      );
+    }
+
     reports.push({
       lane: lane.lane,
       name: lane.name,
@@ -1108,8 +1221,10 @@ export async function runDepartment(
     });
   }
 
-  const balanced = await leadResearcher({
-    validated,
+  // The Lead Researcher: validates escalated findings one at a time, maintains
+  // the Master Formula, and tests the Master Formula as a complete strategy.
+  const master = await runMasterCycle({
+    candidates: masterCandidates,
     base,
     baselineOut,
     rowsByDate,
@@ -1119,7 +1234,16 @@ export async function runDepartment(
     share,
     sessions: usable.length,
     tickers: panel.tickers,
+    latestDate: latestDate ?? null,
   });
+
+  const balanced = {
+    filed: master.version_changed && master.active_rules > 0 && (master.lead_test?.edge ?? 0) > 0,
+    edge: master.lead_test?.edge ?? 0,
+    summary: master.summary,
+    note: master.lead_test?.note ?? "",
+    out_of_sample: master.lead_test?.out_of_sample ?? baselineOut,
+  };
 
   // Where researchers agree and where they disagree — both are findings.
   const cross: string[] = crossFindings(laneFinal, reports);
