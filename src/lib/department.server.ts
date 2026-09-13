@@ -1289,6 +1289,8 @@ export async function runDepartment(
       dead_ends_added: deadAdded,
       cross_findings: cross,
       board,
+      rotation,
+      master,
     } as unknown as Json,
     warnings: warnings as unknown as Json,
   });
@@ -1304,6 +1306,28 @@ export async function runDepartment(
     cross_findings: cross,
     board,
     warnings,
+    rotation,
+    master: {
+      version: master.version,
+      version_changed: master.version_changed,
+      active_rules: master.active_rules,
+      observation_rules: master.observation_rules,
+      promoted: master.promoted,
+      retired: master.retired,
+      summary: master.summary,
+      lead_test: master.lead_test
+        ? {
+            date: master.lead_test.date,
+            version: master.lead_test.version,
+            picks: master.lead_test.picks,
+            horizons: master.lead_test.horizons,
+            edge: master.lead_test.edge,
+            verdict: master.lead_test.verdict,
+            note: master.lead_test.note,
+            contributing_rules: master.lead_test.contributing_rules,
+          }
+        : null,
+    },
   };
 }
 
