@@ -207,6 +207,7 @@ export async function buildPanel(universe: number, proxyTicker: string) {
         rel_volume: snap.relVolume,
         forward,
         forward_return: exitBar ? pctChange(exitBar.close, snap.close) : null,
+        same_day: exitBar ? pctChange(exitBar.close, exitBar.open) : null,
 
         benchmark_return: benchmark,
       });
