@@ -509,10 +509,13 @@ export interface RacePassResult {
     name: string;
     opened: { ticker: string; price: number }[];
     closed: { ticker: string; exit: number; profit: number; why: string }[];
+    /** Hypothetical same-day results recorded without selling. */
+    same_day: { ticker: string; price: number; profit: number }[];
     held: string[];
     skipped: string | null;
   }[];
 }
+
 
 /**
  * Run the simulated book for every enabled slot. `phase` mirrors the live
