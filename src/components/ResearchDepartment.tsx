@@ -155,11 +155,11 @@ export function ResearchDepartment() {
       <header className="space-y-2">
         <h2 className="text-lg font-bold tracking-tight">Research department</h2>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Five specialists with genuinely different philosophies, each tuning only its own
-          variables, plus a Skeptic that tries to break their conclusions and a Lead Researcher
-          that merges the survivors into one Balanced Strategy proposal. Every experiment is
-          written into a permanent notebook — including the failures — and when researchers
-          independently agree, that agreement is treated as a finding, not forced apart.
+          One permanent Lead Researcher and six backup scientists. Each market day the Lead tests
+          the current Master Formula and two of the six backups get a test slot, so every lane gets
+          regular turns. Backups may change their own formulas freely; only the Lead can change the
+          Master Formula, and only after a finding has been confirmed on separate days it was never
+          tuned on. Every experiment is written down — including the failures.
         </p>
       </header>
 
