@@ -563,26 +563,50 @@ export async function runRacePass(
         ...ranked.slice(0, 10).map((r) => r.ticker),
       ]);
 
-      // ---- exits
-      // The testers evaluate a same-day (intraday) strategy: whatever a slot
-      // buys during a session is sold in that same session. Nothing is carried
-      // overnight, so there is no hold-qualifying branch and no held-days gate
-      // here. Cash settlement (T+1) is handled separately in closeSlotTrade and
-      // never keeps a position open.
+      // ---- exits (paper research only)
+      // Two horizons from the SAME position: at the normal pre-close exit time
+      // the hypothetical same-day result is recorded but nothing is sold, and
+      // the position is carried until its 3rd trading day, when it is actually
+      // sold in the paper book. Cash settlement (T+1) is handled separately in
+      // closeSlotTrade and never decides whether a position stays open.
       if (phase !== "entry") {
+        const marks = new Map(closes);
+        try {
+          const { alpacaLatestPrices } = await import("./market-data.server");
+          const live = open.length
+            ? await alpacaLatestPrices(open.map((t) => String(t.ticker)))
+            : new Map<string, number>();
+          for (const [ticker, price] of live) if (price) marks.set(ticker, price);
+        } catch {
+          // No live quote available: the latest cached close is the mark.
+        }
         for (const trade of open) {
           if (String(trade.status) !== "open") continue; // already closed: no second sell
           const ticker = String(trade.ticker);
           const score = byTicker.get(ticker);
-          const price = Number(closes.get(ticker) ?? score?.close ?? trade.entry_price ?? 0);
+          const price = Number(marks.get(ticker) ?? score?.close ?? trade.entry_price ?? 0);
           if (!price) continue;
-          const sameDay = String(trade.entry_date) === today();
-          const why = sameDay
-            ? "paper day-trade exit before the close"
-            : "paper end-of-day safety close (session had ended)";
+          const row = trade as unknown as Record<string, unknown>;
+
+          // Short-term leg: what a normal same-day sale would have produced.
+          if (row['same_day_profit'] === null || row['same_day_profit'] === undefined) {
+            const hypothetical = await recordSameDay(row, price);
+            if (hypothetical !== null) {
+              entry.same_day.push({ ticker, price, profit: hypothetical });
+            }
+          }
+
+          // 3-day leg: keep holding until the third trading day.
+          const target = holdTarget(row);
+          if (today() < target) {
+            entry.held.push(ticker);
+            continue;
+          }
+
+          const why = "paper 3-trading-day hold complete";
           const profit = await closeSlotTrade(
             slot,
-            trade as unknown as Record<string, unknown>,
+            row,
             price,
             why,
             settlementDays,
@@ -590,8 +614,8 @@ export async function runRacePass(
           );
           if (profit === null) continue; // already closed elsewhere
           entry.closed.push({ ticker, exit: price, profit, why });
-
         }
+
 
 
         // Scale this slot's own ladder once per trading day, after its exits.
