@@ -392,6 +392,124 @@ export function ResearchDepartment() {
 
       {tab === "lead" && (
         <section className="space-y-4">
+          <div className="space-y-3 rounded-md border border-border bg-card p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="font-semibold">
+                Master Formula {leadTest ? `v${leadTest.master_version}` : ""}
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                {activeRules.length} validated · {watchRules.length} still being watched ·{" "}
+                {retiredRules.length} retired
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Only the Lead Researcher changes this. A finding joins after three separate
+              confirmations on days it was never tuned on, and leaves only after four sustained
+              failures — so one good or bad day never moves it.
+            </p>
+
+            {activeRules.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No rule has cleared the bar yet. Until one does, the Lead tests the current live
+                weights as a placeholder.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {activeRules.map((r) => (
+                  <li key={r.id} className="rounded border border-success/30 bg-success/5 p-2">
+                    <p className="text-sm font-medium">{r.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      found by {r.discovered_by} · confirmed {r.confirmations}x · last test{" "}
+                      <Signed value={Number(r.last_edge ?? 0)} />
+                      {r.promoted_on ? ` · added ${r.promoted_on}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {watchRules.length > 0 && (
+              <div className="space-y-1">
+                <h4 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                  Being watched, not yet trusted
+                </h4>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {watchRules.slice(0, 8).map((r) => (
+                    <li key={r.id}>
+                      {r.label} — {r.confirmations} of 3 confirmations ({r.discovered_by})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {retiredRules.length > 0 && (
+              <div className="space-y-1">
+                <h4 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                  Retired
+                </h4>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {retiredRules.slice(0, 6).map((r) => (
+                    <li key={r.id}>
+                      {r.label} — dropped after {r.failures} failed re-tests
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {leadTest && (
+            <div className="space-y-2 rounded-md border border-border bg-card p-4">
+              <h3 className="font-semibold">
+                The Lead's own test — {leadTest.test_date} · {leadTest.verdict}
+              </h3>
+              <p className="text-sm">
+                Entry: {leadTest.entry_conditions.join("; ") || "—"}. Exit:{" "}
+                {leadTest.exit_conditions.join("; ") || "—"}.
+              </p>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                same day <Signed value={Number(leadTest.horizons['same_day'] ?? 0)} /> · 1d{" "}
+                <Signed value={Number(leadTest.horizons['1'] ?? 0)} /> · 3d{" "}
+                <Signed value={Number(leadTest.horizons['3'] ?? 0)} /> · 5d{" "}
+                <Signed value={Number(leadTest.horizons['5'] ?? 0)} /> · 10d{" "}
+                <Signed value={Number(leadTest.horizons['10'] ?? 0)} />
+              </p>
+              {leadTest.winning_conditions.length > 0 && (
+                <p className="text-xs text-success">
+                  Winning conditions: {leadTest.winning_conditions.join(" · ")}
+                </p>
+              )}
+              {leadTest.losing_conditions.length > 0 && (
+                <p className="text-xs text-warning">
+                  Losing conditions: {leadTest.losing_conditions.join(" · ")}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">{leadTest.note}</p>
+            </div>
+          )}
+
+          {versions.length > 0 && (
+            <div className="space-y-2 rounded-md border border-border bg-card p-4">
+              <h3 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+                Version history
+              </h3>
+              <ul className="space-y-2">
+                {versions.map((v) => (
+                  <li key={v.id} className="border-t border-border/60 pt-2 first:border-0 first:pt-0">
+                    <p className="text-sm font-medium">
+                      v{v.version}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {v.created_at.slice(0, 10)} · {v.tests} test(s)
+                      </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">{v.change_summary}</p>
+                    <p className="text-xs text-muted-foreground">{v.reason}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {balanced ? (
             <div className="space-y-2 rounded-md border border-primary/40 bg-primary/10 p-4">
               <h3 className="font-semibold text-primary">Lead Researcher — Balanced Strategy</h3>
