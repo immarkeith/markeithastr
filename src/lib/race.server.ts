@@ -54,6 +54,13 @@ export interface RankRow {
 const MAX_SLOTS = 3;
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
+/**
+ * How long a research paper position is held, counted in TRADING days with the
+ * entry day as day 1. Paper research only — the live strategy still exits the
+ * same session it entered.
+ */
+export const HOLD_TRADING_DAYS = 3;
+
 
 /** Today's New York trading date — the calendar the market actually keeps. */
 function today(): string {
@@ -351,18 +358,22 @@ async function openSlotTrade(
   price: number,
   dollars: number,
 ): Promise<void> {
+  const day = today();
   const { data, error } = await supabaseAdmin
     .from("trades")
     .insert({
       ticker,
       kind: "day",
-      entry_date: today(),
+      entry_date: day,
       entry_at: new Date().toISOString(),
       entry_price: price,
       dollars,
       status: "open",
       mode: "paper",
       strategy_id: slot.strategy_id,
+      // The 3-trading-day research hold: entry day counts as day 1, so the
+      // exit lands two further trading days later (weekends/holidays skipped).
+      hold_target_date: settlementDate(day, HOLD_TRADING_DAYS - 1),
     })
     .select("id")
     .single();
@@ -375,6 +386,45 @@ async function openSlotTrade(
     note: `[${slot.name}] paper buy ${ticker} @ ${price.toFixed(2)}`,
   });
 }
+
+/** The trading day this paper position is due to be sold. */
+function holdTarget(trade: Record<string, unknown>): string {
+  const stored = trade['hold_target_date'];
+  if (stored) return String(stored);
+  return settlementDate(String(trade['entry_date'] ?? today()), HOLD_TRADING_DAYS - 1);
+}
+
+/**
+ * Record what this paper position WOULD have made if it had been sold at the
+ * normal same-day exit time. Nothing is sold and no cash moves — this is the
+ * hypothetical short-term leg of the two-horizon comparison. Written once: the
+ * update only matches a row that has no same-day figure yet.
+ */
+async function recordSameDay(
+  trade: Record<string, unknown>,
+  price: number,
+): Promise<number | null> {
+  const dollars = Number(trade['dollars']);
+  const entryPrice = Number(trade['entry_price']);
+  if (!entryPrice || !price) return null;
+  const profit = dollars * (price / entryPrice - 1);
+  const pct = (price / entryPrice - 1) * 100;
+  const { data, error } = await supabaseAdmin
+    .from("trades")
+    .update({
+      same_day_price: Number(price.toFixed(4)),
+      same_day_profit: Number(profit.toFixed(2)),
+      same_day_pct: Number(pct.toFixed(2)),
+      same_day_at: new Date().toISOString(),
+    })
+    .eq("id", trade['id'] as string)
+    .is("same_day_profit", null)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if ((data ?? []).length === 0) return null;
+  return Number(profit.toFixed(2));
+}
+
 
 /**
  * Sell one simulated position. Idempotent: the update only matches a row that
@@ -459,10 +509,13 @@ export interface RacePassResult {
     name: string;
     opened: { ticker: string; price: number }[];
     closed: { ticker: string; exit: number; profit: number; why: string }[];
+    /** Hypothetical same-day results recorded without selling. */
+    same_day: { ticker: string; price: number; profit: number }[];
     held: string[];
     skipped: string | null;
   }[];
 }
+
 
 /**
  * Run the simulated book for every enabled slot. `phase` mirrors the live
@@ -496,9 +549,11 @@ export async function runRacePass(
       name: slot.name,
       opened: [] as { ticker: string; price: number }[],
       closed: [] as { ticker: string; exit: number; profit: number; why: string }[],
+      same_day: [] as { ticker: string; price: number; profit: number }[],
       held: [] as string[],
       skipped: null as string | null,
     };
+
     try {
       const ranked = rankings.get(slot.id) ?? [];
       const byTicker = new Map(ranked.map((r) => [r.ticker, r]));
@@ -508,26 +563,50 @@ export async function runRacePass(
         ...ranked.slice(0, 10).map((r) => r.ticker),
       ]);
 
-      // ---- exits
-      // The testers evaluate a same-day (intraday) strategy: whatever a slot
-      // buys during a session is sold in that same session. Nothing is carried
-      // overnight, so there is no hold-qualifying branch and no held-days gate
-      // here. Cash settlement (T+1) is handled separately in closeSlotTrade and
-      // never keeps a position open.
+      // ---- exits (paper research only)
+      // Two horizons from the SAME position: at the normal pre-close exit time
+      // the hypothetical same-day result is recorded but nothing is sold, and
+      // the position is carried until its 3rd trading day, when it is actually
+      // sold in the paper book. Cash settlement (T+1) is handled separately in
+      // closeSlotTrade and never decides whether a position stays open.
       if (phase !== "entry") {
+        const marks = new Map(closes);
+        try {
+          const { alpacaLatestPrices } = await import("./market-data.server");
+          const live = open.length
+            ? await alpacaLatestPrices(open.map((t) => String(t.ticker)))
+            : new Map<string, number>();
+          for (const [ticker, price] of live) if (price) marks.set(ticker, price);
+        } catch {
+          // No live quote available: the latest cached close is the mark.
+        }
         for (const trade of open) {
           if (String(trade.status) !== "open") continue; // already closed: no second sell
           const ticker = String(trade.ticker);
           const score = byTicker.get(ticker);
-          const price = Number(closes.get(ticker) ?? score?.close ?? trade.entry_price ?? 0);
+          const price = Number(marks.get(ticker) ?? score?.close ?? trade.entry_price ?? 0);
           if (!price) continue;
-          const sameDay = String(trade.entry_date) === today();
-          const why = sameDay
-            ? "paper day-trade exit before the close"
-            : "paper end-of-day safety close (session had ended)";
+          const row = trade as unknown as Record<string, unknown>;
+
+          // Short-term leg: what a normal same-day sale would have produced.
+          if (row['same_day_profit'] === null || row['same_day_profit'] === undefined) {
+            const hypothetical = await recordSameDay(row, price);
+            if (hypothetical !== null) {
+              entry.same_day.push({ ticker, price, profit: hypothetical });
+            }
+          }
+
+          // 3-day leg: keep holding until the third trading day.
+          const target = holdTarget(row);
+          if (today() < target) {
+            entry.held.push(ticker);
+            continue;
+          }
+
+          const why = "paper 3-trading-day hold complete";
           const profit = await closeSlotTrade(
             slot,
-            trade as unknown as Record<string, unknown>,
+            row,
             price,
             why,
             settlementDays,
@@ -535,8 +614,8 @@ export async function runRacePass(
           );
           if (profit === null) continue; // already closed elsewhere
           entry.closed.push({ ticker, exit: price, profit, why });
-
         }
+
 
 
         // Scale this slot's own ladder once per trading day, after its exits.
@@ -585,13 +664,14 @@ export interface SafetyCloseResult {
 }
 
 /**
- * End-of-day safety net for the research testers.
+ * Safety net for the research testers.
  *
- * Guarantees no simulated position survives its own trading session, even if
- * the pre-close pass failed, was skipped, or errored — and cleans up anything
- * left open over a weekend or holiday. Idempotent: it only ever touches rows
- * still marked `open`, and `closeSlotTrade` claims the row atomically, so a
- * position that was already sold is recognised as CLOSED and left alone.
+ * A paper position is meant to live for 3 trading days, so this no longer
+ * closes anything just because a session ended. It closes positions that are
+ * PAST their hold target date (a missed or failed pre-close pass, a weekend or
+ * holiday in between), and it back-fills a missing same-day figure so the
+ * short-term leg of the comparison is never lost. Idempotent: it only touches
+ * rows still marked `open`, and `closeSlotTrade` claims the row atomically.
  *
  * Note this closes the STOCK only. Sale proceeds keep following T+1 on the
  * trading calendar; unsettled cash is never a reason to hold a position open.
@@ -613,21 +693,34 @@ export async function safetyCloseStalePaper(
     try {
       const open = await slotOpenTrades(slot.strategy_id);
       out.checked += open.length;
+      const marks = await latestCloses(open.map((t) => String(t.ticker)));
+
+      // Back-fill the hypothetical same-day result for anything that has moved
+      // past its entry session without one recorded.
+      for (const trade of open) {
+        const row = trade as unknown as Record<string, unknown>;
+        if (row['same_day_profit'] !== null && row['same_day_profit'] !== undefined) continue;
+        const pastEntrySession = String(trade.entry_date) < day || sessionOver;
+        if (!pastEntrySession && options.force !== true) continue;
+        const price = Number(marks.get(String(trade.ticker)) ?? trade.entry_price ?? 0);
+        if (price) await recordSameDay(row, price);
+      }
+
       const stale = open.filter((t) => {
-        const entered = String(t.entry_date);
-        if (entered < day) return true; // its session ended days ago
-        return options.force === true || sessionOver; // today's session is done
+        const target = holdTarget(t as unknown as Record<string, unknown>);
+        if (target < day) return true; // the 3-day hold ended on an earlier session
+        if (target === day) return options.force === true || sessionOver;
+        return false;
       });
       if (stale.length === 0) continue;
-      const closes = await latestCloses(stale.map((t) => String(t.ticker)));
       for (const trade of stale) {
         const ticker = String(trade.ticker);
-        const price = Number(closes.get(ticker) ?? trade.entry_price ?? 0);
+        const price = Number(marks.get(ticker) ?? trade.entry_price ?? 0);
         if (!price) continue;
         const why =
-          String(trade.entry_date) < day
-            ? "paper safety close — position outlived its research session"
-            : "paper safety close — session ended with the position still open";
+          holdTarget(trade as unknown as Record<string, unknown>) < day
+            ? "paper safety close — the 3-day research hold had already ended"
+            : "paper 3-trading-day hold complete (safety close)";
         const profit = await closeSlotTrade(
           slot,
           trade as unknown as Record<string, unknown>,
@@ -639,6 +732,7 @@ export async function safetyCloseStalePaper(
         if (profit === null) continue; // already closed: never sell twice
         out.closed.push({ slot: slot.id, ticker, exit: price, profit, why });
       }
+
     } catch (error) {
       console.error(
         `paper safety close failed for slot ${slot.id}:`,
@@ -722,6 +816,8 @@ function holdingOf(
     pl: Number((dollars * (prevClose / entryPrice - 1)).toFixed(2)),
     pl_pct: Number(((prevClose / entryPrice - 1) * 100).toFixed(2)),
     today_pl: 0,
+    hold_until: holdTarget(trade),
+
   };
 }
 
@@ -759,6 +855,44 @@ async function markToMarket(entrants: RaceEntrant[]): Promise<void> {
 
 // ------------------------------------------------------------- standings -----
 
+/** One time-horizon's performance profile for a paper entrant. */
+export interface HorizonStats {
+  total_pnl: number;
+  trades: number;
+  wins: number;
+  win_rate: number | null;
+  return_pct: number | null;
+  /** Portfolio value on this horizon: money put in plus this horizon's P&L. */
+  value: number;
+  /** Chart series, keyed by day the result belongs to. */
+  rows: { exit_date: string; profit: number }[];
+}
+
+/** Money actually put into (or taken out of) a book, the percent denominator. */
+function depositsOf(rows: LedgerRow[]): number {
+  let total = 0;
+  for (const row of rows) {
+    if (row.kind === "deposit" || row.kind === "withdrawal") total += row.amount;
+  }
+  return Number(total.toFixed(2));
+}
+
+function horizonStats(
+  rows: { date: string; profit: number }[],
+  deposits: number,
+): HorizonStats {
+  const total = rows.reduce((sum, r) => sum + r.profit, 0);
+  const wins = rows.filter((r) => r.profit > 0).length;
+  return {
+    total_pnl: Number(total.toFixed(2)),
+    trades: rows.length,
+    wins,
+    win_rate: rows.length ? Math.round((wins / rows.length) * 100) : null,
+    return_pct: deposits > 0 ? Number(((total / deposits) * 100).toFixed(2)) : null,
+    value: Number((deposits + total).toFixed(2)),
+    rows: rows.map((r) => ({ exit_date: r.date, profit: Number(r.profit.toFixed(2)) })),
+  };
+}
 
 export interface RaceEntrant {
   key: string;
@@ -776,6 +910,15 @@ export interface RaceEntrant {
   trades: number;
   wins: number;
   rank: number;
+  /** Money put into this book, used as the return-percent denominator. */
+  deposits: number;
+  /**
+   * The hypothetical short-term leg: what each position would have made if it
+   * had been sold at the normal same-day exit time. Paper research only.
+   */
+  same_day: HorizonStats;
+  /** The real paper leg: positions held for 3 trading days, then sold. */
+  three_day: HorizonStats;
   holdings: {
     ticker: string;
     entry_date: string;
@@ -786,6 +929,9 @@ export interface RaceEntrant {
     pl: number;
     pl_pct: number;
     today_pl: number;
+    /** The trading day this paper position is due to be sold (3-day hold). */
+    hold_until: string;
+
   }[];
   up_next: { ticker: string; score: number; close: number; invalidation: string } | null;
   closed: { exit_date: string; profit: number }[];
@@ -796,6 +942,7 @@ export interface RaceEntrant {
   /** Cash + money at work, used as the percent-change denominator. */
   basis: number;
 }
+
 
 /**
  * Everything the Research Lab and the paper trade log render: one entrant per
@@ -814,7 +961,7 @@ export async function raceStandings(): Promise<{
   const entrants: RaceEntrant[] = [];
 
   for (const slot of slots) {
-    const [ledger, open, closedRows] = await Promise.all([
+    const [ledger, open, closedRows, sameDayRows] = await Promise.all([
       slotLedger(slot.strategy_id),
       slotOpenTrades(slot.strategy_id),
       supabaseAdmin
@@ -823,6 +970,13 @@ export async function raceStandings(): Promise<{
         .eq("strategy_id", slot.strategy_id)
         .eq("status", "closed")
         .order("exit_date", { ascending: true })
+        .limit(400),
+      supabaseAdmin
+        .from("trades")
+        .select("entry_date, same_day_profit")
+        .eq("strategy_id", slot.strategy_id)
+        .not("same_day_profit", "is", null)
+        .order("entry_date", { ascending: true })
         .limit(400),
     ]);
     const closed = (closedRows.data ?? []).map((r) => ({
@@ -834,6 +988,18 @@ export async function raceStandings(): Promise<{
     const wins = closed.filter((c) => c.profit > 0).length;
     const heldTickers = new Set(open.map((t) => String(t.ticker)));
     const next = ranked.find((r) => r.tradeable && !heldTickers.has(r.ticker)) ?? null;
+    const deposits = depositsOf(ledger);
+    const sameDay = horizonStats(
+      ((sameDayRows.data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+        date: String(r['entry_date']),
+        profit: Number(r['same_day_profit'] ?? 0),
+      })),
+      deposits,
+    );
+    const threeDay = horizonStats(
+      closed.map((c) => ({ date: c.exit_date, profit: c.profit })),
+      deposits,
+    );
 
     entrants.push({
       key: `slot-${slot.id}`,
@@ -851,6 +1017,9 @@ export async function raceStandings(): Promise<{
       trades: closed.length,
       wins,
       rank: 0,
+      deposits,
+      same_day: sameDay,
+      three_day: threeDay,
       holdings: open.map((t) => holdingOf(t as unknown as Record<string, unknown>, closes)),
       up_next: next
         ? {
@@ -866,6 +1035,7 @@ export async function raceStandings(): Promise<{
       basis: 0,
     });
   }
+
 
   // The live strategy as the control line.
   const { data: liveStrategy } = base.active_strategy_id
@@ -895,6 +1065,24 @@ export async function raceStandings(): Promise<{
   const liveCloses = await latestCloses((liveOpen ?? []).map((t) => String(t.ticker)));
   const { loadLadder } = await import("./capital.server");
   const ladder = await loadLadder();
+  const liveLedger: LedgerRow[] =
+    (
+      await supabaseAdmin
+        .from("ledger_entries")
+        .select("amount, available_on, kind")
+        .is("strategy_id", null)
+    ).data?.map((r) => ({
+      amount: Number(r.amount),
+      available_on: String(r.available_on),
+      kind: String(r.kind),
+    })) ?? [];
+  const liveDeposits = depositsOf(liveLedger);
+  // The live strategy already exits the same session it enters, so both
+  // horizons are the same thing for it: its own realised results.
+  const liveHorizon = horizonStats(
+    liveClosed.map((c) => ({ date: c.exit_date, profit: c.profit })),
+    liveDeposits,
+  );
 
   entrants.push({
     key: "live",
@@ -906,23 +1094,15 @@ export async function raceStandings(): Promise<{
     started_on: null,
     stake: Number(ladder.position_dollars),
     stocks_per_day: Number(ladder.stocks_per_day),
-    cash: cashOf(
-      (
-        await supabaseAdmin
-          .from("ledger_entries")
-          .select("amount, available_on, kind")
-          .is("strategy_id", null)
-      ).data?.map((r) => ({
-        amount: Number(r.amount),
-        available_on: String(r.available_on),
-        kind: String(r.kind),
-      })) ?? [],
-    ),
+    cash: cashOf(liveLedger),
     total_pnl: Number(liveClosed.reduce((sum, c) => sum + c.profit, 0).toFixed(2)),
     win_rate: liveClosed.length ? Math.round((liveWins / liveClosed.length) * 100) : null,
     trades: liveClosed.length,
     wins: liveWins,
     rank: 0,
+    deposits: liveDeposits,
+    same_day: liveHorizon,
+    three_day: liveHorizon,
     holdings: (liveOpen ?? []).map((t) =>
       holdingOf(t as unknown as Record<string, unknown>, liveCloses),
     ),
@@ -932,6 +1112,7 @@ export async function raceStandings(): Promise<{
     unrealized_today: 0,
     basis: 0,
   });
+
 
   // One free-feed request marks every open position (live and paper) to the
   // latest traded price, so the "LIVE" graph moves before anything is sold.

@@ -66,9 +66,12 @@ function LabPage() {
           <h1 className="text-2xl font-bold tracking-tight">Research Lab</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
             Three scoring formulas trade a simulated book beside the live strategy, on the same
-            stake and the same market data, so the only difference is the formula. Nothing here can
-            place a broker order, and none of this money touches the live ledger.
+            stake and the same market data, so the only difference is the formula. Each test buy is
+            measured twice: what a normal same-day sale would have made (SD), and what actually
+            happened holding it for three trading days (3D). Nothing here can place a broker order,
+            and none of this money touches the live ledger.
           </p>
+
         </div>
         <Button onClick={() => run.mutate()} disabled={run.isPending}>
           {run.isPending ? "Running…" : "Run test pass"}
@@ -164,6 +167,44 @@ function LabPage() {
 
 type Entrant = NonNullable<Awaited<ReturnType<typeof fetchRace>>>["entrants"][number];
 
+/**
+ * One metric with both research horizons side by side: the hypothetical
+ * same-day sale and the real 3-trading-day paper hold.
+ */
+function DualMetric({
+  label,
+  sameDay,
+  threeDay,
+  hint,
+}: {
+  label: string;
+  sameDay: string;
+  threeDay: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded border border-border p-2">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <div className="mt-1 space-y-0.5">
+        <p className="flex items-baseline justify-between gap-2 text-sm font-bold tabular-nums text-chart-4">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            SD
+          </span>
+          {sameDay}
+        </p>
+        <p className="flex items-baseline justify-between gap-2 text-sm font-bold tabular-nums text-chart-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            3D
+          </span>
+          {threeDay}
+        </p>
+      </div>
+      {hint ? <p className="mt-1 text-[10px] text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
+
 function SlotCard({
   slot,
   strategies,
@@ -202,29 +243,38 @@ function SlotCard({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded border border-border p-2">
-          <p className="text-[10px] uppercase text-muted-foreground">P&amp;L</p>
-          <p
-            className={`text-sm font-bold tabular-nums ${
-              slot.total_pnl >= 0 ? "text-success" : "text-destructive"
-            }`}
-          >
-            {slot.total_pnl >= 0 ? "+" : ""}
-            {money(slot.total_pnl)}
-          </p>
-        </div>
-        <div className="rounded border border-border p-2">
-          <p className="text-[10px] uppercase text-muted-foreground">Win rate</p>
-          <p className="text-sm font-bold tabular-nums">
-            {slot.win_rate === null ? "—" : `${slot.win_rate}%`}
-          </p>
-        </div>
-        <div className="rounded border border-border p-2">
-          <p className="text-[10px] uppercase text-muted-foreground">Cash</p>
-          <p className="text-sm font-bold tabular-nums">{money(slot.cash.available)}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-2">
+        <DualMetric
+          label="P&amp;L"
+          sameDay={`${slot.same_day.total_pnl >= 0 ? "+" : ""}${money(slot.same_day.total_pnl)}`}
+          threeDay={`${slot.three_day.total_pnl >= 0 ? "+" : ""}${money(slot.three_day.total_pnl)}`}
+        />
+        <DualMetric
+          label="Win rate"
+          sameDay={slot.same_day.win_rate === null ? "—" : `${slot.same_day.win_rate}%`}
+          threeDay={slot.three_day.win_rate === null ? "—" : `${slot.three_day.win_rate}%`}
+        />
+        <DualMetric
+          label="Return"
+          sameDay={
+            slot.same_day.return_pct === null
+              ? "—"
+              : `${slot.same_day.return_pct >= 0 ? "+" : ""}${slot.same_day.return_pct}%`
+          }
+          threeDay={
+            slot.three_day.return_pct === null
+              ? "—"
+              : `${slot.three_day.return_pct >= 0 ? "+" : ""}${slot.three_day.return_pct}%`
+          }
+        />
+        <DualMetric
+          label="Value"
+          sameDay={money(slot.same_day.value)}
+          threeDay={money(slot.three_day.value)}
+          hint={`${money(slot.cash.available)} cash ready`}
+        />
       </div>
+
 
       <div className="space-y-1">
         <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Holding</p>
@@ -233,7 +283,13 @@ function SlotCard({
         ) : (
           slot.holdings.map((h) => (
             <div key={h.ticker} className="flex items-baseline justify-between text-sm">
-              <span className="font-semibold">{h.ticker}</span>
+              <span className="font-semibold">
+                {h.ticker}{" "}
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  held to {h.hold_until}
+                </span>
+              </span>
+
               <span
                 className={`tabular-nums ${h.pl >= 0 ? "text-success" : "text-destructive"}`}
               >
@@ -265,15 +321,19 @@ function SlotCard({
       </div>
 
       <PnlChart
-        rows={slot.closed}
+        rows={slot.three_day.rows}
+        compareRows={slot.same_day.rows}
+        primaryLabel="3-Day"
+        compareLabel="Same-Day"
         ranges={LAB_RANGES}
-        initialRange="live"
-        title="Profit"
+        initialRange="1m"
+        title="Profit — Same-Day vs 3-Day"
         compact
         unrealized={slot.unrealized}
         unrealizedToday={slot.unrealized_today}
         basis={slot.basis}
       />
+
 
       <button
         type="button"

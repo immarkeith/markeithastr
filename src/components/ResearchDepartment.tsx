@@ -269,11 +269,13 @@ export function ResearchDepartment() {
                     : "nothing — nothing cleared its conditions"}
                 </p>
                 <p className="text-xs tabular-nums text-muted-foreground">
-                  same day <Signed value={Number(leadTest.horizons['same_day'] ?? 0)} /> · 1d{" "}
-                  <Signed value={Number(leadTest.horizons['1'] ?? 0)} /> · 5d{" "}
-                  <Signed value={Number(leadTest.horizons['5'] ?? 0)} /> · edge{" "}
+                  <span className="text-chart-4">Same-Day</span>{" "}
+                  <Signed value={Number(leadTest.horizons['same_day'] ?? 0)} /> ·{" "}
+                  <span className="text-chart-2">3-Day</span>{" "}
+                  <Signed value={Number(leadTest.horizons['3'] ?? 0)} /> · edge{" "}
                   <Signed value={Number(leadTest.edge ?? 0)} />
                 </p>
+
                 <p className="text-xs text-muted-foreground">{leadTest.note}</p>
                 <button
                   type="button"
@@ -297,11 +299,13 @@ export function ResearchDepartment() {
                     : "nothing that met its own bar"}
                 </p>
                 <p className="text-xs tabular-nums text-muted-foreground">
-                  same day <Signed value={Number(b.horizons['same_day'] ?? 0)} /> · 1d{" "}
-                  <Signed value={Number(b.horizons['1'] ?? 0)} /> · 5d{" "}
-                  <Signed value={Number(b.horizons['5'] ?? 0)} /> · edge{" "}
+                  <span className="text-chart-4">Same-Day</span>{" "}
+                  <Signed value={Number(b.horizons['same_day'] ?? 0)} /> ·{" "}
+                  <span className="text-chart-2">3-Day</span>{" "}
+                  <Signed value={Number(b.horizons['3'] ?? 0)} /> · edge{" "}
                   <Signed value={Number(b.edge ?? 0)} />
                 </p>
+
                 {b.worked.length > 0 && (
                   <p className="text-xs text-success">Worked: {b.worked[0]}</p>
                 )}
