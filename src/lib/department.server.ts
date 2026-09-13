@@ -805,8 +805,11 @@ export interface DepartmentResult {
   warnings: string[];
 }
 
+/** Backup scientists that get a test slot on any one market day. */
+const ROTATION_PER_DAY = 2;
+
 export async function runDepartment(
-  options: { universe?: number } = {},
+  options: { universe?: number; force_lanes?: string[] } = {},
 ): Promise<DepartmentResult> {
   const s = await loadSettings();
   const share = await volumeShare(s);
