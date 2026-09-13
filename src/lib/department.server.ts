@@ -905,6 +905,9 @@ export async function runDepartment(
 
   const reports: LaneReport[] = [];
   const validated: Trial[] = [];
+  /** Individual findings escalated to the Lead Researcher this pass. */
+  const masterCandidates: RuleCandidate[] = [];
+  const { candidatesFrom, runMasterCycle } = await import("./master-formula.server");
   /** Each lane's post-evolution parameters — the researcher's current mind. */
   const laneFinal: Map<string, LaneParams> = new Map();
 
