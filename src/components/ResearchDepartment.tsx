@@ -240,6 +240,84 @@ export function ResearchDepartment() {
         </section>
       )}
 
+      {(leadTest || todayBackups.length > 0) && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+              Today's three tests
+            </h3>
+            {rotation ? (
+              <p className="text-xs text-muted-foreground">
+                Sitting out: {rotation.sitting_out.join(", ") || "nobody"} · next up:{" "}
+                {rotation.next.join(", ") || "—"}
+              </p>
+            ) : null}
+          </div>
+          <div className="grid gap-3 lg:grid-cols-3">
+            {leadTest ? (
+              <article className="space-y-2 rounded-md border border-primary/40 bg-primary/10 p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h4 className="font-semibold text-primary">Lead Researcher</h4>
+                  <span className="text-[11px] text-muted-foreground">
+                    Master Formula v{leadTest.master_version}
+                  </span>
+                </div>
+                <p className="text-sm">
+                  Picked{" "}
+                  {leadTest.picks.length
+                    ? leadTest.picks.map((p) => p.ticker).join(", ")
+                    : "nothing — nothing cleared its conditions"}
+                </p>
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  same day <Signed value={Number(leadTest.horizons['same_day'] ?? 0)} /> · 1d{" "}
+                  <Signed value={Number(leadTest.horizons['1'] ?? 0)} /> · 5d{" "}
+                  <Signed value={Number(leadTest.horizons['5'] ?? 0)} /> · edge{" "}
+                  <Signed value={Number(leadTest.edge ?? 0)} />
+                </p>
+                <p className="text-xs text-muted-foreground">{leadTest.note}</p>
+                <button
+                  type="button"
+                  onClick={() => setTab("lead")}
+                  className="text-xs text-primary hover:underline"
+                >
+                  See the Master Formula
+                </button>
+              </article>
+            ) : null}
+            {todayBackups.slice(0, 2).map((b) => (
+              <article key={b.id} className="space-y-2 rounded-md border border-border bg-card p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h4 className="font-semibold">{b.researcher_name}</h4>
+                  <span className="text-[11px] text-muted-foreground">{b.formula_version}</span>
+                </div>
+                <p className="text-sm">
+                  Picked{" "}
+                  {b.picks.length
+                    ? b.picks.map((p) => p.ticker).join(", ")
+                    : "nothing that met its own bar"}
+                </p>
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  same day <Signed value={Number(b.horizons['same_day'] ?? 0)} /> · 1d{" "}
+                  <Signed value={Number(b.horizons['1'] ?? 0)} /> · 5d{" "}
+                  <Signed value={Number(b.horizons['5'] ?? 0)} /> · edge{" "}
+                  <Signed value={Number(b.edge ?? 0)} />
+                </p>
+                {b.worked.length > 0 && (
+                  <p className="text-xs text-success">Worked: {b.worked[0]}</p>
+                )}
+                {b.failed.length > 0 && (
+                  <p className="text-xs text-warning">Fell short: {b.failed[0]}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {b.repeatable ? "Repeatable across both halves. " : "Not repeatable yet. "}
+                  {b.note}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <nav className="no-scrollbar -mx-1 flex gap-1 overflow-x-auto pb-1">
         {tabs.map((t) => (
           <button
