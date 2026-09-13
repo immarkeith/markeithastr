@@ -66,9 +66,12 @@ function LabPage() {
           <h1 className="text-2xl font-bold tracking-tight">Research Lab</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
             Three scoring formulas trade a simulated book beside the live strategy, on the same
-            stake and the same market data, so the only difference is the formula. Nothing here can
-            place a broker order, and none of this money touches the live ledger.
+            stake and the same market data, so the only difference is the formula. Each test buy is
+            measured twice: what a normal same-day sale would have made (SD), and what actually
+            happened holding it for three trading days (3D). Nothing here can place a broker order,
+            and none of this money touches the live ledger.
           </p>
+
         </div>
         <Button onClick={() => run.mutate()} disabled={run.isPending}>
           {run.isPending ? "Running…" : "Run test pass"}
