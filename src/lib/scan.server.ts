@@ -1580,12 +1580,31 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
   }
   const insights = await generateInsights(status.nyDate);
 
+  // A blank pass is almost never "nothing scored well enough" — far more often
+  // the account simply has no cleared money to spend. Report the real cause.
+  let idleReason = "Post-open score done — nothing met the requirements, so nothing was bought.";
+  if (sim.opened.length === 0) {
+    const { loadLadder } = await import("./capital.server");
+    const stake = Number((await loadLadder()).position_dollars);
+    const cash = s.paper_mode === false ? await availableCash() : stake;
+    if (sim.held.length > 0) {
+      idleReason = `Already holding today's top-ranked name(s) — kept ${sim.held
+        .map((h) => h.ticker)
+        .join(", ")} instead of selling and rebuying.`;
+    } else if (cash < stake) {
+      idleReason = `No purchase — only $${cash.toFixed(2)} of the $${stake.toFixed(
+        2,
+      )} stake has cleared in the account. Scoring worked (${scan.scored_count} names ranked); the buy is waiting on money, not on scores.`;
+    }
+  }
+
   return {
     ...base,
     ran: true,
     reason: sim.opened.length
       ? `Opened ${sim.opened.length} position(s) on the post-open score.`
-      : "Post-open score done — nothing met the requirements, so nothing was bought.",
+      : idleReason,
+
     opened: sim.opened,
     held: sim.held,
     scan: scanInfo,
