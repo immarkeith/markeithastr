@@ -304,6 +304,50 @@ async function slotLedger(strategyId: string): Promise<LedgerRow[]> {
   }));
 }
 
+/**
+ * Keep a research slot funded. Paper money is a measuring stick, not a real
+ * account: if a slot cannot cover today's planned positions (drawdown, saved
+ * paper profit, cash still "settling"), release the saved profit first and then
+ * add whatever is still missing. Recorded as a deposit so return percentages
+ * still divide by all the test money the slot has been given.
+ */
+async function ensureTestCash(slot: Slot, needed: number): Promise<void> {
+  if (needed <= 0) return;
+  const rows = await slotLedger(slot.strategy_id);
+  const cash = cashOf(rows);
+  if (cash.available >= needed) return;
+
+  // Saved paper profit goes back to work before any new test money.
+  if (cash.saved > 0.01) {
+    await supabaseAdmin.from("ledger_entries").insert({
+      strategy_id: slot.strategy_id,
+      kind: "deposit",
+      amount: Number(cash.saved.toFixed(2)),
+      available_on: today(),
+      note: "Released saved paper profit back into the test",
+    });
+    await supabaseAdmin.from("ledger_entries").insert({
+      strategy_id: slot.strategy_id,
+      kind: "reserve",
+      amount: Number((-cash.saved).toFixed(2)),
+      available_on: today(),
+      note: "Released saved paper profit back into the test",
+    });
+  }
+
+  const shortfall = Number((needed - cash.available - Math.max(0, cash.saved)).toFixed(2));
+  if (shortfall > 0.01) {
+    await supabaseAdmin.from("ledger_entries").insert({
+      strategy_id: slot.strategy_id,
+      kind: "deposit",
+      amount: shortfall,
+      available_on: today(),
+      note: "Auto top-up — simulated research capital (never real money)",
+    });
+  }
+}
+
+
 export function cashOf(rows: LedgerRow[]): {
   available: number;
   pending: number;
