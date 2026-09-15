@@ -311,7 +311,7 @@ async function slotLedger(strategyId: string): Promise<LedgerRow[]> {
  * add whatever is still missing. Recorded as a deposit so return percentages
  * still divide by all the test money the slot has been given.
  */
-async function ensureTestCash(slot: Slot, needed: number): Promise<void> {
+async function ensureTestCash(slot: RaceSlot, needed: number): Promise<void> {
   if (needed <= 0) return;
   const rows = await slotLedger(slot.strategy_id);
   const cash = cashOf(rows);
