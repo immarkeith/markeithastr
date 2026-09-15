@@ -624,15 +624,20 @@ export async function runRacePass(
 
       // ---- entries
       if (phase !== "exit") {
-        const cash = cashOf(await slotLedger(slot.strategy_id));
         const stillOpen = new Set(
           open
             .filter((t) => !entry.closed.some((c) => c.ticker === String(t.ticker)))
             .map((t) => String(t.ticker)),
         );
         const free = Math.max(0, slot.stocks_per_day - stillOpen.size);
-        let cashLeft = cash.available;
         const stake = Number(slot.position_dollars);
+        // Research capital is imaginary, so a shortfall must never stop the
+        // testing. Top the slot up to whatever today's plan needs (saved paper
+        // profit counts first) and record it as a deposit so the return figures
+        // stay honest about how much test money was used.
+        await ensureTestCash(slot, stake * Math.max(0, free));
+        const cash = cashOf(await slotLedger(slot.strategy_id));
+        let cashLeft = cash.available;
         const plan = ranked
           .filter((r) => r.tradeable && !stillOpen.has(r.ticker))
           .slice(0, free);
@@ -642,6 +647,7 @@ export async function runRacePass(
             entry.skipped = `waiting on test cash to clear ($${cashLeft.toFixed(2)} of $${stake.toFixed(2)})`;
             break;
           }
+
           const price = Number(closes.get(row.ticker) ?? row.close);
           if (!price) continue;
           await openSlotTrade(slot, row.ticker, price, stake);
