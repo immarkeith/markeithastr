@@ -65,16 +65,17 @@ function HomePage() {
       {d && !d.bot_running ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-primary/40 bg-primary/10 p-4">
           <div>
-            <p className="font-semibold text-primary">Bot stopped</p>
+            <p className="font-semibold text-primary">Live trading bot stopped</p>
             <p className="text-sm text-muted-foreground">
-              No scheduled scoring, buying or selling will happen until you start it again.
+              No real-money buys or sells until you start it again. Research Lab paper testing keeps
+              running regardless.
             </p>
           </div>
           <Button
             disabled={busy}
             onClick={() => toggleBot(true)}
           >
-            {busy ? "Starting…" : "Start bot"}
+            {busy ? "Starting…" : "Start live bot"}
           </Button>
         </section>
       ) : null}
