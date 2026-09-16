@@ -87,7 +87,7 @@ function HomePage() {
             disabled={busy}
             onClick={() => toggleBot(false)}
           >
-            {busy ? "Stopping…" : "Stop bot"}
+            {busy ? "Stopping…" : "Stop live bot"}
           </Button>
         </div>
       ) : null}
