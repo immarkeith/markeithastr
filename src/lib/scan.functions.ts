@@ -96,6 +96,7 @@ export const createTrade = createServerFn({ method: "POST" })
         entry_price: z.number().positive(),
         dollars: z.number().positive(),
         mode: z.enum(["paper", "live"]).default("paper"),
+        position_type: z.enum(["SAME_DAY", "LONG_TERM"]).default("SAME_DAY"),
       })
       .parse(input),
   )
