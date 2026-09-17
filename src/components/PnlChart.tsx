@@ -154,7 +154,23 @@ export function PnlChart({
   };
 
   const twoLine = compareSeries !== null;
-  const primaryStroke = twoLine ? "text-chart-2" : tone;
+  // Single-line (live) charts colour by direction: rising green, falling red,
+  // flat or idle blue.
+  const direction =
+    series.length < 2
+      ? total > 0
+        ? "up"
+        : total < 0
+          ? "down"
+          : "flat"
+      : (() => {
+          const last = series[series.length - 1]!.cumulative;
+          const prev = series[series.length - 2]!.cumulative;
+          return last > prev ? "up" : last < prev ? "down" : "flat";
+        })();
+  const liveStroke =
+    direction === "up" ? "text-success" : direction === "down" ? "text-destructive" : "text-live";
+  const primaryStroke = twoLine ? "text-chart-2" : liveStroke;
   const compareStroke = "text-chart-4";
 
   return (
