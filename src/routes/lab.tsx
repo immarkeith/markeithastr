@@ -7,7 +7,7 @@ import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import { ResearchDepartment } from "@/components/ResearchDepartment";
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
-import { fetchRace, runRaceNow } from "@/lib/race.functions";
+import { fetchRace, runRaceNow, setResearchRunning } from "@/lib/race.functions";
 import { money } from "@/lib/queries";
 
 export const Route = createFileRoute("/lab")({
