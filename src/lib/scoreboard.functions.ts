@@ -68,40 +68,37 @@ export const getScoreboard = createServerFn({ method: "GET" })
           tradeable: Boolean(row.tradeable),
         })),
       },
-      ...slots.map((slot) => ({
-        id: `paper:${slot.strategy_id}`,
-        name: slot.name,
-        kind: "paper" as const,
-        enabled: slot.enabled,
-        description: slot.description,
-        as_of: run?.run_date ?? null,
-        rows: (paperRanks.get(slot.id) ?? []).slice(0, 10),
-      })),
+      {
+        id: "research:lead",
+        name: "Lead Researcher",
+        kind: "research" as const,
+        enabled: true,
+        description: `The Master Formula${
+          master.versions[0]?.version ? ` (${master.versions[0].version})` : ""
+        } — validated findings only.`,
+        as_of: boards.as_of,
+        rows: (boards.boards.get("lead") ?? []).map((row) => ({
+          ticker: row.ticker,
+          rank: row.rank,
+          score: row.score,
+          close: row.close,
+          tradeable: row.tradeable,
+        })),
+      },
       ...department.researchers.map((researcher) => ({
         id: `research:${researcher.lane}`,
         name: researcher.name,
         kind: "research" as const,
         enabled: researcher.enabled,
         description: researcher.mission || researcher.focus,
-        as_of: board?.date ?? null,
-        rows:
-          researcher.lane === "skeptic"
-            ? []
-            : [...(board?.stocks ?? [])]
-                .filter((stock) => stock.scores[researcher.lane] !== undefined)
-                .sort(
-                  (a, b) =>
-                    Number(b.scores[researcher.lane] ?? 0) -
-                    Number(a.scores[researcher.lane] ?? 0),
-                )
-                .slice(0, 10)
-                .map((stock, index) => ({
-                  ticker: stock.ticker,
-                  rank: index + 1,
-                  score: Number(stock.scores[researcher.lane] ?? 0),
-                  close: stock.close,
-                  tradeable: stock.likes.includes(researcher.lane),
-                })),
+        as_of: boards.as_of,
+        rows: (boards.boards.get(researcher.lane) ?? []).map((row) => ({
+          ticker: row.ticker,
+          rank: row.rank,
+          score: row.score,
+          close: row.close,
+          tradeable: row.tradeable,
+        })),
       })),
     ];
 
