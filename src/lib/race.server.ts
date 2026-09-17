@@ -739,6 +739,8 @@ export async function runRacePass(
           cashLeft = Number((cashLeft - stake).toFixed(2));
           entry.opened.push({ ticker: row.ticker, price });
         }
+      } else if (phase !== "exit" && !myTurn) {
+        entry.skipped = open.length > 0 ? "holding its current test position" : "not in today's rotation";
       }
     } catch (error) {
       entry.skipped = error instanceof Error ? error.message : "slot failed";
