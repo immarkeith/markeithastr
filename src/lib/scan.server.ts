@@ -1064,7 +1064,8 @@ export async function managePaperTrades(
     .eq("status", "open")
     // Live book only — paper-race rows are handled by race.server.ts.
     .is("strategy_id", null)
-    .eq("mode", activeMode);
+    .eq("mode", activeMode)
+    .eq("position_type", "SAME_DAY");
   if (openErr) throw new Error(openErr.message);
   const openTrades = openRows ?? [];
 

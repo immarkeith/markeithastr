@@ -77,8 +77,7 @@ function AnalyzePage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analyze a stock</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Scores any ticker with the live strategy weights and gates. Read-only — nothing is bought,
-          sold or added to the traded universe from this page.
+          Score any ticker with the live strategy weights, then optionally buy it as a protected long-term holding.
         </p>
       </div>
 

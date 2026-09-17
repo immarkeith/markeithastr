@@ -291,6 +291,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       return {
         ticker,
         kind: String(t.kind),
+        position_type: String(t.position_type),
         entry_date: String(t.entry_date),
         entry_price: Number(t.entry_price),
         dollars,
@@ -312,6 +313,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       holdings.push({
         ticker: pos.ticker,
         kind: "untracked",
+        position_type: "LONG_TERM",
         entry_date: "—",
         entry_price: pos.current_price,
         dollars: pos.market_value,
@@ -327,8 +329,8 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       });
     }
 
-    const sameDayHoldings = holdings.filter((h) => h.kind === "day");
-    const longTermHoldings = holdings.filter((h) => h.kind === "long_term");
+    const sameDayHoldings = holdings.filter((h) => h.position_type === "SAME_DAY");
+    const longTermHoldings = holdings.filter((h) => h.position_type === "LONG_TERM");
     const slots = Math.max(0, Number(ladder.stocks_per_day) - sameDayHoldings.length);
     const upNext = (scores ?? [])
       .filter((r) => r.tradeable && !heldTickers.has(String(r.ticker)))
@@ -544,7 +546,7 @@ export const fetchTradeHistory = createServerFn({ method: "GET" })
       const dollars = Number(t.dollars);
       const entryPrice = Number(t.entry_price);
       const exitPrice = t.exit_price === null ? null : Number(t.exit_price);
-      const shares = entryPrice > 0 ? dollars / entryPrice : 0;
+      const shares = Number(t.filled_qty ?? (entryPrice > 0 ? dollars / entryPrice : 0));
       return {
         id: String(t.id),
         ticker,
