@@ -277,22 +277,47 @@ export async function rankUniverse(
   return ranked;
 }
 
-/** Ranking for every enabled slot, keyed by slot id. */
+/**
+ * Ranking for every research book, keyed by slot id.
+ *
+ * Each book is ranked by ITS OWN researcher formula — the six lanes with their
+ * own factor weights and entry filters, the Lead Researcher with the Master
+ * Formula. Two researchers landing on the same ticker is agreement, not a
+ * shared calculation.
+ */
 export async function rankSlots(slots: RaceSlot[]): Promise<Map<number, RankRow[]>> {
-  const base = await loadSettings();
-  const share = await volumeShare(base);
-  const configs = slots.map((slot) => {
-    const merged = settingsFor(base, slot.params);
-    return {
-      key: String(slot.id),
-      config: scoreConfig(merged, share),
-      minScore: Number(merged.min_score_to_trade),
-    };
-  });
-  const ranked = await rankUniverse(configs);
   const out = new Map<number, RankRow[]>();
-  for (const slot of slots) out.set(slot.id, ranked.get(String(slot.id)) ?? []);
+  if (slots.length === 0) return out;
+  const { researchBoards } = await import("./research-boards.server");
+  const { boards } = await researchBoards();
+  for (const slot of slots) {
+    out.set(slot.id, slot.lane ? (boards.get(slot.lane) ?? []) : []);
+  }
   return out;
+}
+
+/**
+ * Which researchers may open a new position today. The Lead Researcher always
+ * may; of the six others only the two who have waited longest since their last
+ * paper entry take a turn, so all six get regular turns and nobody doubles up.
+ * A researcher already holding a stock is never eligible.
+ */
+async function rotationToday(slots: RaceSlot[]): Promise<Set<string>> {
+  const waiting: { lane: string; last: string }[] = [];
+  for (const slot of slots) {
+    if (!slot.lane || slot.lane === "lead" || !slot.enabled) continue;
+    const open = await slotOpenTrades(slot.strategy_id);
+    if (open.length > 0) continue;
+    const { data } = await supabaseAdmin
+      .from("trades")
+      .select("entry_date")
+      .eq("strategy_id", slot.strategy_id)
+      .order("entry_date", { ascending: false })
+      .limit(1);
+    waiting.push({ lane: slot.lane, last: String(data?.[0]?.entry_date ?? "") });
+  }
+  waiting.sort((a, b) => (a.last === b.last ? a.lane.localeCompare(b.lane) : a.last < b.last ? -1 : 1));
+  return new Set(waiting.slice(0, ROTATION_PER_DAY).map((w) => w.lane));
 }
 
 // ------------------------------------------------------- slot cash + book ----
