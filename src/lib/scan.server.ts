@@ -588,6 +588,9 @@ export async function cancelTrade(input: { id: string }) {
     .single();
   if (error) throw new Error(error.message);
   if (trade!.status !== "open") throw new Error("Only an open trade can be cancelled.");
+  if (trade!.position_type === "LONG_TERM") {
+    throw new Error("Protected long-term holdings cannot be cancelled or sold from ASTR.");
+  }
 
   if (trade!.mode === "live") {
     const { cancelOpenOrders } = await import("./broker.server");
