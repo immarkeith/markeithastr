@@ -855,10 +855,12 @@ async function applySlotLadder(slot: RaceSlot): Promise<void> {
     last_evaluated_date: slot.last_evaluated_date,
   };
   const decision = evaluateLadder(state, Number(capital.toFixed(2)));
+  // The ladder may only scale the dollar size of a research position. The
+  // number of stocks stays at one — a researcher tests one idea at a time.
   await supabaseAdmin
     .from("paper_slots" as never)
     .update({
-      stocks_per_day: decision.step.stocks,
+      stocks_per_day: STOCKS_PER_RESEARCHER,
       position_dollars: decision.step.dollars,
       stable_days: decision.stable_days,
       breach_days: decision.breach_days,
