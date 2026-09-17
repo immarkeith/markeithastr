@@ -25,8 +25,9 @@ export function MarketStatusBar({ paperMode }: { paperMode?: boolean }) {
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-xs ${toneFor(status)}`}
+      className={`overflow-hidden rounded-md border py-2 text-xs ${toneFor(status)}`}
     >
+      <div className="market-ticker flex w-max items-center gap-6 whitespace-nowrap px-3">
       <span className="flex items-center gap-2 font-semibold uppercase tracking-widest">
         <span
           className={`h-2 w-2 rounded-full ${
@@ -42,10 +43,11 @@ export function MarketStatusBar({ paperMode }: { paperMode?: boolean }) {
       </span>
       <span className="text-muted-foreground">{status.detail}</span>
       {paperMode ? (
-        <span className="ml-auto rounded-sm border border-current/40 px-2 py-0.5 font-semibold uppercase tracking-widest">
+        <span className="rounded-sm border border-current/40 px-2 py-0.5 font-semibold uppercase tracking-widest">
           Simulation only — no orders sent
         </span>
       ) : null}
+      </div>
     </div>
   );
 }

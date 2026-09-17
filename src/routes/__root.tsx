@@ -10,7 +10,10 @@ import {
 } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, type ReactNode } from "react";
+import { Menu } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { gateStatus, lockSite } from "@/lib/gate.functions";
 
@@ -167,28 +170,25 @@ function RootComponent() {
                   rotation desk
                 </span>
               </Link>
-              <button
-                onClick={async () => {
-                  await lock();
-                  await router.navigate({ to: "/unlock" });
-                }}
-                className="rounded-full border border-border px-3 py-1 text-[11px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Lock
-              </button>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" aria-label="Open navigation"><Menu className="h-5 w-5" /></Button>
+                </SheetTrigger>
+                <SheetContent className="w-72">
+                  <SheetHeader><SheetTitle>ASTR</SheetTitle></SheetHeader>
+                  <nav className="mt-8 grid gap-1">
+                    {NAV.map((item) => (
+                      <SheetClose asChild key={item.to}>
+                        <Link to={item.to} activeOptions={{ exact: item.to === "/" }} className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground data-[status=active]:bg-primary data-[status=active]:text-primary-foreground">
+                          {item.label}
+                        </Link>
+                      </SheetClose>
+                    ))}
+                  </nav>
+                  <Button variant="outline" className="mt-8 w-full" onClick={async () => { await lock(); await router.navigate({ to: "/unlock" }); }}>Lock</Button>
+                </SheetContent>
+              </Sheet>
             </div>
-            <nav className="no-scrollbar -mx-1 mt-2 flex items-center gap-1 overflow-x-auto pb-2">
-              {NAV.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  activeOptions={{ exact: item.to === "/" }}
-                  className="shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground data-[status=active]:bg-primary data-[status=active]:text-primary-foreground"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
           </div>
         </header>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

@@ -1,20 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
 import { toast } from "sonner";
 
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import { ResearchDepartment } from "@/components/ResearchDepartment";
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
-import {
-  adjustRaceCash,
-  fetchRace,
-  openRaceTrade,
-  runRaceNow,
-  updateRaceSlot,
-} from "@/lib/race.functions";
+import { fetchRace, runRaceNow } from "@/lib/race.functions";
 import { money } from "@/lib/queries";
 
 export const Route = createFileRoute("/lab")({
@@ -116,11 +109,7 @@ function LabPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {slots.map((slot) => (
-          <SlotCard
-            key={slot.key}
-            slot={slot}
-            strategies={d?.strategies ?? []}
-          />
+          <SlotCard key={slot.key} slot={slot} />
         ))}
       </div>
 
@@ -294,108 +283,3 @@ function SlotCard({
   );
 }
 
-/** Deposit/withdraw test cash and open a simulated position by hand. */
-function SlotCashTools({ strategyId, stake }: { strategyId: string; stake: number }) {
-  const qc = useQueryClient();
-  const cashFn = useServerFn(adjustRaceCash);
-  const tradeFn = useServerFn(openRaceTrade);
-  const [amount, setAmount] = useState("20");
-  const [ticker, setTicker] = useState("");
-  const [price, setPrice] = useState("");
-  const [dollars, setDollars] = useState(String(stake));
-
-  async function adjust(sign: 1 | -1) {
-    const value = Number(amount);
-    if (!Number.isFinite(value) || value <= 0) {
-      toast.error("Enter an amount greater than zero.");
-      return;
-    }
-    try {
-      await cashFn({
-        data: {
-          strategy_id: strategyId,
-          amount: sign * value,
-          note: sign > 0 ? "manual paper deposit" : "manual paper withdrawal",
-        },
-      });
-      toast.success(`${sign > 0 ? "Added" : "Removed"} ${money(value)} of test cash.`);
-      await qc.invalidateQueries({ queryKey: ["race"] });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not adjust the test cash.");
-    }
-  }
-
-  async function open() {
-    try {
-      await tradeFn({
-        data: {
-          strategy_id: strategyId,
-          ticker,
-          entry_price: Number(price),
-          dollars: Number(dollars),
-        },
-      });
-      toast.success(`Opened a simulated ${ticker.toUpperCase()} position.`);
-      setTicker("");
-      setPrice("");
-      await qc.invalidateQueries({ queryKey: ["race"] });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not open the paper trade.");
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-          Adjust test cash
-        </span>
-        <div className="flex gap-2">
-          <input
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
-          />
-          <Button size="sm" variant="secondary" onClick={() => void adjust(1)}>
-            Deposit
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => void adjust(-1)}>
-            Withdraw
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-          Open a paper trade
-        </span>
-        <div className="flex flex-wrap gap-2">
-          <input
-            placeholder="Ticker"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value)}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm uppercase"
-          />
-          <input
-            placeholder="Price"
-            inputMode="decimal"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
-          />
-          <input
-            placeholder="$"
-            inputMode="decimal"
-            value={dollars}
-            onChange={(e) => setDollars(e.target.value)}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
-          />
-          <Button size="sm" onClick={() => void open()} disabled={!ticker || !price}>
-            Add
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
