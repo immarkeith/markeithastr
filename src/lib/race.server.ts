@@ -104,11 +104,15 @@ export async function loadSlots(): Promise<RaceSlot[]> {
     ((strategies ?? []) as unknown as Record<string, unknown>[]).map((s) => [String(s['id']), s]),
   );
   return rows
-    .filter((r) => r['strategy_id'])
+    // Only the researchers' own books count: one for the Lead Researcher and
+    // one for each of the six lanes. Retired prototype books stay in the data
+    // for their history but are no longer traded or displayed.
+    .filter((r) => r['strategy_id'] && r['lane'])
     .map((r) => {
       const strategy = byId.get(String(r['strategy_id'])) ?? {};
       return {
         id: Number(r['id']),
+        lane: (r['lane'] as string | null) ?? null,
         strategy_id: String(r['strategy_id']),
         name: String(strategy['name'] ?? "Unnamed strategy"),
         description: String(strategy['description'] ?? ""),
