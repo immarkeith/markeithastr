@@ -17,7 +17,33 @@ export const fetchRace = createServerFn({ method: "GET" })
       .from("strategies")
       .select("id, name, description")
       .order("name", { ascending: true });
-    return { ...standings, strategies: strategies ?? [] };
+    const { data: settings } = await supabaseAdmin
+      .from("app_settings")
+      .select("research_auto")
+      .eq("id", 1)
+      .maybeSingle();
+    return {
+      ...standings,
+      strategies: strategies ?? [],
+      research_running: settings?.research_auto !== false,
+    };
+  });
+
+/**
+ * Turn the Research Lab's scheduled paper testing on or off. This only touches
+ * research: live trading has its own separate control on the Home page.
+ */
+export const setResearchRunning = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .inputValidator((input) => z.object({ running: z.boolean() }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("app_settings")
+      .update({ research_auto: data.running })
+      .eq("id", 1);
+    if (error) throw new Error(error.message);
+    return { running: data.running };
   });
 
 /** Realised paper trades grouped per strategy, for the Research Log. */

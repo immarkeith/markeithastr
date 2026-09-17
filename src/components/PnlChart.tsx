@@ -154,7 +154,23 @@ export function PnlChart({
   };
 
   const twoLine = compareSeries !== null;
-  const primaryStroke = twoLine ? "text-chart-2" : tone;
+  // Single-line (live) charts colour by direction: rising green, falling red,
+  // flat or idle blue.
+  const direction =
+    series.length < 2
+      ? total > 0
+        ? "up"
+        : total < 0
+          ? "down"
+          : "flat"
+      : (() => {
+          const last = series[series.length - 1]!.cumulative;
+          const prev = series[series.length - 2]!.cumulative;
+          return last > prev ? "up" : last < prev ? "down" : "flat";
+        })();
+  const liveStroke =
+    direction === "up" ? "text-success" : direction === "down" ? "text-destructive" : "text-live";
+  const primaryStroke = twoLine ? "text-chart-2" : liveStroke;
   const compareStroke = "text-chart-4";
 
   return (
@@ -195,62 +211,86 @@ export function PnlChart({
         </p>
       </div>
 
+      {/* The graph is always drawn, even with no activity: a flat baseline. */}
+      <div className="flex items-stretch gap-2">
+        <span className="flex w-6 shrink-0 items-center justify-center text-[9px] uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180">
+          P/L ($)
+        </span>
+        <div className="flex-1 space-y-1">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className={compact ? "h-20 w-full" : "h-32 w-full"}
+            preserveAspectRatio="none"
+          >
+            {/* Dotted break-even baseline, the way Robinhood draws it. */}
+            <line
+              x1="0"
+              x2={width}
+              y1={height / 2}
+              y2={height / 2}
+              stroke="currentColor"
+              strokeWidth="0.4"
+              strokeDasharray="1.5 1.5"
+              className="text-muted-foreground/60"
+              vectorEffect="non-scaling-stroke"
+            />
+            {compareSeries && compareSeries.length > 0 ? (
+              <path
+                d={pathOf(compareSeries)}
+                fill="none"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeDasharray="2 2"
+                stroke="currentColor"
+                className={compareStroke}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
+            {series.length > 0 ? (
+              <path
+                d={pathOf(series)}
+                fill="none"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                stroke="currentColor"
+                className={primaryStroke}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : series.length === 0 && (compareSeries?.length ?? 0) === 0 ? (
+              <path
+                d={`M0,${height / 2} L${width},${height / 2}`}
+                fill="none"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                stroke="currentColor"
+                className={twoLine ? "text-chart-2" : "text-live"}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
+          </svg>
+          <p className="text-center text-[9px] uppercase tracking-wider text-muted-foreground">
+            Date / time
+          </p>
+        </div>
+      </div>
       {series.length === 0 && (compareSeries?.length ?? 0) === 0 ? (
         <p className="text-xs text-muted-foreground">
           Flat for this window — the line moves once a position is open or sold.
         </p>
-      ) : (
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className={compact ? "h-20 w-full" : "h-32 w-full"}
-          preserveAspectRatio="none"
-        >
-          {/* Dotted break-even baseline, the way Robinhood draws it. */}
-          <line
-            x1="0"
-            x2={width}
-            y1={height / 2}
-            y2={height / 2}
-            stroke="currentColor"
-            strokeWidth="0.4"
-            strokeDasharray="1.5 1.5"
-            className="text-muted-foreground/60"
-            vectorEffect="non-scaling-stroke"
-          />
-          {compareSeries && compareSeries.length > 0 ? (
-            <path
-              d={pathOf(compareSeries)}
-              fill="none"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              stroke="currentColor"
-              className={compareStroke}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null}
-          {series.length > 0 ? (
-            <path
-              d={pathOf(series)}
-              fill="none"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              stroke="currentColor"
-              className={primaryStroke}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null}
-        </svg>
-      )}
+      ) : null}
 
       {twoLine ? (
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-0.5 w-4 rounded bg-chart-2" />
-            {primaryLabel ?? "3-Day"}
+            <span className="inline-block h-0.5 w-5 rounded bg-chart-2" />
+            solid — {primaryLabel ?? "3-Day"}
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-0.5 w-4 rounded bg-chart-4" />
-            {compareLabel ?? "Same-Day"}
+            <span
+              className="inline-block h-0 w-5 border-t-2 border-dotted"
+              style={{ borderColor: "var(--chart-4)" }}
+            />
+            dotted — {compareLabel ?? "Same-Day"}
           </span>
         </div>
       ) : null}
