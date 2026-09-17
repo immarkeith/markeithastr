@@ -42,15 +42,14 @@ export const getScoreboard = createServerFn({ method: "GET" })
           .limit(10)
       : { data: [] };
 
-    const strategyIds = Array.from(
-      new Set([settings.data?.active_strategy_id, ...slots.map((slot) => slot.strategy_id)].filter(Boolean)),
-    ) as string[];
+    const strategyIds = [settings.data?.active_strategy_id].filter(Boolean) as string[];
     const { data: strategies } = strategyIds.length
       ? await supabaseAdmin.from("strategies").select("id, name, description").in("id", strategyIds)
       : { data: [] as Array<{ id: string; name: string; description: string | null }> };
     const strategyById = new Map((strategies ?? []).map((strategy) => [String(strategy.id), strategy]));
-    const board = department.last_run?.summary?.board;
 
+    // Exactly eight scoreboards: the live bot, the Lead Researcher's Master
+    // Formula, and each of the six researchers' own formulas.
     const sources = [
       {
         id: "live",
