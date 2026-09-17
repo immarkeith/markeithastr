@@ -282,12 +282,15 @@ export function PnlChart({
       {twoLine ? (
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-0.5 w-4 rounded bg-chart-2" />
-            {primaryLabel ?? "3-Day"}
+            <span className="inline-block h-0.5 w-5 rounded bg-chart-2" />
+            solid — {primaryLabel ?? "3-Day"}
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-0.5 w-4 rounded bg-chart-4" />
-            {compareLabel ?? "Same-Day"}
+            <span
+              className="inline-block h-0 w-5 border-t-2 border-dotted"
+              style={{ borderColor: "var(--chart-4)" }}
+            />
+            dotted — {compareLabel ?? "Same-Day"}
           </span>
         </div>
       ) : null}
