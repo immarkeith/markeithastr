@@ -1261,6 +1261,7 @@ export type Database = {
       }
       trades: {
         Row: {
+          broker_order_id: string | null
           created_at: string
           dollars: number
           entry_at: string | null
@@ -1269,12 +1270,14 @@ export type Database = {
           exit_at: string | null
           exit_date: string | null
           exit_price: number | null
+          filled_qty: number | null
           hold_days: number
           hold_target_date: string | null
           id: string
           kept: number | null
           kind: string
           mode: string
+          position_type: string
           profit: number | null
           same_day_at: string | null
           same_day_pct: number | null
@@ -1286,6 +1289,7 @@ export type Database = {
           ticker: string
         }
         Insert: {
+          broker_order_id?: string | null
           created_at?: string
           dollars: number
           entry_at?: string | null
@@ -1294,12 +1298,14 @@ export type Database = {
           exit_at?: string | null
           exit_date?: string | null
           exit_price?: number | null
+          filled_qty?: number | null
           hold_days?: number
           hold_target_date?: string | null
           id?: string
           kept?: number | null
           kind?: string
           mode?: string
+          position_type?: string
           profit?: number | null
           same_day_at?: string | null
           same_day_pct?: number | null
@@ -1311,6 +1317,7 @@ export type Database = {
           ticker: string
         }
         Update: {
+          broker_order_id?: string | null
           created_at?: string
           dollars?: number
           entry_at?: string | null
@@ -1319,12 +1326,14 @@ export type Database = {
           exit_at?: string | null
           exit_date?: string | null
           exit_price?: number | null
+          filled_qty?: number | null
           hold_days?: number
           hold_target_date?: string | null
           id?: string
           kept?: number | null
           kind?: string
           mode?: string
+          position_type?: string
           profit?: number | null
           same_day_at?: string | null
           same_day_pct?: number | null
