@@ -113,7 +113,7 @@ function TradeHistoryPage() {
       ) : (
         <div className="space-y-3">
           {events.map((event) => (
-            <article key={event.id} className={`grid gap-2 rounded-md border-l-4 bg-card p-4 sm:grid-cols-[1fr_auto] ${event.live ? "border-l-chart-1" : "border-l-success"}`}>
+            <article key={event.id} className={`grid gap-2 rounded-md border-l-4 bg-card p-4 sm:grid-cols-[1fr_auto] ${event.live ? "border-l-live" : "border-l-success"}`}>
               <div className="flex flex-wrap items-baseline gap-3">
                 <span className="text-lg font-bold">{event.ticker}</span>
                 <span className={`text-xs font-semibold ${event.side === "BUY" ? "text-success" : "text-primary"}`}>{event.side}</span>

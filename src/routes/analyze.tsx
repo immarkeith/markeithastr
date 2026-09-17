@@ -28,6 +28,8 @@ export const Route = createFileRoute("/analyze")({
         property: "og:description",
         content: "On-demand factor scoring for any ticker, using the live strategy weights.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AnalyzePage,

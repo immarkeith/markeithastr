@@ -1,7 +1,7 @@
-- [ ] Simplify Scoreboard to selector + Top 10 + long-term buy actions
-- [ ] Add protected LONG_TERM live position ledger, ordering, reconciliation, and Home display
-- [ ] Add Analyze long-term buy confirmation using shared live purchase flow
-- [ ] Refine Trade Log filters and context-aware fields
-- [ ] Add researcher-only control and requested Research Lab ordering/graphs
-- [ ] Refine Home header, account figures, live P/L graph, long-term holds, and market ticker
-- [ ] Validate mobile layouts and live/research separation
+- [x] Simplify Scoreboard to selector + Top 10 + long-term buy actions
+- [x] Add protected LONG_TERM live position ledger, ordering, reconciliation, and Home display
+- [x] Add Analyze long-term buy confirmation using shared live purchase flow
+- [x] Refine Trade Log filters and context-aware fields
+- [x] Keep Research Lab always running and retain paper-only performance graphs
+- [x] Refine Home account figures, live P/L graph, long-term holds, and market ticker
+- [x] Add hamburger navigation and validate live/research separation
