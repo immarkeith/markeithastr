@@ -621,6 +621,7 @@ export async function runRacePass(
   if (slots.length === 0) return result;
 
   const rankings = await rankSlots(slots);
+  const rotation = phase === "exit" ? new Set<string>() : await rotationToday(slots);
   const settlementDays = Number(base.settlement_days);
   const keepPct = Number(base.profit_keep_pct);
 
