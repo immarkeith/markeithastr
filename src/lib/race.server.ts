@@ -705,13 +705,16 @@ export async function runRacePass(
       }
 
       // ---- entries
-      if (phase !== "exit") {
+      const myTurn = slot.lane === "lead" || (slot.lane !== null && rotation.has(slot.lane));
+      if (phase !== "exit" && myTurn) {
         const stillOpen = new Set(
           open
             .filter((t) => !entry.closed.some((c) => c.ticker === String(t.ticker)))
             .map((t) => String(t.ticker)),
         );
-        const free = Math.max(0, slot.stocks_per_day - stillOpen.size);
+        // One stock at a time, always: if the researcher is still holding
+        // something, it buys nothing until that position closes.
+        const free = stillOpen.size > 0 ? 0 : STOCKS_PER_RESEARCHER;
         const stake = Number(slot.position_dollars);
         // Research capital is imaginary, so a shortfall must never stop the
         // testing. Top the slot up to whatever today's plan needs (saved paper
