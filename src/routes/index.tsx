@@ -171,6 +171,15 @@ function HomePage() {
         )}
       </section>
 
+      {/* Live trading only — research paper results never appear here. */}
+      <PnlChart
+        rows={d?.closed ?? []}
+        unrealized={openPl}
+        unrealizedToday={openPl}
+        basis={heldDollars}
+        title="Live profit / loss"
+      />
+
       <section className="space-y-3">
         <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Long-Term Holds</h2>
         {(d?.long_term_holdings.length ?? 0) === 0 ? (
@@ -188,7 +197,8 @@ function HomePage() {
                   </span>
                 </div>
                 <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-                  {money(h.market_value)} · {h.qty.toFixed(4)} shares · bought at ${h.entry_price.toFixed(2)}
+                  {money(h.market_value)} · {h.qty.toFixed(4)} shares · cost {money(h.dollars)} at $
+                  {h.entry_price.toFixed(2)}
                 </p>
                 <p className="mt-2 text-xs text-primary">Protected from same-day sales</p>
                 {h.note ? <p className="mt-2 text-xs text-muted-foreground">{h.note}</p> : null}
@@ -196,21 +206,21 @@ function HomePage() {
             ))}
           </div>
         )}
-      </section>
 
-      <section className="space-y-3">
-        <div className="space-y-3 rounded-md border border-border bg-card p-4">
-          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+        {/* Ideas only — separate from what is actually held above. */}
+        <details className="rounded-md border border-border bg-card p-4">
+          <summary className="cursor-pointer text-sm font-semibold">
             5 long-term hold suggestions
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Suggestions noticed during ASTR&apos;s normal scans. They are not automatic buys.
+          </summary>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Noticed during ASTR&apos;s normal scans. These are not owned and are never bought
+            automatically.
           </p>
           {(d?.suggestions.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">No hold suggestions yet.</p>
+            <p className="mt-2 text-sm text-muted-foreground">No hold suggestions yet.</p>
           ) : (
-            <ul className="space-y-2">
-              {d?.suggestions.map((s) => (
+            <ul className="mt-3 space-y-2">
+              {d?.suggestions.slice(0, 5).map((s) => (
                 <li
                   key={s.ticker}
                   className="flex items-center justify-between rounded border border-border p-3"
@@ -229,16 +239,8 @@ function HomePage() {
               ))}
             </ul>
           )}
-        </div>
+        </details>
       </section>
-
-      <PnlChart
-        rows={d?.closed ?? []}
-        unrealized={openPl}
-        unrealizedToday={openPl}
-        basis={heldDollars}
-        title="Live same-day profit"
-      />
 
     </div>
   );
