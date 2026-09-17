@@ -76,7 +76,14 @@ export async function researchBoards(): Promise<ResearchBoards> {
   const s = await loadSettings();
   const share = await volumeShare(s);
   const panel = await buildPanel(BOARD_UNIVERSE, s.market_proxy);
-  const asOf = panel.dates[panel.dates.length - 1] ?? null;
+  // Use the most recent session with real coverage. The very newest bar date
+  // can be a partial download covering a handful of tickers, which would rank
+  // a four-stock board and make every researcher look like it agrees.
+  const counts = new Map<string, number>();
+  for (const r of panel.rows) counts.set(r.date, (counts.get(r.date) ?? 0) + 1);
+  const best = Math.max(0, ...counts.values());
+  const asOf =
+    [...panel.dates].reverse().find((d) => (counts.get(d) ?? 0) >= best * 0.5) ?? null;
   const rows = asOf ? panel.rows.filter((r) => r.date === asOf) : [];
 
   const build = (params: LaneParams, bands: Band[] = []): BoardRow[] =>
