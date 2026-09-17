@@ -50,68 +50,131 @@ function LabPage() {
   const d = race.data;
   const slots = (d?.entrants ?? []).filter((e) => !e.live);
 
+  const researchRunning = d?.research_running !== false;
+  // Lead first, then researchers currently in the rotation, then the rest.
+  const ordered = [...slots].sort((a, b) => {
+    const lead = (s: Entrant) => (/lead/i.test(s.name) ? 0 : 1);
+    if (lead(a) !== lead(b)) return lead(a) - lead(b);
+    const on = (s: Entrant) => (s.enabled === false ? 1 : 0);
+    if (on(a) !== on(b)) return on(a) - on(b);
+    return a.rank - b.rank;
+  });
+  const active = ordered.filter((s) => s.enabled !== false);
+  const inactive = ordered.filter((s) => s.enabled === false);
+  const best = slots.length
+    ? slots.reduce((top, s) => (s.three_day.total_pnl > top.three_day.total_pnl ? s : top), slots[0]!)
+    : null;
+
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">Research Lab</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            The Lead and research formulas always use simulated money and continue independently of live trading. Each test buy is
-            measured twice: what a normal same-day sale would have made (SD), and what actually
-            happened holding it for three trading days (3D). Nothing here can place a broker order,
-            and none of this money touches the live ledger.
+            The Lead and research formulas always use simulated money, separate from live trading.
+            Each test buy is measured twice: what a normal same-day sale would have made, and what
+            actually happened holding it for three trading days.
           </p>
-
         </div>
         <Button onClick={() => run.mutate()} disabled={run.isPending}>
           {run.isPending ? "Running…" : "Run test pass"}
         </Button>
       </header>
 
+      {/* Researchers only — this never starts or stops live trading. */}
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card p-3">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block h-2.5 w-2.5 rounded-full ${
+              researchRunning ? "bg-success" : "bg-destructive"
+            }`}
+          />
+          <div>
+            <p className="text-sm font-semibold">
+              Researchers are {researchRunning ? "running" : "stopped"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Paper testing only — this control does not affect live trading.
+            </p>
+          </div>
+        </div>
+        <Button
+          variant={researchRunning ? "outline" : "default"}
+          disabled={toggle.isPending}
+          onClick={() => toggle.mutate(!researchRunning)}
+        >
+          {toggle.isPending ? "Working…" : researchRunning ? "Stop researchers" : "Start researchers"}
+        </Button>
+      </section>
+
+      <section className="space-y-2 rounded-md border border-primary/40 bg-primary/10 p-4">
+        <h2 className="text-[11px] uppercase tracking-[0.15em] text-primary">
+          Lead Researcher suggestions
+        </h2>
+        {d?.suggestion ? (
+          <>
+            <p className="font-semibold text-primary">
+              {d.suggestion.name} is ahead of the live strategy by {money(d.suggestion.edge)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              After {d.days_running} days on the same stake. Nothing switches automatically — you
+              decide from the{" "}
+              <Link to="/strategy" className="text-primary hover:underline">
+                Strategy page
+              </Link>
+              .
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No formula has enough validated evidence to suggest yet — testing continues.
+          </p>
+        )}
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2">
+        <StatTile
+          label="Best formula"
+          value={best ? best.name : "—"}
+          hint={
+            best
+              ? `${best.three_day.total_pnl >= 0 ? "+" : ""}${money(best.three_day.total_pnl)} realised on paper`
+              : "no researchers yet"
+          }
+          tone="accent"
+        />
         <StatTile
           label="Days testing"
           value={`${d?.days_running ?? 0}`}
           hint={`a verdict needs ${d?.min_days ?? 28} days`}
-          tone="accent"
-        />
-        <StatTile
-          label="Best paper formula"
-          value={slots[0] ? slots[0].name : "—"}
-          hint={
-            slots.length
-              ? `${slots.reduce((best, s) => (s.total_pnl > best.total_pnl ? s : best), slots[0]!).total_pnl >= 0 ? "+" : ""}${money(
-                  slots.reduce((best, s) => (s.total_pnl > best.total_pnl ? s : best), slots[0]!)
-                    .total_pnl,
-                )} realised`
-              : "no slots yet"
-          }
         />
       </section>
 
-      {d?.suggestion ? (
-        <section className="rounded-md border border-primary/40 bg-primary/10 p-4">
-          <p className="font-semibold text-primary">
-            {d.suggestion.name} is ahead of the live strategy by {money(d.suggestion.edge)}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            After {d.days_running} days on the same stake. Nothing switched automatically — turn it
-            on yourself from the{" "}
-            <Link to="/strategy" className="text-primary hover:underline">
-              Strategy tab
-            </Link>{" "}
-            if you want it trading real money.
-          </p>
-        </section>
-      ) : null}
-
       {race.isLoading ? <p className="text-sm text-muted-foreground">Loading the race…</p> : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {slots.map((slot) => (
-          <SlotCard key={slot.key} slot={slot} />
-        ))}
+      <div className="space-y-3">
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+          Researchers testing now
+        </h2>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {active.map((slot) => (
+            <SlotCard key={slot.key} slot={slot} />
+          ))}
+        </div>
       </div>
+
+      {inactive.length ? (
+        <div className="space-y-3">
+          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+            Not in this rotation — history kept
+          </h2>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {inactive.map((slot) => (
+              <SlotCard key={slot.key} slot={slot} />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <p className="text-xs text-muted-foreground">
         Every simulated trade is written to the{" "}
