@@ -28,6 +28,8 @@ import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
 
 export interface RaceSlot {
   id: number;
+  /** Which researcher owns this paper book: "lead" or one of the six lanes. */
+  lane: string | null;
   strategy_id: string;
   name: string;
   description: string;
@@ -51,7 +53,12 @@ export interface RankRow {
   invalidation: string;
 }
 
-const MAX_SLOTS = 3;
+/** The Lead Researcher plus the six rotating researchers. */
+const MAX_SLOTS = 7;
+/** A researcher never runs more than one stock at a time. */
+const STOCKS_PER_RESEARCHER = 1;
+/** How many of the six researchers open a new position on a market day. */
+const ROTATION_PER_DAY = 2;
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
 /**
@@ -97,17 +104,22 @@ export async function loadSlots(): Promise<RaceSlot[]> {
     ((strategies ?? []) as unknown as Record<string, unknown>[]).map((s) => [String(s['id']), s]),
   );
   return rows
-    .filter((r) => r['strategy_id'])
+    // Only the researchers' own books count: one for the Lead Researcher and
+    // one for each of the six lanes. Retired prototype books stay in the data
+    // for their history but are no longer traded or displayed.
+    .filter((r) => r['strategy_id'] && r['lane'])
     .map((r) => {
       const strategy = byId.get(String(r['strategy_id'])) ?? {};
       return {
         id: Number(r['id']),
+        lane: (r['lane'] as string | null) ?? null,
         strategy_id: String(r['strategy_id']),
         name: String(strategy['name'] ?? "Unnamed strategy"),
         description: String(strategy['description'] ?? ""),
         params: (strategy['params'] ?? {}) as Record<string, number>,
         enabled: r['enabled'] !== false,
-        stocks_per_day: Number(r['stocks_per_day'] ?? 1),
+        // Hard cap: a researcher can only ever hold one stock at a time.
+        stocks_per_day: STOCKS_PER_RESEARCHER,
         position_dollars: Number(r['position_dollars'] ?? STANDARD_DOLLARS),
         stable_days: Number(r['stable_days'] ?? 0),
         breach_days: Number(r['breach_days'] ?? 0),
@@ -265,22 +277,47 @@ export async function rankUniverse(
   return ranked;
 }
 
-/** Ranking for every enabled slot, keyed by slot id. */
+/**
+ * Ranking for every research book, keyed by slot id.
+ *
+ * Each book is ranked by ITS OWN researcher formula — the six lanes with their
+ * own factor weights and entry filters, the Lead Researcher with the Master
+ * Formula. Two researchers landing on the same ticker is agreement, not a
+ * shared calculation.
+ */
 export async function rankSlots(slots: RaceSlot[]): Promise<Map<number, RankRow[]>> {
-  const base = await loadSettings();
-  const share = await volumeShare(base);
-  const configs = slots.map((slot) => {
-    const merged = settingsFor(base, slot.params);
-    return {
-      key: String(slot.id),
-      config: scoreConfig(merged, share),
-      minScore: Number(merged.min_score_to_trade),
-    };
-  });
-  const ranked = await rankUniverse(configs);
   const out = new Map<number, RankRow[]>();
-  for (const slot of slots) out.set(slot.id, ranked.get(String(slot.id)) ?? []);
+  if (slots.length === 0) return out;
+  const { researchBoards } = await import("./research-boards.server");
+  const { boards } = await researchBoards();
+  for (const slot of slots) {
+    out.set(slot.id, slot.lane ? (boards.get(slot.lane) ?? []) : []);
+  }
   return out;
+}
+
+/**
+ * Which researchers may open a new position today. The Lead Researcher always
+ * may; of the six others only the two who have waited longest since their last
+ * paper entry take a turn, so all six get regular turns and nobody doubles up.
+ * A researcher already holding a stock is never eligible.
+ */
+async function rotationToday(slots: RaceSlot[]): Promise<Set<string>> {
+  const waiting: { lane: string; last: string }[] = [];
+  for (const slot of slots) {
+    if (!slot.lane || slot.lane === "lead" || !slot.enabled) continue;
+    const open = await slotOpenTrades(slot.strategy_id);
+    if (open.length > 0) continue;
+    const { data } = await supabaseAdmin
+      .from("trades")
+      .select("entry_date")
+      .eq("strategy_id", slot.strategy_id)
+      .order("entry_date", { ascending: false })
+      .limit(1);
+    waiting.push({ lane: slot.lane, last: String(data?.[0]?.entry_date ?? "") });
+  }
+  waiting.sort((a, b) => (a.last === b.last ? a.lane.localeCompare(b.lane) : a.last < b.last ? -1 : 1));
+  return new Set(waiting.slice(0, ROTATION_PER_DAY).map((w) => w.lane));
 }
 
 // ------------------------------------------------------- slot cash + book ----
@@ -584,6 +621,7 @@ export async function runRacePass(
   if (slots.length === 0) return result;
 
   const rankings = await rankSlots(slots);
+  const rotation = phase === "exit" ? new Set<string>() : await rotationToday(slots);
   const settlementDays = Number(base.settlement_days);
   const keepPct = Number(base.profit_keep_pct);
 
@@ -667,13 +705,16 @@ export async function runRacePass(
       }
 
       // ---- entries
-      if (phase !== "exit") {
+      const myTurn = slot.lane === "lead" || (slot.lane !== null && rotation.has(slot.lane));
+      if (phase !== "exit" && myTurn) {
         const stillOpen = new Set(
           open
             .filter((t) => !entry.closed.some((c) => c.ticker === String(t.ticker)))
             .map((t) => String(t.ticker)),
         );
-        const free = Math.max(0, slot.stocks_per_day - stillOpen.size);
+        // One stock at a time, always: if the researcher is still holding
+        // something, it buys nothing until that position closes.
+        const free = stillOpen.size > 0 ? 0 : STOCKS_PER_RESEARCHER;
         const stake = Number(slot.position_dollars);
         // Research capital is imaginary, so a shortfall must never stop the
         // testing. Top the slot up to whatever today's plan needs (saved paper
@@ -698,6 +739,8 @@ export async function runRacePass(
           cashLeft = Number((cashLeft - stake).toFixed(2));
           entry.opened.push({ ticker: row.ticker, price });
         }
+      } else if (phase !== "exit" && !myTurn) {
+        entry.skipped = open.length > 0 ? "holding its current test position" : "not in today's rotation";
       }
     } catch (error) {
       entry.skipped = error instanceof Error ? error.message : "slot failed";
@@ -812,17 +855,19 @@ async function applySlotLadder(slot: RaceSlot): Promise<void> {
     last_evaluated_date: slot.last_evaluated_date,
   };
   const decision = evaluateLadder(state, Number(capital.toFixed(2)));
+  // The ladder may only scale the dollar size of a research position. The
+  // number of stocks stays at one — a researcher tests one idea at a time.
   await supabaseAdmin
     .from("paper_slots" as never)
     .update({
-      stocks_per_day: decision.step.stocks,
+      stocks_per_day: STOCKS_PER_RESEARCHER,
       position_dollars: decision.step.dollars,
       stable_days: decision.stable_days,
       breach_days: decision.breach_days,
       last_evaluated_date: day,
     } as never)
     .eq("id", slot.id);
-  slot.stocks_per_day = decision.step.stocks;
+  slot.stocks_per_day = STOCKS_PER_RESEARCHER;
   slot.position_dollars = decision.step.dollars;
 }
 

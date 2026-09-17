@@ -84,7 +84,7 @@ export interface RuleCandidate {
   evidence: Record<string, unknown>;
 }
 
-interface Band {
+export interface Band {
   factor: FactorKey;
   low: number;
   high: number;
@@ -154,7 +154,7 @@ export function assemble(rules: MasterRule[], base: LaneParams): MasterParams {
   };
 }
 
-function bandBonus(row: PanelRow, bands: Band[]): number {
+export function bandBonus(row: PanelRow, bands: Band[]): number {
   let bonus = 0;
   for (const b of bands) {
     const value = row.pct[b.factor] ?? 0;

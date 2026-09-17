@@ -799,6 +799,7 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: number
+          lane: string | null
           last_evaluated_date: string | null
           position_dollars: number
           stable_days: number
@@ -812,6 +813,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id: number
+          lane?: string | null
           last_evaluated_date?: string | null
           position_dollars?: number
           stable_days?: number
@@ -825,6 +827,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: number
+          lane?: string | null
           last_evaluated_date?: string | null
           position_dollars?: number
           stable_days?: number

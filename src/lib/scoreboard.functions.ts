@@ -7,23 +7,23 @@ export const getScoreboard = createServerFn({ method: "GET" })
   .handler(async () => {
     const [
       { departmentOverview },
-      { loadSlots, rankSlots },
+      { researchBoards },
       { verificationOverview },
       { masterFormulaOverview },
       { supabaseAdmin },
     ] = await Promise.all([
       import("./department.server"),
-      import("./race.server"),
+      import("./research-boards.server"),
       import("./verification.server"),
       import("./master-formula.server"),
       import("@/integrations/supabase/client.server"),
     ]);
 
 
-    const [department, slots, verification, master, latestRun, watchlist, settings] =
+    const [department, boards, verification, master, latestRun, watchlist, settings] =
       await Promise.all([
         departmentOverview(),
-        loadSlots(),
+        researchBoards(),
         verificationOverview(),
         masterFormulaOverview(),
         supabaseAdmin.from("scan_runs").select("id, run_date").order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -32,7 +32,6 @@ export const getScoreboard = createServerFn({ method: "GET" })
       ]);
 
 
-    const paperRanks = await rankSlots(slots.filter((slot) => slot.enabled));
     const run = latestRun.data;
     const { data: liveScores } = run
       ? await supabaseAdmin
@@ -43,15 +42,14 @@ export const getScoreboard = createServerFn({ method: "GET" })
           .limit(10)
       : { data: [] };
 
-    const strategyIds = Array.from(
-      new Set([settings.data?.active_strategy_id, ...slots.map((slot) => slot.strategy_id)].filter(Boolean)),
-    ) as string[];
+    const strategyIds = [settings.data?.active_strategy_id].filter(Boolean) as string[];
     const { data: strategies } = strategyIds.length
       ? await supabaseAdmin.from("strategies").select("id, name, description").in("id", strategyIds)
       : { data: [] as Array<{ id: string; name: string; description: string | null }> };
     const strategyById = new Map((strategies ?? []).map((strategy) => [String(strategy.id), strategy]));
-    const board = department.last_run?.summary?.board;
 
+    // Exactly eight scoreboards: the live bot, the Lead Researcher's Master
+    // Formula, and each of the six researchers' own formulas.
     const sources = [
       {
         id: "live",
@@ -70,40 +68,37 @@ export const getScoreboard = createServerFn({ method: "GET" })
           tradeable: Boolean(row.tradeable),
         })),
       },
-      ...slots.map((slot) => ({
-        id: `paper:${slot.strategy_id}`,
-        name: slot.name,
-        kind: "paper" as const,
-        enabled: slot.enabled,
-        description: slot.description,
-        as_of: run?.run_date ?? null,
-        rows: (paperRanks.get(slot.id) ?? []).slice(0, 10),
-      })),
+      {
+        id: "research:lead",
+        name: "Lead Researcher",
+        kind: "research" as const,
+        enabled: true,
+        description: `The Master Formula${
+          master.versions[0]?.version ? ` (${master.versions[0].version})` : ""
+        } — validated findings only.`,
+        as_of: boards.as_of,
+        rows: (boards.boards.get("lead") ?? []).map((row) => ({
+          ticker: row.ticker,
+          rank: row.rank,
+          score: row.score,
+          close: row.close,
+          tradeable: row.tradeable,
+        })),
+      },
       ...department.researchers.map((researcher) => ({
         id: `research:${researcher.lane}`,
         name: researcher.name,
         kind: "research" as const,
         enabled: researcher.enabled,
         description: researcher.mission || researcher.focus,
-        as_of: board?.date ?? null,
-        rows:
-          researcher.lane === "skeptic"
-            ? []
-            : [...(board?.stocks ?? [])]
-                .filter((stock) => stock.scores[researcher.lane] !== undefined)
-                .sort(
-                  (a, b) =>
-                    Number(b.scores[researcher.lane] ?? 0) -
-                    Number(a.scores[researcher.lane] ?? 0),
-                )
-                .slice(0, 10)
-                .map((stock, index) => ({
-                  ticker: stock.ticker,
-                  rank: index + 1,
-                  score: Number(stock.scores[researcher.lane] ?? 0),
-                  close: stock.close,
-                  tradeable: stock.likes.includes(researcher.lane),
-                })),
+        as_of: boards.as_of,
+        rows: (boards.boards.get(researcher.lane) ?? []).map((row) => ({
+          ticker: row.ticker,
+          rank: row.rank,
+          score: row.score,
+          close: row.close,
+          tradeable: row.tradeable,
+        })),
       })),
     ];
 
