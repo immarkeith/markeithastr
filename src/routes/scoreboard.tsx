@@ -11,12 +11,12 @@ export const Route = createFileRoute("/scoreboard")({
       { title: "Scoreboard — ASTR Research Rankings" },
       {
         name: "description",
-        content: "Centralized live, paper, and researcher rankings with assistant evidence and Lead Researcher decisions.",
+        content: "Top 10 stock rankings for each ASTR live, paper, and researcher formula.",
       },
       { property: "og:title", content: "Scoreboard — ASTR Research Rankings" },
       {
         property: "og:description",
-        content: "Top-ranked stocks by ASTR formula, plus verification evidence and research decisions.",
+        content: "Top-ranked stocks by ASTR formula with protected long-term buy actions.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
