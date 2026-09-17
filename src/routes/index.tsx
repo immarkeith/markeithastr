@@ -34,8 +34,8 @@ function HomePage() {
   const dash = useQuery(dashboardQuery);
   const d = dash.data;
   // Open-position profit right now, so the graph keeps moving before a sell.
-  const openPl = (d?.holdings ?? []).reduce((sum, h) => sum + Number(h.pl ?? 0), 0);
-  const heldDollars = (d?.holdings ?? []).reduce((sum, h) => sum + Number(h.dollars ?? 0), 0);
+  const openPl = (d?.same_day_holdings ?? []).reduce((sum, h) => sum + Number(h.pl ?? 0), 0);
+  const heldDollars = (d?.same_day_holdings ?? []).reduce((sum, h) => sum + Number(h.dollars ?? 0), 0);
   const [busy, setBusy] = useState(false);
 
   async function toggleBot(running: boolean) {
@@ -107,15 +107,15 @@ function HomePage() {
           tone="accent"
         />
         <StatTile
-          label="Cash at broker"
+          label="Broker cash"
           value={d?.account ? money(d.account.cash) : "—"}
           hint="includes money still clearing"
         />
         <StatTile
           label="Ready to invest"
-          value={d ? money(d.cash.available) : "—"}
-          hint={d ? `${money(d.cash.pending)} clears next session` : "settled cash"}
-          tone={(d?.cash.available ?? 0) >= (d?.stake ?? 0) ? "positive" : "default"}
+          value={d?.account ? money(d.account.buying_power) : "—"}
+          hint={d ? `${money(d.cash.pending)} recorded as clearing` : "available buying power"}
+          tone={(d?.account?.buying_power ?? 0) >= (d?.stake ?? 0) ? "positive" : "default"}
         />
         <StatTile
           label="Saved profit"
@@ -126,15 +126,15 @@ function HomePage() {
 
       <section className="space-y-3">
         <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-          Currently owned
+           Same-day positions
         </h2>
-        {(d?.holdings.length ?? 0) === 0 ? (
+        {(d?.same_day_holdings.length ?? 0) === 0 ? (
           <p className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-            Nothing is held right now.
+            No same-day position is open.
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {d?.holdings.map((h) => (
+            {d?.same_day_holdings.map((h) => (
               <div key={`${h.ticker}-${h.entry_date}`} className="rounded-md border border-border bg-card p-4">
                 <div className="flex items-baseline justify-between">
                   <Link to="/analyze" className="text-lg font-bold hover:text-primary">
@@ -164,6 +164,33 @@ function HomePage() {
                     {h.note}
                   </p>
                 ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Long-Term Holds</h2>
+        {(d?.long_term_holdings.length ?? 0) === 0 ? (
+          <p className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
+            No protected long-term holdings yet.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {d?.long_term_holdings.map((h) => (
+              <div key={`${h.ticker}-${h.entry_date}-${h.dollars}`} className="rounded-md border border-border bg-card p-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <Link to="/analyze" className="text-lg font-bold hover:text-primary">{h.ticker}</Link>
+                  <span className={`font-semibold tabular-nums ${h.pl >= 0 ? "text-success" : "text-destructive"}`}>
+                    {h.pl >= 0 ? "+" : ""}{money(h.pl)} ({h.pl_pct.toFixed(2)}%)
+                  </span>
+                </div>
+                <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+                  {money(h.market_value)} · {h.qty.toFixed(4)} shares · bought at ${h.entry_price.toFixed(2)}
+                </p>
+                <p className="mt-2 text-xs text-primary">Protected from same-day sales</p>
+                {h.note ? <p className="mt-2 text-xs text-muted-foreground">{h.note}</p> : null}
               </div>
             ))}
           </div>
@@ -208,7 +235,8 @@ function HomePage() {
         rows={d?.closed ?? []}
         unrealized={openPl}
         unrealizedToday={openPl}
-        basis={(d?.cash.available ?? 0) + heldDollars}
+        basis={heldDollars}
+        title="Live same-day profit"
       />
 
     </div>

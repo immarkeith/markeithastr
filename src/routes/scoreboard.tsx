@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
 import { getScoreboard } from "@/lib/scoreboard.functions";
 
 export const Route = createFileRoute("/scoreboard")({
@@ -24,28 +25,21 @@ export const Route = createFileRoute("/scoreboard")({
   component: ScoreboardPage,
 });
 
-const CONCLUSION_TONE: Record<string, string> = {
-  SUPPORTED: "text-success",
-  "WEAKLY SUPPORTED": "text-warning",
-  CONTRADICTED: "text-destructive",
-};
-
 function ScoreboardPage() {
   const board = useQuery({ queryKey: ["scoreboard"], queryFn: () => getScoreboard() });
   const sources = board.data?.sources ?? [];
   const [selectedId, setSelectedId] = useState("live");
   const selected = sources.find((source) => source.id === selectedId) ?? sources[0];
-  const topThree = selected?.rows.slice(0, 3) ?? [];
   const watchByTicker = new Map(
     (board.data?.watchlist ?? []).map((row) => [String(row.ticker), row]),
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold">Scoreboard</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          One place for every existing formula&apos;s rankings, explanation, verification, and Lead Researcher review.
+          Select a formula to view its current Top 10.
         </p>
       </header>
 
@@ -70,41 +64,6 @@ function ScoreboardPage() {
 
       {selected ? (
         <>
-          <section className="space-y-2">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <div>
-                <h2 className="text-lg font-semibold">{selected.name}</h2>
-                <p className="max-w-2xl text-sm text-muted-foreground">{selected.description}</p>
-              </div>
-              <span className="text-xs text-muted-foreground">as of {selected.as_of ?? "not ranked yet"}</span>
-            </div>
-
-            {topThree.length ? (
-              <div className="grid gap-2 sm:grid-cols-3">
-                {topThree.map((row, index) => (
-                  <div
-                    key={row.ticker}
-                    className={`rounded-md border p-3 ${index === 0 ? "border-primary bg-primary/10" : "border-border bg-card"}`}
-                  >
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      {index === 0 ? "Top ranked" : `Follow-up #${index + 1}`}
-                    </p>
-                    <div className="mt-1 flex items-baseline justify-between gap-2">
-                      <span className="text-xl font-bold">{row.ticker}</span>
-                      <span className="text-sm tabular-nums text-primary">{row.score.toFixed(1)} pts</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-                {selected.id === "research:skeptic"
-                  ? "The Skeptic challenges other researchers and does not produce an independent Top 10. Its evidence appears below."
-                  : "No saved ranking is available for this formula yet."}
-              </p>
-            )}
-          </section>
-
           {selected.rows.length ? (
             <section className="space-y-2">
               <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Full Top 10</h2>
@@ -117,6 +76,7 @@ function ScoreboardPage() {
                       <th className="p-3 text-right">Score</th>
                       <th className="p-3 text-right">Close</th>
                       <th className="p-3 text-left">Status</th>
+                      <th className="p-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -131,6 +91,9 @@ function ScoreboardPage() {
                           <td className="p-3 text-xs text-muted-foreground">
                             {watch ? `${watch.status} · ${watch.streak_days}d streak` : row.tradeable ? "qualified" : "ranked"}
                           </td>
+                          <td className="p-3 text-right">
+                            <LongTermBuyDialog ticker={row.ticker} price={row.close} />
+                          </td>
                         </tr>
                       );
                     })}
@@ -138,136 +101,15 @@ function ScoreboardPage() {
                 </table>
               </div>
             </section>
-          ) : null}
-        </>
-      ) : null}
-
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold">Research flow</h2>
-          <p className="text-sm text-muted-foreground">
-            Existing recommendations, assistant checks, and the Lead Researcher&apos;s recorded decision.
-          </p>
-        </div>
-        <div className="grid gap-3 lg:grid-cols-2">
-          {(board.data?.assistants ?? []).map((report) => (
-            <article key={report.id} className="space-y-2 rounded-md border border-border bg-card p-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="font-semibold">{report.scientist_name}</h3>
-                <span className={`text-xs font-semibold ${CONCLUSION_TONE[report.conclusion] ?? "text-muted-foreground"}`}>
-                  {report.conclusion}
-                </span>
-              </div>
-              <p className="text-sm">
-                {report.direction} <strong>{report.ticker}</strong> · {report.signal_strength} pts
-              </p>
-              <p className="text-xs text-muted-foreground">{report.reason}</p>
-              <p className="text-xs tabular-nums text-muted-foreground">
-                Confidence {report.confidence} · {report.results.comparable_signals} historical signals · {report.results.win_rate}% win · {report.results.avg_return >= 0 ? "+" : ""}{report.results.avg_return}% average
-              </p>
-            </article>
-          ))}
-        </div>
-
-        <article className="space-y-3 rounded-md border border-primary/40 bg-primary/10 p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="font-semibold text-primary">Lead Researcher decision</h3>
-            {board.data?.master?.version ? (
-              <span className="text-[11px] text-muted-foreground">
-                Master Formula v{board.data.master.version}
-              </span>
-            ) : null}
-          </div>
-
-          {board.data?.master?.lead_test ? (
-            <>
-              <p className="text-sm">
-                {board.data.master.lead_test.picks.length
-                  ? `Tested the Master Formula on ${board.data.master.lead_test.picks.join(", ")}`
-                  : "Ran the Master Formula test — nothing cleared its conditions"}{" "}
-                <span className="text-xs text-muted-foreground">
-                  ({board.data.master.lead_test.test_date})
-                </span>
-              </p>
-              <p className="text-xs tabular-nums text-muted-foreground">
-                <span className="text-chart-4">Same-Day</span>{" "}
-                {board.data.master.lead_test.same_day >= 0 ? "+" : ""}
-                {board.data.master.lead_test.same_day}% ·{" "}
-                <span className="text-chart-2">3-Day</span>{" "}
-                {board.data.master.lead_test.three_day >= 0 ? "+" : ""}
-                {board.data.master.lead_test.three_day}% · edge{" "}
-                {(board.data.master.lead_test.edge ?? 0) >= 0 ? "+" : ""}
-                {board.data.master.lead_test.edge ?? 0}%
-              </p>
-              <p className="text-sm">{board.data.master.lead_test.verdict}</p>
-              {board.data.master.lead_test.note ? (
-                <p className="text-xs text-muted-foreground">
-                  {board.data.master.lead_test.note}
-                </p>
-              ) : null}
-            </>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              The Lead Researcher has not recorded a Master Formula test yet.
+            <p className="rounded-md border border-dashed border-border p-5 text-sm text-muted-foreground">
+              {selected.id === "research:skeptic"
+                ? "The Skeptic reviews evidence and does not publish an independent Top 10."
+                : "No saved ranking is available for this scoreboard yet."}
             </p>
           )}
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-                Proven rules in the Master Formula
-              </p>
-              {board.data?.master?.active_rules.length ? (
-                <ul className="mt-1 space-y-0.5 text-xs">
-                  {board.data.master.active_rules.map((rule) => (
-                    <li key={rule.label}>
-                      {rule.label}{" "}
-                      <span className="text-muted-foreground">
-                        — {rule.discovered_by}, {rule.confirmations} confirmations
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  None yet — a finding needs three separate confirmations plus the Skeptic's review.
-                </p>
-              )}
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-                Under observation
-              </p>
-              {board.data?.master?.observation_rules.length ? (
-                <ul className="mt-1 space-y-0.5 text-xs">
-                  {board.data.master.observation_rules.slice(0, 6).map((rule) => (
-                    <li key={rule.label}>
-                      {rule.label}{" "}
-                      <span className="text-muted-foreground">
-                        — {rule.discovered_by}, {rule.confirmations}/3
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1 text-xs text-muted-foreground">Nothing waiting on evidence.</p>
-              )}
-            </div>
-          </div>
-
-          {board.data?.master?.skeptic_note ? (
-            <p className="text-xs text-muted-foreground">
-              Skeptic: {board.data.master.skeptic_note}
-            </p>
-          ) : null}
-          {board.data?.lead ? (
-            <p className="border-t border-primary/20 pt-2 text-xs text-muted-foreground">
-              {board.data.lead.summary} — {board.data.lead.filed ? "filed as a candidate" : "not filed"}
-            </p>
-          ) : null}
-        </article>
-
-      </section>
+        </>
+      ) : null}
     </div>
   );
 }

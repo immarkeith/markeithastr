@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { StatTile } from "@/components/StatTile";
+import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,8 +77,7 @@ function AnalyzePage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analyze a stock</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Scores any ticker with the live strategy weights and gates. Read-only — nothing is bought,
-          sold or added to the traded universe from this page.
+          Score any ticker with the live strategy weights, then optionally buy it as a protected long-term holding.
         </p>
       </div>
 
@@ -172,6 +172,7 @@ function ResultCard({
             Approval still happens on the Watchlist page.
           </span>
         ) : null}
+        {result.close !== null ? <LongTermBuyDialog ticker={result.ticker} price={result.close} /> : null}
         <span className="ml-auto text-xs text-muted-foreground">
           {result.sessions} sessions · data {result.bars_as_of ?? "n/a"} ·{" "}
           {result.source === "cache" ? "cached history" : "fetched on demand"}

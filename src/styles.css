@@ -231,4 +231,17 @@
   }
 }
 
+@keyframes market-ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-18%); }
+}
+
+.market-ticker {
+  animation: market-ticker-scroll 18s linear infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-ticker { animation: none; }
+}
+
 

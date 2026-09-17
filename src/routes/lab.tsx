@@ -1,20 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
 import { toast } from "sonner";
 
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import { ResearchDepartment } from "@/components/ResearchDepartment";
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
-import {
-  adjustRaceCash,
-  fetchRace,
-  openRaceTrade,
-  runRaceNow,
-  updateRaceSlot,
-} from "@/lib/race.functions";
+import { fetchRace, runRaceNow } from "@/lib/race.functions";
 import { money } from "@/lib/queries";
 
 export const Route = createFileRoute("/lab")({
@@ -41,7 +34,6 @@ export const Route = createFileRoute("/lab")({
 function LabPage() {
   const qc = useQueryClient();
   const race = useQuery({ queryKey: ["race"], queryFn: () => fetchRace() });
-  const setSlotFn = useServerFn(updateRaceSlot);
   const runFn = useServerFn(runRaceNow);
 
   const run = useMutation({
@@ -57,7 +49,6 @@ function LabPage() {
 
   const d = race.data;
   const slots = (d?.entrants ?? []).filter((e) => !e.live);
-  const live = (d?.entrants ?? []).find((e) => e.live) ?? null;
 
   return (
     <div className="space-y-8">
@@ -65,8 +56,7 @@ function LabPage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">Research Lab</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Three scoring formulas trade a simulated book beside the live strategy, on the same
-            stake and the same market data, so the only difference is the formula. Each test buy is
+            The Lead and research formulas always use simulated money and continue independently of live trading. Each test buy is
             measured twice: what a normal same-day sale would have made (SD), and what actually
             happened holding it for three trading days (3D). Nothing here can place a broker order,
             and none of this money touches the live ledger.
@@ -78,18 +68,12 @@ function LabPage() {
         </Button>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2">
         <StatTile
           label="Days testing"
           value={`${d?.days_running ?? 0}`}
           hint={`a verdict needs ${d?.min_days ?? 28} days`}
           tone="accent"
-        />
-        <StatTile
-          label="Live strategy"
-          value={live ? `${live.total_pnl >= 0 ? "+" : ""}${money(live.total_pnl)}` : "—"}
-          hint={live ? `${live.trades} closed trade(s)` : "the control line"}
-          tone={live && live.total_pnl >= 0 ? "positive" : "default"}
         />
         <StatTile
           label="Best paper formula"
@@ -125,28 +109,7 @@ function LabPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {slots.map((slot) => (
-          <SlotCard
-            key={slot.key}
-            slot={slot}
-            strategies={d?.strategies ?? []}
-            onPick={async (strategyId) => {
-              try {
-                await setSlotFn({ data: { id: slot.slot_id!, strategy_id: strategyId } });
-                toast.success("Slot switched — its counters and start date reset.");
-                await qc.invalidateQueries({ queryKey: ["race"] });
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not switch the slot.");
-              }
-            }}
-            onToggle={async (enabled) => {
-              try {
-                await setSlotFn({ data: { id: slot.slot_id!, enabled } });
-                await qc.invalidateQueries({ queryKey: ["race"] });
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not update the slot.");
-              }
-            }}
-          />
+          <SlotCard key={slot.key} slot={slot} />
         ))}
       </div>
 
@@ -207,17 +170,9 @@ function DualMetric({
 
 function SlotCard({
   slot,
-  strategies,
-  onPick,
-  onToggle,
 }: {
   slot: Entrant;
-  strategies: { id: string; name: string; description: string }[];
-  onPick: (strategyId: string) => Promise<void>;
-  onToggle: (enabled: boolean) => Promise<void>;
 }) {
-  const [openTools, setOpenTools] = useState(false);
-
   return (
     <section className="space-y-4 rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
@@ -230,17 +185,7 @@ function SlotCard({
             {money(slot.stake)} per stock · {slot.stocks_per_day} at a time
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => onToggle(!slot.enabled)}
-          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-            slot.enabled
-              ? "bg-primary/20 text-primary"
-              : "border border-border text-muted-foreground"
-          }`}
-        >
-          {slot.enabled ? "Testing" : "Paused"}
-        </button>
+        <span className="shrink-0 rounded-full bg-success/15 px-3 py-1 text-[11px] font-semibold text-success">Always testing</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -334,142 +279,7 @@ function SlotCard({
         basis={slot.basis}
       />
 
-
-      <button
-        type="button"
-        onClick={() => setOpenTools((v) => !v)}
-        className="text-xs text-primary hover:underline"
-      >
-        {openTools ? "Hide tools" : "Slot tools"}
-      </button>
-
-      {openTools ? (
-        <div className="space-y-4 border-t border-border pt-3">
-          <label className="block space-y-1">
-            <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-              Formula being tested
-            </span>
-            <select
-              value={slot.strategy_id ?? ""}
-              onChange={(e) => void onPick(e.target.value)}
-              className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-            >
-              {strategies.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <SlotCashTools strategyId={slot.strategy_id!} stake={slot.stake} />
-        </div>
-      ) : null}
     </section>
   );
 }
 
-/** Deposit/withdraw test cash and open a simulated position by hand. */
-function SlotCashTools({ strategyId, stake }: { strategyId: string; stake: number }) {
-  const qc = useQueryClient();
-  const cashFn = useServerFn(adjustRaceCash);
-  const tradeFn = useServerFn(openRaceTrade);
-  const [amount, setAmount] = useState("20");
-  const [ticker, setTicker] = useState("");
-  const [price, setPrice] = useState("");
-  const [dollars, setDollars] = useState(String(stake));
-
-  async function adjust(sign: 1 | -1) {
-    const value = Number(amount);
-    if (!Number.isFinite(value) || value <= 0) {
-      toast.error("Enter an amount greater than zero.");
-      return;
-    }
-    try {
-      await cashFn({
-        data: {
-          strategy_id: strategyId,
-          amount: sign * value,
-          note: sign > 0 ? "manual paper deposit" : "manual paper withdrawal",
-        },
-      });
-      toast.success(`${sign > 0 ? "Added" : "Removed"} ${money(value)} of test cash.`);
-      await qc.invalidateQueries({ queryKey: ["race"] });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not adjust the test cash.");
-    }
-  }
-
-  async function open() {
-    try {
-      await tradeFn({
-        data: {
-          strategy_id: strategyId,
-          ticker,
-          entry_price: Number(price),
-          dollars: Number(dollars),
-        },
-      });
-      toast.success(`Opened a simulated ${ticker.toUpperCase()} position.`);
-      setTicker("");
-      setPrice("");
-      await qc.invalidateQueries({ queryKey: ["race"] });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not open the paper trade.");
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-          Adjust test cash
-        </span>
-        <div className="flex gap-2">
-          <input
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
-          />
-          <Button size="sm" variant="secondary" onClick={() => void adjust(1)}>
-            Deposit
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => void adjust(-1)}>
-            Withdraw
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-          Open a paper trade
-        </span>
-        <div className="flex flex-wrap gap-2">
-          <input
-            placeholder="Ticker"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value)}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm uppercase"
-          />
-          <input
-            placeholder="Price"
-            inputMode="decimal"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
-          />
-          <input
-            placeholder="$"
-            inputMode="decimal"
-            value={dollars}
-            onChange={(e) => setDollars(e.target.value)}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-sm tabular-nums"
-          />
-          <Button size="sm" onClick={() => void open()} disabled={!ticker || !price}>
-            Add
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}

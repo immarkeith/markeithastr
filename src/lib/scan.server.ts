@@ -485,22 +485,30 @@ export async function openTrade(input: {
   entry_price: number;
   dollars: number;
   mode?: string;
+  position_type?: "SAME_DAY" | "LONG_TERM";
 }) {
   const mode = input.mode === "live" ? "live" : "paper";
   const ticker = input.ticker.toUpperCase();
   let entryPrice = input.entry_price;
   let orderNote = "";
+  let filledQty: number | null = null;
+  let brokerOrderId: string | null = null;
+  const positionType = input.position_type ?? "SAME_DAY";
 
   // Live mode sends a real market order to the broker and records the actual
   // fill, not the price we guessed from cached bars.
   if (mode === "live") {
-    const { buyNotional, positionQty } = await import("./broker.server");
-    // Broker truth guard: if the account already holds this name, no second
-    // order is ever sent — this is what doubled a position before, when a
-    // duplicate/retried request reached the buy path.
-    const held = await positionQty("live", ticker);
-    if (held > 0) {
-      throw new Error(`${ticker} is already held at the broker (${held} sh) — no second buy placed.`);
+    const { buyNotional } = await import("./broker.server");
+    if (positionType === "SAME_DAY") {
+      const { data: duplicate } = await supabaseAdmin
+        .from("trades")
+        .select("id")
+        .eq("ticker", ticker)
+        .eq("mode", "live")
+        .eq("status", "open")
+        .eq("position_type", "SAME_DAY")
+        .maybeSingle();
+      if (duplicate) throw new Error(`${ticker} already has an open same-day allocation.`);
     }
     const fill = await buyNotional("live", ticker, input.dollars);
     if (fill.status !== "filled" || !fill.filled_price) {
@@ -509,6 +517,8 @@ export async function openTrade(input: {
       );
     }
     entryPrice = fill.filled_price;
+    filledQty = fill.filled_qty;
+    brokerOrderId = fill.order_id;
     orderNote = ` order ${fill.order_id} (${fill.filled_qty} sh)`;
   }
 
@@ -524,6 +534,9 @@ export async function openTrade(input: {
       dollars: input.dollars,
       status: "open",
       mode,
+      position_type: positionType,
+      filled_qty: filledQty,
+      broker_order_id: brokerOrderId,
     })
     .select("id")
     .single();
@@ -631,6 +644,9 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
     .single();
   if (error) throw new Error(error.message);
   if (trade!.status !== "open") throw new Error("Trade is already closed.");
+  if (trade!.position_type === "LONG_TERM") {
+    throw new Error("Protected long-term holdings cannot be sold by the daily strategy.");
+  }
 
   const dollars = Number(trade!.dollars);
   const entry = Number(trade!.entry_price);
@@ -640,22 +656,41 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
 
   // Live mode actually sells the position and records the real fill.
   if (trade!.mode === "live") {
-    const { sellPosition, positionQty } = await import("./broker.server");
+    const { sellQty, positionQty } = await import("./broker.server");
     const EPS = 0.000001;
-    let fill = await sellPosition("live", ticker);
+    const allocatedQty = Number(trade!.filled_qty ?? dollars / entry);
+    const beforeQty = await positionQty("live", ticker);
+    const { data: protectedRows } = await supabaseAdmin
+      .from("trades")
+      .select("filled_qty, dollars, entry_price")
+      .eq("ticker", ticker)
+      .eq("mode", "live")
+      .eq("status", "open")
+      .eq("position_type", "LONG_TERM");
+    const protectedQty = (protectedRows ?? []).reduce(
+      (sum, row) => sum + Number(row.filled_qty ?? Number(row.dollars) / Number(row.entry_price)),
+      0,
+    );
+    if (beforeQty + EPS < protectedQty + allocatedQty) {
+      const note = `Broker quantity mismatch for ${ticker}. ASTR stopped the sale to protect long-term shares.`;
+      await supabaseAdmin.from("trades").update({ status_note: note }).eq("id", input.id);
+      return { closed: false, profit: 0, kept: 0, note };
+    }
+    let fill = await sellQty("live", ticker, allocatedQty);
     let remaining = await positionQty("live", ticker);
-    if (remaining > EPS) {
+    const expectedRemaining = Math.max(0, beforeQty - allocatedQty);
+    if (remaining > expectedRemaining + EPS) {
       // One retry — a rejected or partially filled market order is common
       // right at the bell.
       try {
-        fill = (await sellPosition("live", ticker)) ?? fill;
+        fill = (await sellQty("live", ticker, remaining - expectedRemaining)) ?? fill;
       } catch (err) {
         console.error("sell retry failed:", err instanceof Error ? err.message : err);
       }
       remaining = await positionQty("live", ticker);
     }
-    if (remaining > EPS) {
-      const note = `Sell did not go through — ${remaining.toFixed(4)} share(s) of ${ticker} are still held${
+    if (remaining > expectedRemaining + EPS) {
+      const note = `Sell did not go through — the same-day allocation of ${ticker} is still held${
         fill ? ` (broker status ${fill.status})` : ""
       }. ASTR will try again on the next pass.`;
       await supabaseAdmin.from("trades").update({ status_note: note }).eq("id", input.id);
@@ -667,7 +702,8 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
     }
   }
 
-  const profit = dollars * (exitPrice / entry - 1);
+  const shares = Number(trade!.filled_qty ?? dollars / entry);
+  const profit = shares * (exitPrice - entry);
   const kept = profit > 0 ? profit * Number(s.profit_keep_pct) : profit;
 
   const { error: upErr } = await supabaseAdmin
@@ -780,8 +816,11 @@ export async function adoptUntrackedPositions(): Promise<string[]> {
       .from("trades")
       .insert({
         ticker: pos.ticker,
-        kind: "day",
+        kind: "long_term",
         mode: "live",
+        position_type: "LONG_TERM",
+        filled_qty: pos.qty,
+        broker_order_id: buy?.order_id ?? null,
         status: "open",
         entry_date: entryAt.slice(0, 10),
         entry_at: entryAt,
@@ -820,7 +859,7 @@ export async function reconcileBroker(): Promise<{
   const s = await loadSettings();
   if (s.paper_mode !== false) return { trimmed, adopted: [], cash_adjusted: 0 };
 
-  const { listPositions, sellQty, getPosition } = await import("./broker.server");
+  const { listPositions } = await import("./broker.server");
 
   // Broker truth first: anything held with no trade row is written into the book
   // before any trim or exit decision, so a position can never be ignored just
@@ -829,7 +868,7 @@ export async function reconcileBroker(): Promise<{
 
   const { data: openRows } = await supabaseAdmin
     .from("trades")
-    .select("id, ticker, dollars, entry_price, status_note")
+    .select("id, ticker, dollars, entry_price, filled_qty, position_type, status_note")
     .eq("status", "open")
     .is("strategy_id", null)
     .eq("mode", "live");
@@ -843,43 +882,22 @@ export async function reconcileBroker(): Promise<{
     return { trimmed, adopted, cash_adjusted: 0 };
   }
 
-  // 1. Trim oversized positions back to the recorded stake.
+  // 1. Reconcile aggregate broker quantity against internal allocations. Never
+  // sell an unexplained excess: it may be an intentional protected purchase.
   for (const pos of positions) {
     const mine = open.filter((t) => String(t.ticker).toUpperCase() === pos.ticker);
     if (mine.length === 0) continue;
-    const target = mine.reduce((sum, t) => sum + Number(t.dollars), 0);
-    const excess = pos.market_value - target;
-    if (excess <= 1 || !pos.current_price) continue;
-    try {
-      const qty = Math.min(pos.qty, excess / pos.current_price);
-      const fill = await sellQty("live", pos.ticker, qty);
-      const after = await getPosition("live", pos.ticker);
-      const soldQty = Number(fill?.filled_qty ?? 0);
-      const price = Number(fill?.filled_price ?? pos.current_price);
-      const proceeds = Number((soldQty * price).toFixed(2));
-      if (proceeds > 0) {
-        const available = new Date();
-        available.setUTCDate(available.getUTCDate() + Number(s.settlement_days));
-        await supabaseAdmin.from("ledger_entries").insert({
-          kind: "settle",
-          amount: proceeds,
-          available_on: available.toISOString().slice(0, 10),
-          note: `Trimmed extra ${pos.ticker} shares back to the ${target.toFixed(2)} stake (sold ${soldQty} @ ${price})`,
-        });
-        trimmed.push(
-          `${pos.ticker}: sold ${soldQty} extra share(s) @ $${price.toFixed(2)} — $${proceeds.toFixed(2)} clears next session. Left ${(after?.market_value ?? 0).toFixed(2)} invested.`,
-        );
-        for (const t of mine) {
-          await supabaseAdmin
-            .from("trades")
-            .update({
-              status_note: `Extra shares sold back to the $${target.toFixed(2)} stake on ${today()}.`,
-            })
-            .eq("id", t.id as string);
-        }
+    const allocated = mine.reduce(
+      (sum, t) => sum + Number(t.filled_qty ?? Number(t.dollars) / Number(t.entry_price)),
+      0,
+    );
+    if (pos.qty + 0.000001 < allocated) {
+      for (const t of mine) {
+        await supabaseAdmin
+          .from("trades")
+          .update({ status_note: `Broker quantity is below ASTR's recorded allocations. Automatic selling is blocked for safety.` })
+          .eq("id", t.id as string);
       }
-    } catch (error) {
-      console.error("trim failed:", error instanceof Error ? error.message : error);
     }
   }
 
@@ -1046,7 +1064,8 @@ export async function managePaperTrades(
     .eq("status", "open")
     // Live book only — paper-race rows are handled by race.server.ts.
     .is("strategy_id", null)
-    .eq("mode", activeMode);
+    .eq("mode", activeMode)
+    .eq("position_type", "SAME_DAY");
   if (openErr) throw new Error(openErr.message);
   const openTrades = openRows ?? [];
 
@@ -1181,14 +1200,7 @@ export async function managePaperTrades(
     const dollars = want;
     // Never stack a second stake on a name the account already holds — that is
     // exactly how the doubled-up position happened.
-    if (activeMode === "live") {
-      try {
-        const { positionQty } = await import("./broker.server");
-        if ((await positionQty("live", ticker)) > 0) return;
-      } catch (error) {
-        console.error("position check failed:", error instanceof Error ? error.message : error);
-      }
-    }
+    if (activeMode === "live" && stillOpen.has(ticker)) return;
     if (activeMode === "live" && cashLeft < want) {
       // Full stake or nothing: if yesterday's sale has not settled yet, sit out
       // today rather than buying a smaller partial position.
