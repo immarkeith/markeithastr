@@ -47,6 +47,16 @@ function LabPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const toggleFn = useServerFn(setResearchRunning);
+  const toggle = useMutation({
+    mutationFn: (running: boolean) => toggleFn({ data: { running } }),
+    onSuccess: async (res) => {
+      toast.success(res.running ? "Researchers started." : "Researchers stopped.");
+      await qc.invalidateQueries({ queryKey: ["race"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const d = race.data;
   const slots = (d?.entrants ?? []).filter((e) => !e.live);
 
