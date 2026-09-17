@@ -235,6 +235,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       .eq("status", "closed")
       .is("strategy_id", null)
       .eq("mode", mode)
+      .eq("position_type", "SAME_DAY")
       .order("exit_date", { ascending: true })
       .limit(400);
     const { data: ledger } = await db
@@ -284,16 +285,18 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       const score = byTicker.get(ticker);
       const price = Number(pos?.current_price ?? score?.close ?? t.entry_price);
       const dollars = Number(t.dollars);
-      const pl = pos ? pos.unrealized_pl : dollars * (price / Number(t.entry_price) - 1);
+      const qty = Number(t.filled_qty ?? dollars / Number(t.entry_price));
+      const marketValue = qty * price;
+      const pl = marketValue - dollars;
       return {
         ticker,
         kind: String(t.kind),
         entry_date: String(t.entry_date),
         entry_price: Number(t.entry_price),
         dollars,
-        qty: pos?.qty ?? null,
+        qty,
         price,
-        market_value: pos?.market_value ?? Number((dollars * (price / Number(t.entry_price))).toFixed(2)),
+        market_value: Number(marketValue.toFixed(2)),
         pl: Number(pl.toFixed(2)),
         pl_pct: Number((((price / Number(t.entry_price)) - 1) * 100).toFixed(2)),
         rank: score ? Number(score.rank) : null,
@@ -324,7 +327,9 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       });
     }
 
-    const slots = Math.max(0, Number(ladder.stocks_per_day) - holdings.filter((h) => h.kind === "day").length);
+    const sameDayHoldings = holdings.filter((h) => h.kind === "day");
+    const longTermHoldings = holdings.filter((h) => h.kind === "long_term");
+    const slots = Math.max(0, Number(ladder.stocks_per_day) - sameDayHoldings.length);
     const upNext = (scores ?? [])
       .filter((r) => r.tradeable && !heldTickers.has(String(r.ticker)))
       .slice(0, Math.max(1, slots || 1))
@@ -354,6 +359,8 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         saved: Number(saved.toFixed(2)),
       },
       holdings,
+      same_day_holdings: sameDayHoldings,
+      long_term_holdings: longTermHoldings,
       up_next: upNext,
       slots,
       stake: Number(ladder.position_dollars),
@@ -376,6 +383,9 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         ticker: String(t.ticker),
         profit: Number(t.profit ?? 0),
       })),
+      total_profit: Number(
+        (closedTrades ?? []).reduce((sum, trade) => sum + Number(trade.profit ?? 0), 0).toFixed(2),
+      ),
     };
   });
 
