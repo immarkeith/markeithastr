@@ -7,23 +7,23 @@ export const getScoreboard = createServerFn({ method: "GET" })
   .handler(async () => {
     const [
       { departmentOverview },
-      { loadSlots, rankSlots },
+      { researchBoards },
       { verificationOverview },
       { masterFormulaOverview },
       { supabaseAdmin },
     ] = await Promise.all([
       import("./department.server"),
-      import("./race.server"),
+      import("./research-boards.server"),
       import("./verification.server"),
       import("./master-formula.server"),
       import("@/integrations/supabase/client.server"),
     ]);
 
 
-    const [department, slots, verification, master, latestRun, watchlist, settings] =
+    const [department, boards, verification, master, latestRun, watchlist, settings] =
       await Promise.all([
         departmentOverview(),
-        loadSlots(),
+        researchBoards(),
         verificationOverview(),
         masterFormulaOverview(),
         supabaseAdmin.from("scan_runs").select("id, run_date").order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -32,7 +32,6 @@ export const getScoreboard = createServerFn({ method: "GET" })
       ]);
 
 
-    const paperRanks = await rankSlots(slots.filter((slot) => slot.enabled));
     const run = latestRun.data;
     const { data: liveScores } = run
       ? await supabaseAdmin

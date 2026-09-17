@@ -867,7 +867,7 @@ async function applySlotLadder(slot: RaceSlot): Promise<void> {
       last_evaluated_date: day,
     } as never)
     .eq("id", slot.id);
-  slot.stocks_per_day = decision.step.stocks;
+  slot.stocks_per_day = STOCKS_PER_RESEARCHER;
   slot.position_dollars = decision.step.dollars;
 }
 
