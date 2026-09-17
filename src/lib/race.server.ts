@@ -118,7 +118,8 @@ export async function loadSlots(): Promise<RaceSlot[]> {
         description: String(strategy['description'] ?? ""),
         params: (strategy['params'] ?? {}) as Record<string, number>,
         enabled: r['enabled'] !== false,
-        stocks_per_day: Number(r['stocks_per_day'] ?? 1),
+        // Hard cap: a researcher can only ever hold one stock at a time.
+        stocks_per_day: STOCKS_PER_RESEARCHER,
         position_dollars: Number(r['position_dollars'] ?? STANDARD_DOLLARS),
         stable_days: Number(r['stable_days'] ?? 0),
         breach_days: Number(r['breach_days'] ?? 0),
