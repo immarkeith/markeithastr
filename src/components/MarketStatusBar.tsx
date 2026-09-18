@@ -5,13 +5,12 @@ import { marketStatus, type MarketStatus } from "@/lib/market-calendar";
 const toneFor = (status: MarketStatus) => {
   switch (status.state) {
     case "open":
-      return "border-success/50 bg-success/10 text-success";
+      return "text-success";
     case "closing":
-      return "border-primary/50 bg-primary/10 text-primary";
     case "pre-open":
-      return "border-primary/40 bg-primary/5 text-primary";
+      return "text-primary";
     default:
-      return "border-border bg-secondary/40 text-muted-foreground";
+      return "text-muted-foreground";
   }
 };
 
@@ -24,7 +23,7 @@ export function MarketStatusBar({ paperMode }: { paperMode?: boolean }) {
   }, []);
 
   return (
-    <div className={`overflow-hidden py-1 text-xs ${toneFor(status).split(" ").pop()}`}>
+    <div className={`overflow-hidden py-1 text-xs ${toneFor(status)}`}>
       <div className="market-ticker flex w-max items-center gap-6 whitespace-nowrap px-3">
       <span className="flex items-center gap-2 font-semibold uppercase tracking-widest">
         <span
