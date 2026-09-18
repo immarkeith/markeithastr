@@ -237,10 +237,14 @@ function SlotCard({ slot, active }: { slot: Entrant; active: boolean }) {
         <h2 className="text-lg font-bold leading-tight">{slot.name}</h2>
         <span
           className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-            active ? "bg-success/15 text-success" : "bg-secondary text-muted-foreground"
+            active
+              ? "bg-success/15 text-success"
+              : slot.holdings.length
+                ? "bg-primary/15 text-primary"
+                : "bg-secondary text-muted-foreground"
           }`}
         >
-          {active ? "Testing today" : "Not testing today"}
+          {active ? "Testing today" : slot.holdings.length ? "Holding a test" : "Not testing today"}
         </span>
       </div>
 
