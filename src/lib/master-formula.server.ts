@@ -853,6 +853,17 @@ export async function masterFormulaOverview() {
       edge: number | null;
       verdict: string;
       note: string | null;
+      evidence: {
+        ml_evaluation?: {
+          weight: number;
+          covered_dates: number;
+          pure_avg_return_pct: number;
+          blended_avg_return_pct: number;
+          delta: number;
+          accepted: boolean;
+          conclusion: string;
+        } | null;
+      } | null;
     }[],
     backup_tests: (backupRes.data ?? []) as unknown as {
       id: string;
