@@ -239,7 +239,7 @@
 }
 
 .market-ticker {
-  animation: market-ticker-scroll 18s linear infinite alternate;
+  animation: market-ticker-scroll 10s linear infinite alternate;
 }
 
 @media (prefers-reduced-motion: reduce) {

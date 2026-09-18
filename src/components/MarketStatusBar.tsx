@@ -24,9 +24,7 @@ export function MarketStatusBar({ paperMode }: { paperMode?: boolean }) {
   }, []);
 
   return (
-    <div
-      className={`overflow-hidden rounded-md border py-2 text-xs ${toneFor(status)}`}
-    >
+    <div className={`overflow-hidden py-1 text-xs ${toneFor(status).split(" ").pop()}`}>
       <div className="market-ticker flex w-max items-center gap-6 whitespace-nowrap px-3">
       <span className="flex items-center gap-2 font-semibold uppercase tracking-widest">
         <span

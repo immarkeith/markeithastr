@@ -47,6 +47,17 @@ function stamp(iso: string | null, fallbackDate: string | null) {
 
 type ViewFilter = "today" | "72h" | "researcher";
 
+const CANONICAL_SOURCES = [
+  "Live Trading Bot",
+  "Lead Researcher",
+  "Trend Researcher",
+  "Contrarian Researcher",
+  "Consistency Researcher",
+  "Growth Researcher",
+  "Risk Researcher",
+  "Skeptic",
+] as const;
+
 type TradeEvent = {
   id: string;
   side: "BUY" | "SELL";
@@ -64,7 +75,9 @@ function TradeHistoryPage() {
   const [researcher, setResearcher] = useState("");
 
   const all = (data?.trades ?? []) as TradeHistoryRow[];
-  const researchers = useMemo(() => Array.from(new Set(all.filter((row) => row.mode !== "live").map((row) => row.source_name))).sort(), [all]);
+  // Exactly eight sources: the live bot, the Lead and the six assistants.
+  // Retired prototype books never appear here again.
+  const researchers = CANONICAL_SOURCES;
   const events = useMemo(() => {
     const now = Date.now();
     const today = new Date().toLocaleDateString();
@@ -76,7 +89,7 @@ function TradeHistoryPage() {
       const time = new Date(event.at).getTime();
       if (view === "today") return new Date(event.at).toLocaleDateString() === today;
       if (view === "72h") return Number.isFinite(time) && time >= now - 72 * 60 * 60 * 1000;
-      return !event.live && event.source === researcher && Number.isFinite(time) && time >= now - 90 * 86400000;
+      return event.source === researcher && Number.isFinite(time) && time >= now - 90 * 86400000;
     }).sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   }, [all, researcher, view]);
 
