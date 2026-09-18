@@ -490,6 +490,31 @@ export function ResearchDepartment() {
                 </p>
               )}
               <p className="text-xs text-muted-foreground">{leadTest.note}</p>
+              {leadTest.evidence?.ml_evaluation ? (
+                <div className="rounded border border-border p-2 text-xs">
+                  <p className="font-semibold">
+                    Predictive model test —{" "}
+                    {leadTest.evidence.ml_evaluation.covered_dates >= 5
+                      ? leadTest.evidence.ml_evaluation.accepted
+                        ? "accepted for now"
+                        : "rejected"
+                      : "gathering evidence"}
+                  </p>
+                  <p className="mt-0.5 text-muted-foreground">
+                    {leadTest.evidence.ml_evaluation.conclusion}
+                  </p>
+                  {leadTest.evidence.ml_evaluation.covered_dates >= 5 ? (
+                    <p className="mt-0.5 tabular-nums text-muted-foreground">
+                      pure formula{" "}
+                      <Signed value={leadTest.evidence.ml_evaluation.pure_avg_return_pct} /> · with
+                      model <Signed value={leadTest.evidence.ml_evaluation.blended_avg_return_pct} />{" "}
+                      · difference{" "}
+                      <Signed value={leadTest.evidence.ml_evaluation.delta} /> per trade · model
+                      share {leadTest.evidence.ml_evaluation.weight}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
 
