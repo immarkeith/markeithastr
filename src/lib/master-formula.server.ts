@@ -163,21 +163,53 @@ export function bandBonus(row: PanelRow, bands: Band[]): number {
   return bonus;
 }
 
-/** Master-formula stock selection: weighted score plus favourable-band bonuses. */
+/**
+ * Master-formula stock selection: weighted score plus favourable-band bonuses.
+ *
+ * When `ml` is supplied the Lead Researcher is testing the predictive model as
+ * an input: each name's final rank is a blend of the pure Master Formula rank
+ * and the model's prediction rank for that date, using the model share from
+ * settings. The score gate still applies to the pure score, so the model can
+ * reorder candidates but never sneak in a name the formula would reject.
+ */
 export function masterPicks(
   rowsByDate: Map<string, PanelRow[]>,
   dates: string[],
   p: MasterParams,
   s: Settings,
   share: number,
+  ml?: { weight: number; predictions: Map<string, number> },
 ): PanelRow[] {
   const out: PanelRow[] = [];
   for (const date of dates) {
-    const ranked = (rowsByDate.get(date) ?? [])
+    const scored = (rowsByDate.get(date) ?? [])
       .filter((r) => r.forward_return !== null && passesFilters(r, p, s, share))
       .map((r) => ({ row: r, score: scoreWith(r, p.weights) + bandBonus(r, p.bands) }))
-      .filter((x) => x.score >= p.min_score_to_trade)
-      .sort((a, b) => b.score - a.score);
+      .filter((x) => x.score >= p.min_score_to_trade);
+    let ranked = scored;
+    if (ml && ml.weight > 0) {
+      const byScore = [...scored].sort((a, b) => b.score - a.score);
+      const scoreRank = new Map(byScore.map((x, i) => [x.row.ticker, i]));
+      const withPred = scored
+        .map((x) => ({ ticker: x.row.ticker, pred: ml.predictions.get(`${date}|${x.row.ticker}`) }))
+        .filter((x): x is { ticker: string; pred: number } => typeof x.pred === "number")
+        .sort((a, b) => b.pred - a.pred);
+      const predRank = new Map(withPred.map((x, i) => [x.ticker, i]));
+      const n = Math.max(1, scored.length - 1);
+      const pn = Math.max(1, withPred.length - 1);
+      ranked = [...scored].sort((a, b) => {
+        const blend = (t: string, score: number) => {
+          const pr = predRank.get(t);
+          if (pr === undefined) return score; // no model view — pure score stands
+          const scorePct = 1 - (scoreRank.get(t) ?? 0) / n;
+          const predPct = 1 - pr / pn;
+          return (1 - ml.weight) * scorePct + ml.weight * predPct;
+        };
+        return blend(b.row.ticker, b.score) - blend(a.row.ticker, a.score);
+      });
+    } else {
+      ranked = [...scored].sort((a, b) => b.score - a.score);
+    }
     for (const item of ranked.slice(0, Math.max(1, p.num_day_trades))) out.push(item.row);
   }
   return out;
