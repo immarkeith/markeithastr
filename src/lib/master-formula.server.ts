@@ -495,6 +495,90 @@ export async function runMasterCycle(input: {
   const downLeg = legFrom(picks.filter((p) => (p.benchmark_return ?? 0) < 0));
   const edge = round(leg.avg_return_pct - baselineOut.avg_return_pct, 3);
 
+  // The Lead's standing test of the predictive model layer: when the model is
+  // switched on, blend its stored predictions into the ranking and compare the
+  // result with the pure Master Formula on the same out-of-sample days. The
+  // verdict is written to the Lead's notebook — the model is an input the Lead
+  // tests, never an autopilot, and it is accepted only when it adds edge.
+  let mlEvaluation: {
+    weight: number;
+    covered_dates: number;
+    pure_avg_return_pct: number;
+    blended_avg_return_pct: number;
+    delta: number;
+    accepted: boolean;
+    conclusion: string;
+  } | null = null;
+  const mlWeight = Number((settings as unknown as Record<string, unknown>)['ml_combine_weight'] ?? 0);
+  if ((settings as unknown as Record<string, unknown>)['ml_enabled'] && mlWeight > 0) {
+    const { data: preds } = await supabaseAdmin
+      .from("model_predictions")
+      .select("as_of_date,ticker,rf_prediction")
+      .in("as_of_date", outDates)
+      .not("rf_prediction", "is", null);
+    const predictions = new Map<string, number>();
+    const coveredDates = new Set<string>();
+    for (const row of preds ?? []) {
+      predictions.set(`${row.as_of_date}|${row.ticker}`, Number(row.rf_prediction));
+      coveredDates.add(row.as_of_date as string);
+    }
+    let conclusion: string;
+    let delta = 0;
+    let blendedAvg = 0;
+    let accepted = false;
+    if (coveredDates.size >= 5) {
+      const blended = legFrom(
+        masterPicks(rowsByDate, outDates, master, settings, share, {
+          weight: Math.min(1, Math.max(0, mlWeight)),
+          predictions,
+        }),
+      );
+      blendedAvg = blended.avg_return_pct;
+      delta = round(blended.avg_return_pct - leg.avg_return_pct, 3);
+      accepted = delta > 0;
+      conclusion = accepted
+        ? `Accepted for now — blending the model's view added ${delta}% per trade on days it was never trained on. The Lead keeps testing it every cycle.`
+        : `Rejected — blending the model's view cost ${Math.abs(delta)}% per trade on fresh days. The Master Formula stays pure; the Lead keeps re-testing as new predictions accumulate.`;
+    } else {
+      conclusion = `Not enough stored predictions yet (${coveredDates.size} session(s) covered, 5 needed). The model keeps scoring each cycle; the Lead will judge the blend once the record is long enough.`;
+    }
+    mlEvaluation = {
+      weight: mlWeight,
+      covered_dates: coveredDates.size,
+      pure_avg_return_pct: leg.avg_return_pct,
+      blended_avg_return_pct: blendedAvg,
+      delta,
+      accepted,
+      conclusion,
+    };
+    // One notebook line per cycle, so the Lead's verdict history is visible.
+    const { data: lastLeadEntry } = await supabaseAdmin
+      .from("research_notebook")
+      .select("experiment_no,generation")
+      .eq("lane", "lead")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    await supabaseAdmin.from("research_notebook").insert({
+      lane: "lead",
+      generation: (lastLeadEntry?.generation ?? 0) + 1,
+      experiment_no: (lastLeadEntry?.experiment_no ?? 0) + 1,
+      variable: "Predictive model blend",
+      previous_value: "Pure Master Formula ranking",
+      new_value: `Blended ranking — model share ${mlWeight}`,
+      result:
+        coveredDates.size >= 5
+          ? delta > 0
+            ? `Improved (+${delta}% per trade vs the pure formula)`
+            : `Declined (${delta}% per trade vs the pure formula)`
+          : `Inconclusive — ${coveredDates.size} of 5 needed sessions covered`,
+      conclusion,
+      accepted,
+      edge: delta,
+      horizons: {} as unknown as Json,
+    });
+  }
+
   const horizons: Record<string, number> = {};
   const sameDay = picks
     .map((p) => p.same_day)
