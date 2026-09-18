@@ -203,8 +203,13 @@ function SettingsPage() {
           <span>
             <span className="font-semibold">Predictive model layer</span>
             <span className="block text-xs text-muted-foreground">
-              Trains the pattern-learning model each cycle and records its view of every name, so
-              you can compare it with your ASTR score on the Lab page. Advisory only.
+              An input the Lead Researcher tests — not an autopilot. Each cycle the pattern-learning
+              model scores every name; the Lead blends that view into its Master Formula test on
+              days the model was never trained on, then accepts or rejects it on the evidence. The
+              verdict appears in the Lead's notebook on the Research Lab page. It never trades live
+              on its own and never changes your strategy automatically. It's a switch because
+              training the model takes heavy computing — turn it off to run lean factor-only
+              research.
             </span>
           </span>
         </label>
