@@ -82,13 +82,7 @@ function TradeHistoryPage() {
 
   return (
     <div className="space-y-5">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Trade log</h1>
-        <p className="text-sm text-muted-foreground">
-          Recent live and research activity, with the actor and recorded score context for each trade.
-          {data?.strategy_name ? ` Active strategy: ${data.strategy_name}.` : ""}
-        </p>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">Trade log</h1>
 
       <div className="flex flex-wrap gap-2">
         <select value={view} onChange={(event) => setView(event.target.value as ViewFilter)} className="rounded-md border border-border bg-card px-3 py-2 text-sm">
@@ -129,10 +123,11 @@ function TradeHistoryPage() {
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        Times before today are approximate — they use when the record was written. New trades record
-        the exact buy and sell time.
-      </p>
+      <footer className="border-t border-border/60 pt-4 text-xs text-muted-foreground">
+        Blue is live real-money activity, green is Research Lab paper testing.
+        {data?.strategy_name ? ` Active live strategy: ${data.strategy_name}.` : ""} Times before
+        today are approximate — they use when the record was written.
+      </footer>
     </div>
   );
 }

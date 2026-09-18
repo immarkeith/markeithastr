@@ -221,11 +221,11 @@ export function ResearchDepartment() {
       )}
 
       {cross.length > 0 && (
-        <section className="space-y-2 rounded-md border border-border bg-card p-4">
-          <h3 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+        <details className="rounded-md border border-border bg-card p-4">
+          <summary className="cursor-pointer text-sm font-semibold">
             Where researchers agree &amp; disagree
-          </h3>
-          <ul className="space-y-1.5 text-sm">
+          </summary>
+          <ul className="mt-3 space-y-1.5 text-sm">
             {cross.map((c) => (
               <li key={c} className="flex gap-2">
                 <span
@@ -237,7 +237,7 @@ export function ResearchDepartment() {
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       )}
 
       {(leadTest || todayBackups.length > 0) && (
@@ -598,19 +598,21 @@ export function ResearchDepartment() {
       )}
 
       {tab === "all" && notebook.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+        <details className="rounded-md border border-border bg-card p-4">
+          <summary className="cursor-pointer text-sm font-semibold">
             Latest notebook entries
-          </h3>
-          <NotebookTable entries={notebook.slice(0, 15)} />
-        </section>
+          </summary>
+          <div className="mt-3">
+            <NotebookTable entries={notebook.slice(0, 15)} />
+          </div>
+        </details>
       )}
 
       {deadEnds.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-            What doesn't work
-          </h3>
+        <details className="space-y-2 rounded-md border border-border bg-card p-4">
+          <summary className="cursor-pointer text-sm font-semibold">
+            What doesn&apos;t work
+          </summary>
           <div className="overflow-x-auto rounded-md border border-border">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
@@ -637,7 +639,7 @@ export function ResearchDepartment() {
             These experiments are excluded from every future generation, so the department never
             spends time making the same mistake twice.
           </p>
-        </section>
+        </details>
       )}
     </div>
   );

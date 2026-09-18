@@ -234,8 +234,8 @@
 }
 
 @keyframes market-ticker-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-18%); }
+  from { transform: translateX(-18%); }
+  to { transform: translateX(0); }
 }
 
 .market-ticker {
