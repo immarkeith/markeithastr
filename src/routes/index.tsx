@@ -105,33 +105,43 @@ function HomePage() {
         </p>
       ) : null}
 
-      {/* Account figures sit inside the live P/L frame: compact 2x2, then graph. */}
-      <section className="space-y-4 rounded-md border border-border bg-card p-4">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-          <Figure
-            label="Total assets"
-            value={d?.account ? money(d.account.equity) : "—"}
-            tone="text-primary"
-            info="All cash in the account, including money still clearing, plus the current value of every stock held."
-          />
-          <Figure
-            label="Current balance"
-            value={d?.account ? money(d.account.cash) : "—"}
-            info="All cash in the account, including cash that has not finished clearing yet."
-          />
-          <Figure
-            label="Available balance"
-            value={d?.account ? money(d.account.buying_power) : "—"}
-            info="Only the cash ASTR can actually spend right now."
-          />
-          <Figure
-            label="Total profit"
-            value={d ? money(d.total_profit) : "—"}
-            tone={(d?.total_profit ?? 0) >= 0 ? "text-success" : "text-destructive"}
-          />
-        </div>
+      {/* Six figures, no boxes: left column then right column, graph below. */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+        <Figure
+          label="Current stock"
+          value={(d?.same_day_holdings ?? [])[0]?.ticker ?? "None"}
+          tone="text-primary"
+        />
+        <Figure
+          label="Total assets"
+          value={d?.account ? money(d.account.equity) : "—"}
+          tone="text-primary"
+          info="All cash in the account, including money still clearing, plus the current value of every stock held."
+        />
+        <Figure
+          label="Live profit / loss"
+          value={d ? money(openPl) : "—"}
+          tone={openPl >= 0 ? "text-success" : "text-destructive"}
+        />
+        <Figure
+          label="Total profit"
+          value={d ? money(d.total_profit) : "—"}
+          tone={(d?.total_profit ?? 0) >= 0 ? "text-success" : "text-destructive"}
+        />
+        <Figure
+          label="Available balance"
+          value={d?.account ? money(d.account.buying_power) : "—"}
+          info="Only the cash ASTR can actually spend right now."
+        />
+        <Figure
+          label="Current balance"
+          value={d?.account ? money(d.account.cash) : "—"}
+          info="All cash in the account, including cash that has not finished clearing yet."
+        />
+      </div>
 
-        {/* Live trading only — research paper results never appear here. */}
+      {/* The only box on the page. Live trading only — never paper results. */}
+      <section className="rounded-md border border-border bg-card p-4">
         <PnlChart
           rows={d?.closed ?? []}
           unrealized={openPl}
