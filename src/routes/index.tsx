@@ -230,16 +230,11 @@ function HomePage() {
           Same-day positions
         </h2>
         {(d?.same_day_holdings.length ?? 0) === 0 ? (
-          <p className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-            No same-day position is open.
-          </p>
+          <p className="text-sm text-muted-foreground">No same-day position is open.</p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {d?.same_day_holdings.map((h) => (
-              <div
-                key={`${h.ticker}-${h.entry_date}`}
-                className="rounded-md border border-border bg-card p-4"
-              >
+              <div key={`${h.ticker}-${h.entry_date}`}>
                 <div className="flex items-baseline justify-between">
                   <Link to="/analyze" className="text-lg font-bold hover:text-primary">
                     {h.ticker}
@@ -258,9 +253,7 @@ function HomePage() {
                   {h.qty !== null ? ` · ${h.qty} sh` : ""}
                 </p>
                 {h.note ? (
-                  <p className="mt-2 rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                    {h.note}
-                  </p>
+                  <p className="mt-2 text-xs text-destructive">{h.note}</p>
                 ) : null}
               </div>
             ))}
