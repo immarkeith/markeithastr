@@ -65,12 +65,12 @@ function LabPage() {
   const ordered = [...slots].sort((a, b) => {
     const lead = (s: Entrant) => (/lead/i.test(s.name) ? 0 : 1);
     if (lead(a) !== lead(b)) return lead(a) - lead(b);
-    const on = (s: Entrant) => (s.enabled === false ? 1 : 0);
+    const on = (s: Entrant) => (s.testing_today ? 0 : 1);
     if (on(a) !== on(b)) return on(a) - on(b);
     return a.rank - b.rank;
   });
-  const active = ordered.filter((s) => s.enabled !== false);
-  const inactive = ordered.filter((s) => s.enabled === false);
+  const active = ordered.filter((s) => s.testing_today);
+  const inactive = ordered.filter((s) => !s.testing_today);
   // The Best Formula is never the Lead's own formula — the Lead validates and
   // combines what the assistant researchers discover.
   const assistants = slots.filter((s) => !/lead/i.test(s.name));
