@@ -1110,10 +1110,7 @@ export async function raceStandings(): Promise<{
       live: false,
       enabled: slot.enabled,
       testing_today:
-        slot.enabled &&
-        (slot.lane === "lead" ||
-          (slot.lane !== null && rotation.has(slot.lane)) ||
-          open.length > 0),
+        slot.enabled && (slot.lane === "lead" || (slot.lane !== null && rotation.has(slot.lane))),
       started_on: slot.started_on,
       stake: slot.position_dollars,
       stocks_per_day: slot.stocks_per_day,
