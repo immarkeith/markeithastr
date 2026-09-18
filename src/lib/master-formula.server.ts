@@ -689,6 +689,7 @@ export async function runMasterCycle(input: {
         second_half: secondHalf,
         baseline_out: baselineOut,
         rule_tests: tests,
+        ml_evaluation: mlEvaluation,
       } as unknown as Json,
       edge,
       verdict,
