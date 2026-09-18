@@ -157,16 +157,11 @@ function HomePage() {
           Long-term holds
         </h2>
         {(d?.long_term_holdings.length ?? 0) === 0 ? (
-          <p className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-            No long-term holdings.
-          </p>
+          <p className="text-sm text-muted-foreground">No long-term holdings.</p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {d?.long_term_holdings.map((h) => (
-              <div
-                key={`${h.ticker}-${h.entry_date}-${h.dollars}`}
-                className="rounded-md border border-border bg-card p-4"
-              >
+              <div key={`${h.ticker}-${h.entry_date}-${h.dollars}`}>
                 <div className="flex items-baseline justify-between gap-3">
                   <Link to="/analyze" className="text-lg font-bold hover:text-primary">
                     {h.ticker}
@@ -201,7 +196,7 @@ function HomePage() {
         )}
 
         {/* Ideas only — separate from what is actually held above. */}
-        <details className="rounded-md border border-border bg-card p-4">
+        <details>
           <summary className="cursor-pointer text-sm font-semibold">
             5 long-term hold suggestions
           </summary>
@@ -210,10 +205,7 @@ function HomePage() {
           ) : (
             <ul className="mt-3 space-y-2">
               {d?.suggestions.slice(0, 5).map((s) => (
-                <li
-                  key={s.ticker}
-                  className="flex items-center justify-between rounded border border-border p-3"
-                >
+                <li key={s.ticker} className="flex items-center justify-between gap-3">
                   <div>
                     <span className="font-bold">{s.ticker}</span>
                     <p className="text-xs text-muted-foreground">
