@@ -29,3 +29,19 @@ export const buyLongTerm = createServerFn({ method: "POST" })
       position_type: "LONG_TERM",
     });
   });
+
+export const sellLongTerm = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .inputValidator((input) =>
+    z
+      .object({
+        trade_id: z.string().uuid(),
+        dollars: z.number().positive().max(1_000_000).nullable().default(null),
+        all: z.boolean().default(false),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { sellLongTermShares } = await import("./long-term.server");
+    return sellLongTermShares(data);
+  });

@@ -36,12 +36,7 @@ function ScoreboardPage() {
 
   return (
     <div className="space-y-5">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Scoreboard</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Select a formula to view its current Top 10.
-        </p>
-      </header>
+      <h1 className="text-2xl font-bold">Scoreboard</h1>
 
       <label className="block max-w-md space-y-1">
         <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
@@ -110,6 +105,11 @@ function ScoreboardPage() {
           )}
         </>
       ) : null}
+
+      <footer className="border-t border-border/60 pt-4 text-xs text-muted-foreground">
+        Each formula ranks the market on its own. Buy Long Term places a real live purchase that the
+        daily rotation can never sell.
+      </footer>
     </div>
   );
 }

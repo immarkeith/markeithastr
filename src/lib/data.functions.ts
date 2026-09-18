@@ -289,6 +289,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       const marketValue = qty * price;
       const pl = marketValue - dollars;
       return {
+        trade_id: String(t.id),
         ticker,
         kind: String(t.kind),
         position_type: String(t.position_type),
@@ -311,6 +312,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
     for (const pos of positions) {
       if (heldTickers.has(pos.ticker)) continue;
       holdings.push({
+        trade_id: "",
         ticker: pos.ticker,
         kind: "untracked",
         position_type: "LONG_TERM",

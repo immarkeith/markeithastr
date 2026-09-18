@@ -3,9 +3,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
+import { InfoDot } from "@/components/InfoDot";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import { ResearchDepartment } from "@/components/ResearchDepartment";
-import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
 import { fetchRace, runRaceNow, setResearchRunning } from "@/lib/race.functions";
 import { money } from "@/lib/queries";
@@ -71,44 +71,37 @@ function LabPage() {
   });
   const active = ordered.filter((s) => s.enabled !== false);
   const inactive = ordered.filter((s) => s.enabled === false);
-  const best = slots.length
-    ? slots.reduce((top, s) => (s.three_day.total_pnl > top.three_day.total_pnl ? s : top), slots[0]!)
+  // The Best Formula is never the Lead's own formula — the Lead validates and
+  // combines what the assistant researchers discover.
+  const assistants = slots.filter((s) => !/lead/i.test(s.name));
+  const best = assistants.length
+    ? assistants.reduce(
+        (top, s) => (s.three_day.total_pnl > top.three_day.total_pnl ? s : top),
+        assistants[0]!,
+      )
     : null;
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Research Lab</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            The Lead and research formulas always use simulated money, separate from live trading.
-            Each test buy is measured twice: what a normal same-day sale would have made, and what
-            actually happened holding it for three trading days.
-          </p>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Research Lab</h1>
         <Button onClick={() => run.mutate()} disabled={run.isPending}>
           {run.isPending ? "Running…" : "Run test pass"}
         </Button>
       </header>
 
       {/* Researchers only — this never starts or stops live trading. */}
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card p-3">
-        <div className="flex items-center gap-2">
+      <section className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-sm font-semibold">
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
               researchRunning ? "bg-success" : "bg-destructive"
             }`}
           />
-          <div>
-            <p className="text-sm font-semibold">
-              Researchers are {researchRunning ? "running" : "stopped"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Paper testing only — this control does not affect live trading.
-            </p>
-          </div>
-        </div>
+          Researchers {researchRunning ? "running" : "stopped"}
+        </span>
         <Button
+          size="sm"
           variant={researchRunning ? "outline" : "default"}
           disabled={toggle.isPending}
           onClick={() => toggle.mutate(!researchRunning)}
@@ -142,33 +135,24 @@ function LabPage() {
         )}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <StatTile
-          label="Best formula"
-          value={best ? best.name : "—"}
-          hint={
-            best
-              ? `${best.three_day.total_pnl >= 0 ? "+" : ""}${money(best.three_day.total_pnl)} realised on paper`
-              : "no researchers yet"
-          }
-          tone="accent"
-        />
-        <StatTile
-          label="Days testing"
-          value={`${d?.days_running ?? 0}`}
-          hint={`a verdict needs ${d?.min_days ?? 28} days`}
-        />
+      <section className="rounded-md border border-border bg-card p-4">
+        <p className="flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+          Best formula
+          <InfoDot title="Best formula">
+            A validated formula from the assistant researchers. The Lead Researcher evaluates and
+            combines findings, so the Lead itself is never the Best Formula.
+          </InfoDot>
+        </p>
+        <p className="mt-1 text-2xl font-semibold text-primary">{best ? best.name : "—"}</p>
       </section>
 
       {race.isLoading ? <p className="text-sm text-muted-foreground">Loading the race…</p> : null}
 
       <div className="space-y-3">
-        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-          Researchers testing now
-        </h2>
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Testing today</h2>
         <div className="grid gap-4 lg:grid-cols-3">
           {active.map((slot) => (
-            <SlotCard key={slot.key} slot={slot} />
+            <SlotCard key={slot.key} slot={slot} active />
           ))}
         </div>
       </div>
@@ -176,27 +160,32 @@ function LabPage() {
       {inactive.length ? (
         <div className="space-y-3">
           <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-            Not in this rotation — history kept
+            Not testing today
           </h2>
           <div className="grid gap-4 lg:grid-cols-3">
             {inactive.map((slot) => (
-              <SlotCard key={slot.key} slot={slot} />
+              <SlotCard key={slot.key} slot={slot} active={false} />
             ))}
           </div>
         </div>
       ) : null}
 
-      <p className="text-xs text-muted-foreground">
-        Every simulated trade is written to the{" "}
-        <Link to="/trade-history" className="text-primary hover:underline">
-          Trade Log
-        </Link>{" "}
-        with its own strategy tag, alongside clearly labeled live activity.
-      </p>
-
-      <hr className="border-border/60" />
-
       <ResearchDepartment />
+
+      <footer className="space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+        <p>
+          The Lead and every assistant researcher always use simulated money, completely separate
+          from live trading. Each test buy is measured twice: what a same-day sale would have made,
+          and what actually happened over three trading days.
+        </p>
+        <p>
+          Every simulated trade is written to the{" "}
+          <Link to="/trade-history" className="text-primary hover:underline">
+            Trade Log
+          </Link>{" "}
+          with its own strategy tag, alongside clearly labeled live activity.
+        </p>
+      </footer>
     </div>
   );
 }
@@ -241,26 +230,21 @@ function DualMetric({
 }
 
 
-function SlotCard({
-  slot,
-}: {
-  slot: Entrant;
-}) {
+function SlotCard({ slot, active }: { slot: Entrant; active: boolean }) {
   return (
     <section className="space-y-4 rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-            Rank #{slot.rank}
-          </p>
-          <h2 className="text-lg font-bold leading-tight">{slot.name}</h2>
-          <p className="text-xs text-muted-foreground">
-            {money(slot.stake)} per stock · {slot.stocks_per_day} at a time
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full bg-success/15 px-3 py-1 text-[11px] font-semibold text-success">Always testing</span>
+        <h2 className="text-lg font-bold leading-tight">{slot.name}</h2>
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
+            active ? "bg-success/15 text-success" : "bg-secondary text-muted-foreground"
+          }`}
+        >
+          {active ? "Testing today" : "Not testing today"}
+        </span>
       </div>
 
+      {/* Main level: P/L and Win Rate only. */}
       <div className="grid grid-cols-2 gap-2">
         <DualMetric
           label="P&amp;L"
@@ -272,71 +256,8 @@ function SlotCard({
           sameDay={slot.same_day.win_rate === null ? "—" : `${slot.same_day.win_rate}%`}
           threeDay={slot.three_day.win_rate === null ? "—" : `${slot.three_day.win_rate}%`}
         />
-        <DualMetric
-          label="Return"
-          sameDay={
-            slot.same_day.return_pct === null
-              ? "—"
-              : `${slot.same_day.return_pct >= 0 ? "+" : ""}${slot.same_day.return_pct}%`
-          }
-          threeDay={
-            slot.three_day.return_pct === null
-              ? "—"
-              : `${slot.three_day.return_pct >= 0 ? "+" : ""}${slot.three_day.return_pct}%`
-          }
-        />
-        <DualMetric
-          label="Value"
-          sameDay={money(slot.same_day.value)}
-          threeDay={money(slot.three_day.value)}
-          hint={`${money(slot.cash.available)} cash ready`}
-        />
       </div>
 
-
-      <div className="space-y-1">
-        <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Holding</p>
-        {slot.holdings.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nothing held right now.</p>
-        ) : (
-          slot.holdings.map((h) => (
-            <div key={h.ticker} className="flex items-baseline justify-between text-sm">
-              <span className="font-semibold">
-                {h.ticker}{" "}
-                <span className="text-[10px] font-normal text-muted-foreground">
-                  held to {h.hold_until}
-                </span>
-              </span>
-
-              <span
-                className={`tabular-nums ${h.pl >= 0 ? "text-success" : "text-destructive"}`}
-              >
-                {h.pl >= 0 ? "+" : ""}
-                {money(h.pl)} ({h.pl_pct.toFixed(2)}%)
-              </span>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="space-y-1">
-        <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Up next</p>
-        {slot.up_next ? (
-          <p className="text-sm">
-            <span className="font-semibold">{slot.up_next.ticker}</span>{" "}
-            <span className="tabular-nums text-primary">
-              {slot.up_next.score.toFixed(1)} pts
-            </span>{" "}
-            <span className="text-xs text-muted-foreground">
-              at ~${slot.up_next.close.toFixed(2)}
-            </span>
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Nothing meets this formula's score bar yet.
-          </p>
-        )}
-      </div>
 
       <PnlChart
         rows={slot.three_day.rows}
@@ -352,6 +273,77 @@ function SlotCard({
         basis={slot.basis}
       />
 
+      {/* Everything secondary lives under this researcher's own dropdown. */}
+      <details className="rounded border border-border/70 p-3">
+        <summary className="cursor-pointer text-xs font-semibold">
+          {slot.name} — details
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <DualMetric
+              label="Return"
+              sameDay={
+                slot.same_day.return_pct === null
+                  ? "—"
+                  : `${slot.same_day.return_pct >= 0 ? "+" : ""}${slot.same_day.return_pct}%`
+              }
+              threeDay={
+                slot.three_day.return_pct === null
+                  ? "—"
+                  : `${slot.three_day.return_pct >= 0 ? "+" : ""}${slot.three_day.return_pct}%`
+              }
+            />
+            <DualMetric
+              label="Value"
+              sameDay={money(slot.same_day.value)}
+              threeDay={money(slot.three_day.value)}
+              hint={`${money(slot.cash.available)} cash ready`}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Rank #{slot.rank} · {money(slot.stake)} per stock · {slot.stocks_per_day} at a time
+          </p>
+          <div className="space-y-1">
+            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Holding</p>
+            {slot.holdings.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nothing held right now.</p>
+            ) : (
+              slot.holdings.map((h) => (
+                <div key={h.ticker} className="flex items-baseline justify-between text-sm">
+                  <span className="font-semibold">
+                    {h.ticker}{" "}
+                    <span className="text-[10px] font-normal text-muted-foreground">
+                      held to {h.hold_until}
+                    </span>
+                  </span>
+                  <span className={`tabular-nums ${h.pl >= 0 ? "text-success" : "text-destructive"}`}>
+                    {h.pl >= 0 ? "+" : ""}
+                    {money(h.pl)} ({h.pl_pct.toFixed(2)}%)
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="space-y-1">
+            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Up next</p>
+            {slot.up_next ? (
+              <p className="text-sm">
+                <span className="font-semibold">{slot.up_next.ticker}</span>{" "}
+                <span className="tabular-nums text-primary">
+                  {slot.up_next.score.toFixed(1)} pts
+                </span>{" "}
+                <span className="text-xs text-muted-foreground">
+                  at ~${slot.up_next.close.toFixed(2)}
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Nothing meets this formula&apos;s score bar yet.
+              </p>
+            )}
+          </div>
+        </div>
+      </details>
     </section>
   );
 }

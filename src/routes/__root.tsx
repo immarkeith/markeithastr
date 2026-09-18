@@ -138,10 +138,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 const NAV = [
   { to: "/", label: "Home" },
-  { to: "/analyze", label: "Analyze Strategy" },
   { to: "/lab", label: "Research Lab" },
-  { to: "/trade-history", label: "Trade Log" },
+  { to: "/analyze", label: "Analyze Strategy" },
   { to: "/scoreboard", label: "Scoreboard" },
+  { to: "/trade-history", label: "Trade Log" },
   { to: "/notifications", label: "Alerts" },
   { to: "/settings", label: "Settings" },
 ] as const;
@@ -154,40 +154,43 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
-        <header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-xl">
-          <div className="mx-auto max-w-6xl px-4 pt-3">
-            <div className="flex items-center justify-between gap-3">
-              <Link to="/" className="group flex items-center gap-2.5">
-                <img
-                  src={astrLogo.url}
-                  alt="ASTR — explore the market"
-                  className="h-9 w-auto max-w-[150px] object-contain object-left sm:h-10"
-                  loading="eager"
-                  decoding="async"
-                />
-                <span className="hidden text-[11px] uppercase tracking-widest text-muted-foreground sm:inline">
-                  rotation desk
-                </span>
-              </Link>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label="Open navigation"><Menu className="h-5 w-5" /></Button>
-                </SheetTrigger>
-                <SheetContent className="w-72">
-                  <SheetHeader><SheetTitle>ASTR</SheetTitle></SheetHeader>
-                  <nav className="mt-8 grid gap-1">
-                    {NAV.map((item) => (
-                      <SheetClose asChild key={item.to}>
-                        <Link to={item.to} activeOptions={{ exact: item.to === "/" }} className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground data-[status=active]:bg-primary data-[status=active]:text-primary-foreground">
-                          {item.label}
-                        </Link>
-                      </SheetClose>
-                    ))}
-                  </nav>
-                  <Button variant="outline" className="mt-8 w-full" onClick={async () => { await lock(); await router.navigate({ to: "/unlock" }); }}>Lock</Button>
-                </SheetContent>
-              </Sheet>
-            </div>
+        {/* Full-width stationary brand header; hamburger pinned top-left. */}
+        <header className="sticky top-0 z-30 w-full border-b border-border/70 bg-background/85 backdrop-blur-xl">
+          <div className="relative flex h-16 w-full items-center justify-center px-3">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Open navigation"
+                  className="absolute left-2 top-1/2 -translate-y-1/2"
+                >
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72">
+                <SheetHeader><SheetTitle>ASTR</SheetTitle></SheetHeader>
+                <nav className="mt-8 grid gap-1">
+                  {NAV.map((item) => (
+                    <SheetClose asChild key={item.to}>
+                      <Link to={item.to} activeOptions={{ exact: item.to === "/" }} className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground data-[status=active]:bg-primary data-[status=active]:text-primary-foreground">
+                        {item.label}
+                      </Link>
+                    </SheetClose>
+                  ))}
+                  <Button variant="outline" className="mt-6 w-full" onClick={async () => { await lock(); await router.navigate({ to: "/unlock" }); }}>Lock</Button>
+                </nav>
+              </SheetContent>
+            </Sheet>
+            <Link to="/" className="flex items-center justify-center">
+              <img
+                src={astrLogo.url}
+                alt="ASTR"
+                className="h-10 w-auto max-w-[190px] object-contain sm:h-11"
+                loading="eager"
+                decoding="async"
+              />
+            </Link>
           </div>
         </header>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

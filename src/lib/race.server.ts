@@ -996,6 +996,11 @@ export interface RaceEntrant {
   name: string;
   live: boolean;
   enabled: boolean;
+  /**
+   * In today's cycle: the Lead plus the two rotating assistants, and anyone
+   * still holding an open test position.
+   */
+  testing_today: boolean;
   started_on: string | null;
   stake: number;
   stocks_per_day: number;
@@ -1052,10 +1057,11 @@ export async function raceStandings(): Promise<{
   const base = await loadSettings();
   const slots = await loadSlots();
   const rankings = await rankSlots(slots.filter((s) => s.enabled));
+  const rotation = await rotationToday(slots);
 
-  const entrants: RaceEntrant[] = [];
-
-  for (const slot of slots) {
+  // Every researcher book is read in parallel — the Lab has seven of them, and
+  // doing this one at a time was what made the page slow to appear.
+  const entrants: RaceEntrant[] = await Promise.all(slots.map(async (slot) => {
     const [ledger, open, closedRows, sameDayRows] = await Promise.all([
       slotLedger(slot.strategy_id),
       slotOpenTrades(slot.strategy_id),
@@ -1096,13 +1102,18 @@ export async function raceStandings(): Promise<{
       deposits,
     );
 
-    entrants.push({
+    return {
       key: `slot-${slot.id}`,
       slot_id: slot.id,
       strategy_id: slot.strategy_id,
       name: slot.name,
       live: false,
       enabled: slot.enabled,
+      testing_today:
+        slot.enabled &&
+        (slot.lane === "lead" ||
+          (slot.lane !== null && rotation.has(slot.lane)) ||
+          open.length > 0),
       started_on: slot.started_on,
       stake: slot.position_dollars,
       stocks_per_day: slot.stocks_per_day,
@@ -1128,8 +1139,8 @@ export async function raceStandings(): Promise<{
       unrealized: 0,
       unrealized_today: 0,
       basis: 0,
-    });
-  }
+    };
+  }));
 
 
   // The live strategy as the control line.
@@ -1185,6 +1196,7 @@ export async function raceStandings(): Promise<{
     strategy_id: base.active_strategy_id,
     name: `${liveStrategy?.name ?? "Live strategy"} (live)`,
     live: true,
+    testing_today: false,
     enabled: base.strategy_enabled !== false,
     started_on: null,
     stake: Number(ladder.position_dollars),
