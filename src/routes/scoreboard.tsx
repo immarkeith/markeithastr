@@ -61,8 +61,10 @@ function ScoreboardPage() {
         <>
           {selected.rows.length ? (
             <section className="space-y-2">
-              <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Full Top 10</h2>
-              <div className="overflow-x-auto rounded-md border border-border">
+              <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+                Ranked stocks
+              </h2>
+              <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-secondary/50 text-[10px] uppercase tracking-widest text-muted-foreground">
                     <tr>
@@ -75,7 +77,7 @@ function ScoreboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selected.rows.slice(0, 10).map((row) => {
+                    {selected.rows.map((row) => {
                       const watch = watchByTicker.get(row.ticker);
                       return (
                         <tr key={row.ticker} className="border-t border-border">

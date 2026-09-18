@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { InfoDot } from "@/components/InfoDot";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
-import { ResearchDepartment } from "@/components/ResearchDepartment";
+import { ResearchDepartment, ResearchDisagreements } from "@/components/ResearchDepartment";
 import { Button } from "@/components/ui/button";
 import { fetchRace, runRaceNow, setResearchRunning } from "@/lib/race.functions";
 import { money } from "@/lib/queries";
@@ -110,7 +110,7 @@ function LabPage() {
         </Button>
       </section>
 
-      <section className="space-y-2 rounded-md border border-primary/40 bg-primary/10 p-4">
+      <section className="space-y-2">
         <h2 className="text-[11px] uppercase tracking-[0.15em] text-primary">
           Lead Researcher suggestions
         </h2>
@@ -135,7 +135,10 @@ function LabPage() {
         )}
       </section>
 
-      <section className="rounded-md border border-border bg-card p-4">
+      {/* Findings that agree or conflict sit directly under the Lead's suggestions. */}
+      <ResearchDisagreements />
+
+      <section>
         <p className="flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
           Best formula
           <InfoDot title="Best formula">
@@ -208,7 +211,7 @@ function DualMetric({
   hint?: string;
 }) {
   return (
-    <div className="rounded border border-border p-2">
+    <div>
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <div className="mt-1 space-y-0.5">
         <p className="flex items-baseline justify-between gap-2 text-sm font-bold tabular-nums text-chart-4">
@@ -232,7 +235,7 @@ function DualMetric({
 
 function SlotCard({ slot, active }: { slot: Entrant; active: boolean }) {
   return (
-    <section className="space-y-4 rounded-md border border-border bg-card p-4">
+    <section className="space-y-4">
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-lg font-bold leading-tight">{slot.name}</h2>
         <span

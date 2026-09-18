@@ -105,33 +105,43 @@ function HomePage() {
         </p>
       ) : null}
 
-      {/* Account figures sit inside the live P/L frame: compact 2x2, then graph. */}
-      <section className="space-y-4 rounded-md border border-border bg-card p-4">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-          <Figure
-            label="Total assets"
-            value={d?.account ? money(d.account.equity) : "—"}
-            tone="text-primary"
-            info="All cash in the account, including money still clearing, plus the current value of every stock held."
-          />
-          <Figure
-            label="Current balance"
-            value={d?.account ? money(d.account.cash) : "—"}
-            info="All cash in the account, including cash that has not finished clearing yet."
-          />
-          <Figure
-            label="Available balance"
-            value={d?.account ? money(d.account.buying_power) : "—"}
-            info="Only the cash ASTR can actually spend right now."
-          />
-          <Figure
-            label="Total profit"
-            value={d ? money(d.total_profit) : "—"}
-            tone={(d?.total_profit ?? 0) >= 0 ? "text-success" : "text-destructive"}
-          />
-        </div>
+      {/* Six figures, no boxes: left column then right column, graph below. */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+        <Figure
+          label="Current stock"
+          value={(d?.same_day_holdings ?? [])[0]?.ticker ?? "None"}
+          tone="text-primary"
+        />
+        <Figure
+          label="Total assets"
+          value={d?.account ? money(d.account.equity) : "—"}
+          tone="text-primary"
+          info="All cash in the account, including money still clearing, plus the current value of every stock held."
+        />
+        <Figure
+          label="Live profit / loss"
+          value={d ? money(openPl) : "—"}
+          tone={openPl >= 0 ? "text-success" : "text-destructive"}
+        />
+        <Figure
+          label="Total profit"
+          value={d ? money(d.total_profit) : "—"}
+          tone={(d?.total_profit ?? 0) >= 0 ? "text-success" : "text-destructive"}
+        />
+        <Figure
+          label="Available balance"
+          value={d?.account ? money(d.account.buying_power) : "—"}
+          info="Only the cash ASTR can actually spend right now."
+        />
+        <Figure
+          label="Current balance"
+          value={d?.account ? money(d.account.cash) : "—"}
+          info="All cash in the account, including cash that has not finished clearing yet."
+        />
+      </div>
 
-        {/* Live trading only — research paper results never appear here. */}
+      {/* The only box on the page. Live trading only — never paper results. */}
+      <section className="rounded-md border border-border bg-card p-4">
         <PnlChart
           rows={d?.closed ?? []}
           unrealized={openPl}
@@ -147,16 +157,11 @@ function HomePage() {
           Long-term holds
         </h2>
         {(d?.long_term_holdings.length ?? 0) === 0 ? (
-          <p className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-            No long-term holdings.
-          </p>
+          <p className="text-sm text-muted-foreground">No long-term holdings.</p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {d?.long_term_holdings.map((h) => (
-              <div
-                key={`${h.ticker}-${h.entry_date}-${h.dollars}`}
-                className="rounded-md border border-border bg-card p-4"
-              >
+              <div key={`${h.ticker}-${h.entry_date}-${h.dollars}`}>
                 <div className="flex items-baseline justify-between gap-3">
                   <Link to="/analyze" className="text-lg font-bold hover:text-primary">
                     {h.ticker}
@@ -191,7 +196,7 @@ function HomePage() {
         )}
 
         {/* Ideas only — separate from what is actually held above. */}
-        <details className="rounded-md border border-border bg-card p-4">
+        <details>
           <summary className="cursor-pointer text-sm font-semibold">
             5 long-term hold suggestions
           </summary>
@@ -200,10 +205,7 @@ function HomePage() {
           ) : (
             <ul className="mt-3 space-y-2">
               {d?.suggestions.slice(0, 5).map((s) => (
-                <li
-                  key={s.ticker}
-                  className="flex items-center justify-between rounded border border-border p-3"
-                >
+                <li key={s.ticker} className="flex items-center justify-between gap-3">
                   <div>
                     <span className="font-bold">{s.ticker}</span>
                     <p className="text-xs text-muted-foreground">
@@ -228,16 +230,11 @@ function HomePage() {
           Same-day positions
         </h2>
         {(d?.same_day_holdings.length ?? 0) === 0 ? (
-          <p className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-            No same-day position is open.
-          </p>
+          <p className="text-sm text-muted-foreground">No same-day position is open.</p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {d?.same_day_holdings.map((h) => (
-              <div
-                key={`${h.ticker}-${h.entry_date}`}
-                className="rounded-md border border-border bg-card p-4"
-              >
+              <div key={`${h.ticker}-${h.entry_date}`}>
                 <div className="flex items-baseline justify-between">
                   <Link to="/analyze" className="text-lg font-bold hover:text-primary">
                     {h.ticker}
@@ -256,9 +253,7 @@ function HomePage() {
                   {h.qty !== null ? ` · ${h.qty} sh` : ""}
                 </p>
                 {h.note ? (
-                  <p className="mt-2 rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                    {h.note}
-                  </p>
+                  <p className="mt-2 text-xs text-destructive">{h.note}</p>
                 ) : null}
               </div>
             ))}

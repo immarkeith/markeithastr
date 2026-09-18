@@ -17,6 +17,7 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger 
 import { Toaster } from "@/components/ui/sonner";
 import { gateStatus, lockSite } from "@/lib/gate.functions";
 
+import astrBanner from "../assets/astr-banner.jpg";
 import astrLogo from "../assets/astr-wordmark.png.asset.json";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -154,16 +155,23 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
-        {/* Full-width stationary brand header; hamburger pinned top-left. */}
-        <header className="sticky top-0 z-30 w-full border-b border-border/70 bg-background/85 backdrop-blur-xl">
-          <div className="relative flex h-16 w-full items-center justify-center px-3">
+        {/* Full-width stationary brand banner; hamburger overlays the top-left. */}
+        <header className="sticky top-0 z-30 w-full border-b border-border/70">
+          <div className="relative h-28 w-full overflow-hidden sm:h-36">
+            <img
+              src={astrBanner}
+              alt=""
+              width={1920}
+              height={640}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
             <Sheet>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   aria-label="Open navigation"
-                  className="absolute left-2 top-1/2 -translate-y-1/2"
+                  className="absolute left-2 top-2 z-10 text-foreground hover:bg-background/40"
                 >
                   <Menu className="h-6 w-6" />
                 </Button>
@@ -182,11 +190,11 @@ function RootComponent() {
                 </nav>
               </SheetContent>
             </Sheet>
-            <Link to="/" className="flex items-center justify-center">
+            <Link to="/" className="relative flex h-full items-center justify-center">
               <img
                 src={astrLogo.url}
                 alt="ASTR"
-                className="h-10 w-auto max-w-[190px] object-contain sm:h-11"
+                className="h-12 w-auto max-w-[240px] object-contain sm:h-16"
                 loading="eager"
                 decoding="async"
               />
