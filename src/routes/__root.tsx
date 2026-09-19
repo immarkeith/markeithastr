@@ -156,14 +156,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
         {/* Full-width stationary brand banner; hamburger overlays the top-left. */}
-        <header className="sticky top-0 z-30 w-full border-b border-border/70">
-          <div className="relative h-28 w-full overflow-hidden sm:h-36">
+        <header className="sticky top-0 z-30 -mt-px w-full border-b border-border/70">
+          <div className="relative h-32 w-full overflow-hidden sm:h-44">
             <img
-              src={astrBanner}
-              alt=""
-              width={1920}
-              height={640}
-              className="absolute inset-0 h-full w-full object-cover"
+              src={astrLogo.url}
+              alt="ASTR"
+              className="absolute inset-0 h-full w-full object-cover object-center"
+              loading="eager"
+              decoding="async"
             />
             <Sheet>
               <SheetTrigger asChild>
