@@ -189,15 +189,8 @@ function RootComponent() {
                 </nav>
               </SheetContent>
             </Sheet>
-            <Link to="/" className="relative flex h-full items-center justify-center">
-              <img
-                src={astrLogo.url}
-                alt="ASTR"
-                className="h-12 w-auto max-w-[240px] object-contain sm:h-16"
-                loading="eager"
-                decoding="async"
-              />
-            </Link>
+            {/* The whole stretched picture is the home link. */}
+            <Link to="/" aria-label="Home" className="absolute inset-0 block" />
           </div>
         </header>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
