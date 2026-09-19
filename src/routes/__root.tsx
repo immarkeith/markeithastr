@@ -17,8 +17,7 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger 
 import { Toaster } from "@/components/ui/sonner";
 import { gateStatus, lockSite } from "@/lib/gate.functions";
 
-import astrBanner from "../assets/astr-banner.jpg";
-import astrLogo from "../assets/astr-wordmark.png.asset.json";
+import astrLogo from "../assets/astr-logo.png.asset.json";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
