@@ -66,7 +66,18 @@ export const HISTORY_DAYS = 160;
 export async function loadSettings(): Promise<Settings> {
   const { data, error } = await supabaseAdmin.from("app_settings").select("*").eq("id", 1).single();
   if (error) throw new Error(error.message);
-  return data as unknown as Settings;
+  const settings = data as unknown as Settings;
+  // Self-hosting safety net: the paid Polygon feed needs its own key. When that
+  // key is absent but Alpaca credentials exist, use Alpaca's free IEX feed
+  // instead of failing every request with "Invalid API key".
+  if (settings.provider === "polygon" && !process.env["MARKET_DATA_API_KEY"]?.trim()) {
+    const hasAlpaca = Boolean(
+      (process.env["ALPACA_LIVE_KEY_ID"] && process.env["ALPACA_LIVE_SECRET_KEY"]) ||
+        (process.env["ALPACA_PAPER_KEY_ID"] && process.env["ALPACA_PAPER_SECRET_KEY"]),
+    );
+    if (hasAlpaca) settings.provider = "alpaca";
+  }
+  return settings;
 }
 
 /**
