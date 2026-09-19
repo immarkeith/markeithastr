@@ -5,7 +5,11 @@ import { toast } from "sonner";
 
 import { InfoDot } from "@/components/InfoDot";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
-import { ResearchDepartment, ResearchDisagreements } from "@/components/ResearchDepartment";
+import {
+  ResearchDepartment,
+  ResearchDisagreements,
+  ResearcherTabs,
+} from "@/components/ResearchDepartment";
 import { Button } from "@/components/ui/button";
 import { fetchRace, runRaceNow, setResearchRunning } from "@/lib/race.functions";
 import { money } from "@/lib/queries";
