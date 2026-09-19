@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { unlockSite } from "@/lib/gate.functions";
 
-import astrLogo from "../assets/astr-logo.png.asset.json";
+import { ASTR_IMAGE } from "@/lib/brand";
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
@@ -51,19 +51,20 @@ function UnlockPage() {
   }
 
   return (
-    <div className="mx-auto max-w-sm space-y-6 py-10">
-      <div className="space-y-3 text-center">
-        <img
-          src={astrLogo.url}
-          alt="ASTR — explore the market"
-          className="mx-auto w-full max-w-[260px] rounded-xl border border-border/60"
-        />
+    <div className="relative min-h-screen">
+      {/* Full-bleed ASTR picture as the sign-in background. */}
+      <div
+        className="fixed inset-0 -z-10 bg-background bg-cover bg-center"
+        style={{ backgroundImage: `url(${ASTR_IMAGE})` }}
+        aria-hidden
+      />
+      <div className="fixed inset-0 -z-10 bg-background/70" aria-hidden />
+      <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-end px-4 pb-16">
         <h1 className="sr-only">ASTR</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="mb-4 text-sm text-muted-foreground">
           Enter your passcode. This device stays unlocked for 90 days.
         </p>
-      </div>
-      <form onSubmit={submit} className="space-y-3 rounded-xl border border-border bg-card p-4">
+        <form onSubmit={submit} className="space-y-3">
         <div className="space-y-1">
           <Label htmlFor="passcode">Passcode</Label>
           <Input
