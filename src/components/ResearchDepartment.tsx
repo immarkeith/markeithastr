@@ -117,6 +117,76 @@ export function ResearchDisagreements() {
   );
 }
 
+function Drop({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details>
+      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+        {label}
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * The nested tabs shown inside one researcher's "details" dropdown on the
+ * Research Lab: their standing, their notebook, and what they ruled out.
+ */
+export function ResearcherTabs({ name }: { name: string }) {
+  const dept = useDepartment();
+  const data = dept.data;
+  const isLead = /lead/i.test(name);
+  const researcher = (data?.researchers ?? []).find(
+    (r) => r.name.toLowerCase() === name.toLowerCase(),
+  );
+  const lane = isLead ? "lead" : (researcher?.lane ?? "");
+  const notebook = (data?.notebook ?? []).filter((n) => n.lane === lane);
+  const deadEnds = (data?.dead_ends ?? []).filter((d) => d.lane === lane);
+  const activeRules = (data?.master?.rules ?? []).filter((r) => r.status === "active");
+  const objections = (data?.findings ?? [])
+    .filter((f) => f.verdict === "vetoed")
+    .slice(0, 6)
+    .flatMap((f) => f.objections.slice(0, 2));
+
+  return (
+    <div className="space-y-3">
+      <Drop label="Active · Generation · Experiments">
+        {researcher ? (
+          <p className="text-xs text-muted-foreground">
+            {researcher.enabled ? "Active" : "Inactive"} · generation {researcher.generation} ·{" "}
+            {researcher.experiments_run} experiments run
+          </p>
+        ) : isLead ? (
+          <p className="text-xs text-muted-foreground">
+            Always active · {activeRules.length} validated rule(s) in the Master Formula
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">No record yet.</p>
+        )}
+      </Drop>
+      <Drop label="Notebook">
+        <NotebookTable entries={notebook.slice(0, 30)} />
+      </Drop>
+      <Drop label="Why it doesn&apos;t work">
+        <DeadEndList entries={deadEnds} />
+      </Drop>
+      {isLead ? (
+        <Drop label="Skeptic objections">
+          {objections.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No objections raised yet.</p>
+          ) : (
+            <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+              {objections.map((o) => (
+                <li key={o}>{o}</li>
+              ))}
+            </ul>
+          )}
+        </Drop>
+      ) : null}
+    </div>
+  );
+}
+
 /** One researcher row: name opens, and inside it two more dropdowns. */
 function ResearcherRow({
   name,
@@ -185,19 +255,17 @@ export function ResearchDepartment() {
   return (
     <div className="space-y-8">
       {(leadTest || todayBackups.length > 0) && (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-              Today&apos;s three tests
-            </h2>
-            {rotation ? (
-              <p className="text-xs text-muted-foreground">
-                Sitting out: {rotation.sitting_out.join(", ") || "nobody"} · next up:{" "}
-                {rotation.next.join(", ") || "—"}
-              </p>
-            ) : null}
-          </div>
-          <div className="grid gap-5 lg:grid-cols-3">
+        <details>
+          <summary className="cursor-pointer text-sm uppercase tracking-[0.15em] text-muted-foreground">
+            Today&apos;s three tests
+          </summary>
+          {rotation ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Sitting out: {rotation.sitting_out.join(", ") || "nobody"} · next up:{" "}
+              {rotation.next.join(", ") || "—"}
+            </p>
+          ) : null}
+          <div className="mt-3 grid gap-5 lg:grid-cols-3">
             {leadTest ? (
               <article className="space-y-1">
                 <div className="flex items-baseline justify-between gap-2">
@@ -243,79 +311,60 @@ export function ResearchDepartment() {
               </article>
             ))}
           </div>
-        </section>
+        </details>
       )}
 
-      <section className="space-y-1">
-        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Researchers</h2>
-        <ResearcherRow
-          name="Lead Researcher"
-          subtitle={
-            leadTest
-              ? `Master Formula v${leadTest.master_version} · ${activeRules.length} validated rule(s)`
-              : `${activeRules.length} validated rule(s)`
-          }
-          notebook={notebook.filter((n) => n.lane === "lead")}
-          deadEnds={deadEnds.filter((d) => d.lane === "lead")}
-          extra={
-            <div className="space-y-2">
-              {activeRules.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No rule has cleared the bar yet — the Lead keeps testing the current live weights.
+      <details>
+        <summary className="cursor-pointer text-sm uppercase tracking-[0.15em] text-muted-foreground">
+          Master Formula &amp; model tests
+        </summary>
+        <div className="mt-3 space-y-2">
+          {activeRules.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No rule has cleared the bar yet — the Lead keeps testing the current live weights.
+            </p>
+          ) : (
+            <ul className="space-y-1 text-xs">
+              {activeRules.map((r) => (
+                <li key={r.id}>
+                  <span className="text-sm">{r.label}</span>{" "}
+                  <span className="text-muted-foreground">
+                    found by {r.discovered_by} · confirmed {r.confirmations}x ·{" "}
+                    <Signed value={Number(r.last_edge ?? 0)} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {ml ? (
+            <div className="text-xs">
+              <p className="font-semibold">
+                Predictive model test —{" "}
+                {ml.covered_dates >= 5
+                  ? ml.accepted
+                    ? "accepted for now"
+                    : "rejected"
+                  : "gathering evidence"}
+              </p>
+              <p className="text-muted-foreground">{ml.conclusion}</p>
+              {ml.covered_dates >= 5 ? (
+                <p className="tabular-nums text-muted-foreground">
+                  pure formula <Signed value={ml.pure_avg_return_pct} /> · with model{" "}
+                  <Signed value={ml.blended_avg_return_pct} /> · difference{" "}
+                  <Signed value={ml.delta} /> per trade
                 </p>
-              ) : (
-                <ul className="space-y-1 text-xs">
-                  {activeRules.map((r) => (
-                    <li key={r.id}>
-                      <span className="text-sm">{r.label}</span>{" "}
-                      <span className="text-muted-foreground">
-                        found by {r.discovered_by} · confirmed {r.confirmations}x ·{" "}
-                        <Signed value={Number(r.last_edge ?? 0)} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {ml ? (
-                <div className="text-xs">
-                  <p className="font-semibold">
-                    Predictive model test —{" "}
-                    {ml.covered_dates >= 5
-                      ? ml.accepted
-                        ? "accepted for now"
-                        : "rejected"
-                      : "gathering evidence"}
-                  </p>
-                  <p className="text-muted-foreground">{ml.conclusion}</p>
-                  {ml.covered_dates >= 5 ? (
-                    <p className="tabular-nums text-muted-foreground">
-                      pure formula <Signed value={ml.pure_avg_return_pct} /> · with model{" "}
-                      <Signed value={ml.blended_avg_return_pct} /> · difference{" "}
-                      <Signed value={ml.delta} /> per trade
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {objections.length > 0 ? (
-                <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-                  {objections.flatMap((f) => f.objections.slice(0, 2)).map((o) => (
-                    <li key={o}>{o}</li>
-                  ))}
-                </ul>
               ) : null}
             </div>
-          }
-        />
-        {ordered.map((r) => (
-          <ResearcherRow
-            key={r.id}
-            name={r.name}
-            subtitle={`${r.enabled ? "active" : "inactive"} · generation ${r.generation} · ${r.experiments_run} experiments`}
-            notebook={notebook.filter((n) => n.lane === r.lane)}
-            deadEnds={deadEnds.filter((d) => d.lane === r.lane)}
-          />
-        ))}
-      </section>
+          ) : null}
+          {objections.length > 0 ? (
+            <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+              {objections.flatMap((f) => f.objections.slice(0, 2)).map((o) => (
+                <li key={o}>{o}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </details>
     </div>
   );
 }

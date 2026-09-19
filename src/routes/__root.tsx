@@ -17,8 +17,7 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger 
 import { Toaster } from "@/components/ui/sonner";
 import { gateStatus, lockSite } from "@/lib/gate.functions";
 
-import astrBanner from "../assets/astr-banner.jpg";
-import astrLogo from "../assets/astr-wordmark.png.asset.json";
+import astrLogo from "../assets/astr-logo.png.asset.json";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -156,14 +155,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
         {/* Full-width stationary brand banner; hamburger overlays the top-left. */}
-        <header className="sticky top-0 z-30 w-full border-b border-border/70">
-          <div className="relative h-28 w-full overflow-hidden sm:h-36">
+        <header className="sticky top-0 z-30 -mt-px w-full border-b border-border/70">
+          <div className="relative h-32 w-full overflow-hidden sm:h-44">
             <img
-              src={astrBanner}
-              alt=""
-              width={1920}
-              height={640}
-              className="absolute inset-0 h-full w-full object-cover"
+              src={astrLogo.url}
+              alt="ASTR"
+              className="absolute inset-0 h-full w-full object-cover object-center"
+              loading="eager"
+              decoding="async"
             />
             <Sheet>
               <SheetTrigger asChild>
@@ -190,15 +189,8 @@ function RootComponent() {
                 </nav>
               </SheetContent>
             </Sheet>
-            <Link to="/" className="relative flex h-full items-center justify-center">
-              <img
-                src={astrLogo.url}
-                alt="ASTR"
-                className="h-12 w-auto max-w-[240px] object-contain sm:h-16"
-                loading="eager"
-                decoding="async"
-              />
-            </Link>
+            {/* The whole stretched picture is the home link. */}
+            <Link to="/" aria-label="Home" className="absolute inset-0 block" />
           </div>
         </header>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
