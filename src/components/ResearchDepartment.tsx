@@ -311,79 +311,60 @@ export function ResearchDepartment() {
               </article>
             ))}
           </div>
-        </section>
+        </details>
       )}
 
-      <section className="space-y-1">
-        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Researchers</h2>
-        <ResearcherRow
-          name="Lead Researcher"
-          subtitle={
-            leadTest
-              ? `Master Formula v${leadTest.master_version} · ${activeRules.length} validated rule(s)`
-              : `${activeRules.length} validated rule(s)`
-          }
-          notebook={notebook.filter((n) => n.lane === "lead")}
-          deadEnds={deadEnds.filter((d) => d.lane === "lead")}
-          extra={
-            <div className="space-y-2">
-              {activeRules.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No rule has cleared the bar yet — the Lead keeps testing the current live weights.
+      <details>
+        <summary className="cursor-pointer text-sm uppercase tracking-[0.15em] text-muted-foreground">
+          Master Formula &amp; model tests
+        </summary>
+        <div className="mt-3 space-y-2">
+          {activeRules.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No rule has cleared the bar yet — the Lead keeps testing the current live weights.
+            </p>
+          ) : (
+            <ul className="space-y-1 text-xs">
+              {activeRules.map((r) => (
+                <li key={r.id}>
+                  <span className="text-sm">{r.label}</span>{" "}
+                  <span className="text-muted-foreground">
+                    found by {r.discovered_by} · confirmed {r.confirmations}x ·{" "}
+                    <Signed value={Number(r.last_edge ?? 0)} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {ml ? (
+            <div className="text-xs">
+              <p className="font-semibold">
+                Predictive model test —{" "}
+                {ml.covered_dates >= 5
+                  ? ml.accepted
+                    ? "accepted for now"
+                    : "rejected"
+                  : "gathering evidence"}
+              </p>
+              <p className="text-muted-foreground">{ml.conclusion}</p>
+              {ml.covered_dates >= 5 ? (
+                <p className="tabular-nums text-muted-foreground">
+                  pure formula <Signed value={ml.pure_avg_return_pct} /> · with model{" "}
+                  <Signed value={ml.blended_avg_return_pct} /> · difference{" "}
+                  <Signed value={ml.delta} /> per trade
                 </p>
-              ) : (
-                <ul className="space-y-1 text-xs">
-                  {activeRules.map((r) => (
-                    <li key={r.id}>
-                      <span className="text-sm">{r.label}</span>{" "}
-                      <span className="text-muted-foreground">
-                        found by {r.discovered_by} · confirmed {r.confirmations}x ·{" "}
-                        <Signed value={Number(r.last_edge ?? 0)} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {ml ? (
-                <div className="text-xs">
-                  <p className="font-semibold">
-                    Predictive model test —{" "}
-                    {ml.covered_dates >= 5
-                      ? ml.accepted
-                        ? "accepted for now"
-                        : "rejected"
-                      : "gathering evidence"}
-                  </p>
-                  <p className="text-muted-foreground">{ml.conclusion}</p>
-                  {ml.covered_dates >= 5 ? (
-                    <p className="tabular-nums text-muted-foreground">
-                      pure formula <Signed value={ml.pure_avg_return_pct} /> · with model{" "}
-                      <Signed value={ml.blended_avg_return_pct} /> · difference{" "}
-                      <Signed value={ml.delta} /> per trade
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {objections.length > 0 ? (
-                <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-                  {objections.flatMap((f) => f.objections.slice(0, 2)).map((o) => (
-                    <li key={o}>{o}</li>
-                  ))}
-                </ul>
               ) : null}
             </div>
-          }
-        />
-        {ordered.map((r) => (
-          <ResearcherRow
-            key={r.id}
-            name={r.name}
-            subtitle={`${r.enabled ? "active" : "inactive"} · generation ${r.generation} · ${r.experiments_run} experiments`}
-            notebook={notebook.filter((n) => n.lane === r.lane)}
-            deadEnds={deadEnds.filter((d) => d.lane === r.lane)}
-          />
-        ))}
-      </section>
+          ) : null}
+          {objections.length > 0 ? (
+            <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+              {objections.flatMap((f) => f.objections.slice(0, 2)).map((o) => (
+                <li key={o}>{o}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </details>
     </div>
   );
 }
