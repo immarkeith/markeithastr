@@ -255,19 +255,17 @@ export function ResearchDepartment() {
   return (
     <div className="space-y-8">
       {(leadTest || todayBackups.length > 0) && (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-              Today&apos;s three tests
-            </h2>
-            {rotation ? (
-              <p className="text-xs text-muted-foreground">
-                Sitting out: {rotation.sitting_out.join(", ") || "nobody"} · next up:{" "}
-                {rotation.next.join(", ") || "—"}
-              </p>
-            ) : null}
-          </div>
-          <div className="grid gap-5 lg:grid-cols-3">
+        <details>
+          <summary className="cursor-pointer text-sm uppercase tracking-[0.15em] text-muted-foreground">
+            Today&apos;s three tests
+          </summary>
+          {rotation ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Sitting out: {rotation.sitting_out.join(", ") || "nobody"} · next up:{" "}
+              {rotation.next.join(", ") || "—"}
+            </p>
+          ) : null}
+          <div className="mt-3 grid gap-5 lg:grid-cols-3">
             {leadTest ? (
               <article className="space-y-1">
                 <div className="flex items-baseline justify-between gap-2">
