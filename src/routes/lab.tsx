@@ -353,6 +353,7 @@ function SlotCard({ slot, active }: { slot: Entrant; active: boolean }) {
               </p>
             )}
           </div>
+          <ResearcherTabs name={slot.name} />
         </div>
       </details>
     </section>
