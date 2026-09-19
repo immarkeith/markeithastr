@@ -117,6 +117,76 @@ export function ResearchDisagreements() {
   );
 }
 
+function Drop({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details>
+      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+        {label}
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * The nested tabs shown inside one researcher's "details" dropdown on the
+ * Research Lab: their standing, their notebook, and what they ruled out.
+ */
+export function ResearcherTabs({ name }: { name: string }) {
+  const dept = useDepartment();
+  const data = dept.data;
+  const isLead = /lead/i.test(name);
+  const researcher = (data?.researchers ?? []).find(
+    (r) => r.name.toLowerCase() === name.toLowerCase(),
+  );
+  const lane = isLead ? "lead" : (researcher?.lane ?? "");
+  const notebook = (data?.notebook ?? []).filter((n) => n.lane === lane);
+  const deadEnds = (data?.dead_ends ?? []).filter((d) => d.lane === lane);
+  const activeRules = (data?.master?.rules ?? []).filter((r) => r.status === "active");
+  const objections = (data?.findings ?? [])
+    .filter((f) => f.verdict === "vetoed")
+    .slice(0, 6)
+    .flatMap((f) => f.objections.slice(0, 2));
+
+  return (
+    <div className="space-y-3">
+      <Drop label="Active · Generation · Experiments">
+        {researcher ? (
+          <p className="text-xs text-muted-foreground">
+            {researcher.enabled ? "Active" : "Inactive"} · generation {researcher.generation} ·{" "}
+            {researcher.experiments_run} experiments run
+          </p>
+        ) : isLead ? (
+          <p className="text-xs text-muted-foreground">
+            Always active · {activeRules.length} validated rule(s) in the Master Formula
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">No record yet.</p>
+        )}
+      </Drop>
+      <Drop label="Notebook">
+        <NotebookTable entries={notebook.slice(0, 30)} />
+      </Drop>
+      <Drop label="Why it doesn&apos;t work">
+        <DeadEndList entries={deadEnds} />
+      </Drop>
+      {isLead ? (
+        <Drop label="Skeptic objections">
+          {objections.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No objections raised yet.</p>
+          ) : (
+            <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+              {objections.map((o) => (
+                <li key={o}>{o}</li>
+              ))}
+            </ul>
+          )}
+        </Drop>
+      ) : null}
+    </div>
+  );
+}
+
 /** One researcher row: name opens, and inside it two more dropdowns. */
 function ResearcherRow({
   name,
