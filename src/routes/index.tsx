@@ -182,6 +182,11 @@ function HomePage() {
                 <p className="mt-1 text-sm tabular-nums text-muted-foreground">
                   {h.qty.toFixed(4)} sh · {money(h.dollars)} in · {money(h.market_value)} now
                 </p>
+                {/* The holding period the owner chose, and the review date. */}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {h.hold_horizon ? horizonLabel(h.hold_horizon) : "No holding period set"}
+                  {h.review_date ? ` · review ${h.review_date}` : ""}
+                </p>
                 <div className="mt-3 flex items-center gap-2">
                   {h.trade_id ? (
                     <LongTermSellDialog
