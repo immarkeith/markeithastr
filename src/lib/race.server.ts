@@ -295,27 +295,21 @@ export async function rankSlots(slots: RaceSlot[]): Promise<Map<number, RankRow[
 }
 
 /**
- * Which researchers may open a new position today. The Lead Researcher always
- * may; of the six others only the two who have waited longest since their last
- * paper entry take a turn, so all six get regular turns and nobody doubles up.
- * A researcher already holding a stock is never eligible.
+ * Which researchers may open a new position today.
+ *
+ * Every researcher now works every market day — there is no turn-taking left.
+ * A researcher already holding its one stock still opens nothing until that
+ * position closes.
  */
 async function rotationToday(slots: RaceSlot[]): Promise<Set<string>> {
-  const waiting: { lane: string; last: string }[] = [];
+  const working: string[] = [];
   for (const slot of slots) {
     if (!slot.lane || slot.lane === "lead" || !slot.enabled) continue;
     const open = await slotOpenTrades(slot.strategy_id);
     if (open.length > 0) continue;
-    const { data } = await supabaseAdmin
-      .from("trades")
-      .select("entry_date")
-      .eq("strategy_id", slot.strategy_id)
-      .order("entry_date", { ascending: false })
-      .limit(1);
-    waiting.push({ lane: slot.lane, last: String(data?.[0]?.entry_date ?? "") });
+    working.push(slot.lane);
   }
-  waiting.sort((a, b) => (a.last === b.last ? a.lane.localeCompare(b.lane) : a.last < b.last ? -1 : 1));
-  return new Set(waiting.slice(0, ROTATION_PER_DAY).map((w) => w.lane));
+  return new Set(working);
 }
 
 // ------------------------------------------------------- slot cash + book ----
