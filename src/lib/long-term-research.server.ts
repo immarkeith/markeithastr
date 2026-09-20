@@ -247,7 +247,7 @@ export async function longTermTopTen(): Promise<LongTermBoard> {
 
   // Per-horizon reference points, so each horizon is judged against its peers.
   const perHorizon = new Map<string, { mu: number; sd: number }>();
-  for (const horizon of RESEARCH_HORIZONS) {
+  for (const horizon of LONG_TERM_RESEARCH_HORIZONS) {
     const means: number[] = [];
     for (const [key, cohort] of cohorts) {
       if (!key.endsWith(`|${horizon}`) || cohort.evaluated === 0) continue;
@@ -388,7 +388,7 @@ export async function horizonRecommendation(ticker: string): Promise<{
     };
   }
   let best: { horizon: string; avg: number; wins: number; n: number } | null = null;
-  for (const horizon of RESEARCH_HORIZONS) {
+  for (const horizon of LONG_TERM_RESEARCH_HORIZONS) {
     const subset = rows.filter((r) => String(r.horizon) === horizon);
     if (subset.length === 0) continue;
     const avg = subset.reduce((a, r) => a + Number(r.return_pct), 0) / subset.length;
