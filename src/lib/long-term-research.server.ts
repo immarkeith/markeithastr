@@ -52,11 +52,11 @@ export async function recordHorizonPredictions(
     // The formula that produced the candidate travels with it, so later results
     // can never be credited to a formula that was changed in the meantime.
     formula_version: `${slot.name} @ ${day}`,
-    formula: slot.params ?? {},
+    formula: (slot.params ?? {}) as never,
     ticker: pick.ticker.toUpperCase(),
     entry_price: price,
     score: Number.isFinite(pick.score) ? pick.score : null,
-    factors: (pick.factors ?? {}) as Record<string, unknown>,
+    factors: (pick.factors ?? {}) as never,
     horizon,
     evaluate_on: addCalendarMonths(day, horizon === "1M" ? 1 : horizon === "3M" ? 3 : 9),
     outcome: "pending",
