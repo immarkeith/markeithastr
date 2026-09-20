@@ -1,4 +1,4 @@
--- ASTR fresh setup 4 of 4 (database structure)
+-- ASTR fresh setup 4 of 9 (database structure)
 -- Run parts in order, each in its own new query.
 
 SET statement_timeout = 0;
