@@ -57,6 +57,8 @@ export interface RankRow {
 const MAX_SLOTS = 7;
 /** A researcher never runs more than one stock at a time. */
 const STOCKS_PER_RESEARCHER = 1;
+/** Shared long-term research candidates created per trading day (configurable). */
+const LONG_TERM_CANDIDATES_PER_DAY = 1;
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
 /**
