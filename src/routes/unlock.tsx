@@ -54,11 +54,11 @@ function UnlockPage() {
     <div className="relative min-h-screen">
       {/* Full-bleed ASTR picture as the sign-in background. */}
       <div
-        className="fixed inset-0 -z-10 bg-background bg-cover bg-center"
+        className="fixed inset-0 -z-10 bg-background bg-contain bg-top bg-no-repeat"
         style={{ backgroundImage: `url(${ASTR_IMAGE})` }}
         aria-hidden
       />
-      <div className="fixed inset-0 -z-10 bg-background/70" aria-hidden />
+      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-background/20 via-background/40 to-background" aria-hidden />
       <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-end px-4 pb-16">
         <h1 className="sr-only">ASTR</h1>
         <p className="mb-4 text-sm text-muted-foreground">
