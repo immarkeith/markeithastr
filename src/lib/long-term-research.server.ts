@@ -139,8 +139,6 @@ export async function evaluateDueHorizons(): Promise<{ evaluated: number; waitin
     const entry = Number(row.entry_price);
     const exit = mark.close;
     const returnPct = entry > 0 ? Number((((exit / entry) - 1) * 100).toFixed(4)) : 0;
-    const benchmark =
-      proxyNow !== null && proxy !== String(row.ticker) ? Number(proxyNow) : null;
     const { error } = await supabaseAdmin
       .from("research_horizon_predictions")
       .update({
@@ -148,7 +146,6 @@ export async function evaluateDueHorizons(): Promise<{ evaluated: number; waitin
         successful: returnPct > 0,
         exit_price: exit,
         return_pct: returnPct,
-        benchmark_return_pct: benchmark === null ? null : null,
         evaluated_at: new Date().toISOString(),
         note: `Evaluated at the ${horizonLabel(String(row.horizon))} mark using the ${mark.date} close.`,
       })
