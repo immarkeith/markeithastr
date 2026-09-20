@@ -252,6 +252,16 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       .eq("position_type", "SAME_DAY")
       .order("exit_date", { ascending: true })
       .limit(400);
+    // Long-term sales are kept on their own, so the same-day line never changes.
+    const { data: closedLongTerm } = await db
+      .from("trades")
+      .select("exit_date, profit, kept, ticker, mode")
+      .eq("status", "closed")
+      .is("strategy_id", null)
+      .eq("mode", mode)
+      .eq("position_type", "LONG_TERM")
+      .order("exit_date", { ascending: true })
+      .limit(400);
     const { data: ledger } = await db
       .from("ledger_entries")
       .select("amount, available_on, kind")
