@@ -1,4 +1,4 @@
--- ASTR fresh setup 8 of 8: automatic daily schedule
+-- ASTR fresh setup 9 of 9: automatic daily schedule
 --
 -- BEFORE RUNNING: replace BOTH placeholders below.
 --   https://YOUR-APP.vercel.app  -> your live app address
