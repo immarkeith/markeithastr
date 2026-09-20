@@ -109,7 +109,6 @@ export async function evaluateDueHorizons(): Promise<{ evaluated: number; waitin
 
   const tickers = Array.from(new Set([...rows.map((r) => String(r.ticker)), proxy]));
   const marks = await latestCloses(tickers);
-  const proxyNow = marks.get(proxy)?.close ?? null;
 
   let evaluated = 0;
   let waiting = 0;
