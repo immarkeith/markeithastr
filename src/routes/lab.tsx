@@ -237,7 +237,7 @@ function DualMetric({
 }
 
 
-function SlotCard({ slot, active }: { slot: Entrant; active: boolean }) {
+function SlotCard({ slot }: { slot: Entrant; active?: boolean }) {
   return (
     <section className="space-y-4">
       {/* Every researcher tests every market day, so no status badge is needed. */}

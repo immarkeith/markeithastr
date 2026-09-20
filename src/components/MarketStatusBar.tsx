@@ -22,9 +22,9 @@ export function MarketStatusBar({ paperMode }: { paperMode?: boolean }) {
     return () => clearInterval(id);
   }, []);
 
-  return (
-    <div className={`overflow-hidden py-1 text-xs ${toneFor(status)}`}>
-      <div className="market-ticker flex w-max items-center gap-6 whitespace-nowrap px-3">
+  // The same strip twice, so the crawl loops right-to-left without jumping back.
+  const strip = (
+    <div className="flex shrink-0 items-center gap-6 whitespace-nowrap px-3">
       <span className="flex items-center gap-2 font-semibold uppercase tracking-widest">
         <span
           className={`h-2 w-2 rounded-full ${
@@ -44,6 +44,16 @@ export function MarketStatusBar({ paperMode }: { paperMode?: boolean }) {
           Simulation only — no orders sent
         </span>
       ) : null}
+    </div>
+  );
+
+  return (
+    <div className={`overflow-hidden py-1 text-xs ${toneFor(status)}`}>
+      <div className="market-ticker flex w-max items-center">
+        {strip}
+        <span aria-hidden="true" className="contents">
+          {strip}
+        </span>
       </div>
     </div>
   );
