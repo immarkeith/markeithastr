@@ -765,10 +765,16 @@ ALTER TABLE public.paper_slots FORCE ROW LEVEL SECURITY;
 CREATE TRIGGER update_paper_slots_updated_at BEFORE UPDATE ON public.paper_slots
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-INSERT INTO public.paper_slots (id, strategy_id) VALUES
-  (1, 'fc99a1e4-686c-4a18-b961-22b7f3426059'),
-  (2, 'd72c5d37-a356-4881-9e26-4163a6638321'),
-  (3, 'bf5f3062-546c-4b2c-a9fe-6cb189ec778c')
+-- Link the three test slots to strategies by NAME, so a freshly created
+-- database (which generates its own ids) works without editing this file.
+INSERT INTO public.paper_slots (id, strategy_id)
+SELECT v.slot, s.id
+FROM (VALUES
+  (1, 'Trend follower'),
+  (2, 'Momentum burst'),
+  (3, 'Careful / low volatility')
+) AS v(slot, strategy_name)
+JOIN public.strategies s ON s.name = v.strategy_name
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.ledger_entries (kind, amount, note, strategy_id, entry_date, available_on)
