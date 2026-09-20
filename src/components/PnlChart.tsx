@@ -297,6 +297,19 @@ export function PnlChart({
                 vectorEffect="non-scaling-stroke"
               />
             ) : null}
+            {/* Combined live long-term profit/loss — its own line, same axes. */}
+            {secondarySeries && secondarySeries.length > 0 ? (
+              <path
+                d={pathOf(secondarySeries)}
+                fill="none"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeDasharray="3 2"
+                stroke="currentColor"
+                className="text-chart-3"
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
             {series.length > 0 ? (
               <path
                 d={pathOf(series)}
