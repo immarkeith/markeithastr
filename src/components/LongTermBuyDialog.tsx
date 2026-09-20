@@ -14,16 +14,26 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HOLD_HORIZONS, reviewDateFor, type HoldHorizon } from "@/lib/horizons";
 import { buyLongTerm } from "@/lib/long-term.functions";
 
+/**
+ * The one and only long-term buy dialog. Every place that can start a live
+ * long-term holding — Home, Analyze Strategy, Scoreboard — uses this component,
+ * so the dollar amount and the holding period are always asked the same way.
+ */
 export function LongTermBuyDialog({ ticker, price }: { ticker: string; price: number }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("20");
+  const [horizon, setHorizon] = useState<HoldHorizon>("3M");
   const qc = useQueryClient();
   const buy = useServerFn(buyLongTerm);
   const dollars = Number(amount);
+  const today = new Date().toISOString().slice(0, 10);
+  const review = reviewDateFor(horizon, today);
   const mutation = useMutation({
-    mutationFn: () => buy({ data: { ticker, dollars, estimated_price: price } }),
+    mutationFn: () =>
+      buy({ data: { ticker, dollars, estimated_price: price, hold_horizon: horizon } }),
     onSuccess: async () => {
       toast.success(`${ticker} was purchased as a protected long-term holding.`);
       setOpen(false);
@@ -42,9 +52,31 @@ export function LongTermBuyDialog({ ticker, price }: { ticker: string; price: nu
             <DialogTitle>Buy {ticker} long term</DialogTitle>
             <DialogDescription>This places a real live order in the protected long-term bucket.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor={`long-term-${ticker}`}>How much do you want to buy?</Label>
-            <Input id={`long-term-${ticker}`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor={`long-term-${ticker}`}>How much do you want to buy?</Label>
+              <Input id={`long-term-${ticker}`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`horizon-${ticker}`}>How long do you want to hold it?</Label>
+              <select
+                id={`horizon-${ticker}`}
+                value={horizon}
+                onChange={(e) => setHorizon(e.target.value as HoldHorizon)}
+                className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+              >
+                {HOLD_HORIZONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {review
+                  ? `You will be asked what to do on ${review}. Nothing is ever sold automatically.`
+                  : "No end date. You will still get research updates about it."}
+              </p>
+            </div>
             <p className="text-xs text-muted-foreground">
               Estimated {Number.isFinite(dollars) && price > 0 ? (dollars / price).toFixed(4) : "—"} shares at ${price.toFixed(2)}. The final quantity uses the broker fill.
             </p>

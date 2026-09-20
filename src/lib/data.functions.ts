@@ -252,6 +252,16 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       .eq("position_type", "SAME_DAY")
       .order("exit_date", { ascending: true })
       .limit(400);
+    // Long-term sales are kept on their own, so the same-day line never changes.
+    const { data: closedLongTerm } = await db
+      .from("trades")
+      .select("exit_date, profit, kept, ticker, mode")
+      .eq("status", "closed")
+      .is("strategy_id", null)
+      .eq("mode", mode)
+      .eq("position_type", "LONG_TERM")
+      .order("exit_date", { ascending: true })
+      .limit(400);
     const { data: ledger } = await db
       .from("ledger_entries")
       .select("amount, available_on, kind")
@@ -319,6 +329,9 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         score: score ? Number(score.score) : null,
         still_qualifies: Boolean(score?.tradeable),
         note: (t as { status_note?: string | null }).status_note ?? null,
+        // The owner's intended holding period, and when they will be asked.
+        hold_horizon: (t as { hold_horizon?: string | null }).hold_horizon ?? null,
+        review_date: (t as { review_date?: string | null }).review_date ?? null,
       };
     });
 
@@ -342,6 +355,8 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         score: null,
         still_qualifies: false,
         note: "Held at the broker without a matching ASTR trade record.",
+        hold_horizon: null,
+        review_date: null,
       });
     }
 
@@ -401,6 +416,15 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         ticker: String(t.ticker),
         profit: Number(t.profit ?? 0),
       })),
+      // Long-term sales and the open long-term move, kept apart from same-day.
+      long_term_closed: (closedLongTerm ?? []).map((t) => ({
+        exit_date: String(t.exit_date),
+        ticker: String(t.ticker),
+        profit: Number(t.profit ?? 0),
+      })),
+      long_term_open_pl: Number(
+        longTermHoldings.reduce((sum, hold) => sum + Number(hold.pl ?? 0), 0).toFixed(2),
+      ),
       total_profit: Number(
         (closedTrades ?? []).reduce((sum, trade) => sum + Number(trade.profit ?? 0), 0).toFixed(2),
       ),

@@ -57,8 +57,6 @@ export interface RankRow {
 const MAX_SLOTS = 7;
 /** A researcher never runs more than one stock at a time. */
 const STOCKS_PER_RESEARCHER = 1;
-/** How many of the six researchers open a new position on a market day. */
-const ROTATION_PER_DAY = 2;
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
 /**
@@ -297,27 +295,21 @@ export async function rankSlots(slots: RaceSlot[]): Promise<Map<number, RankRow[
 }
 
 /**
- * Which researchers may open a new position today. The Lead Researcher always
- * may; of the six others only the two who have waited longest since their last
- * paper entry take a turn, so all six get regular turns and nobody doubles up.
- * A researcher already holding a stock is never eligible.
+ * Which researchers may open a new position today.
+ *
+ * Every researcher now works every market day — there is no turn-taking left.
+ * A researcher already holding its one stock still opens nothing until that
+ * position closes.
  */
 async function rotationToday(slots: RaceSlot[]): Promise<Set<string>> {
-  const waiting: { lane: string; last: string }[] = [];
+  const working: string[] = [];
   for (const slot of slots) {
     if (!slot.lane || slot.lane === "lead" || !slot.enabled) continue;
     const open = await slotOpenTrades(slot.strategy_id);
     if (open.length > 0) continue;
-    const { data } = await supabaseAdmin
-      .from("trades")
-      .select("entry_date")
-      .eq("strategy_id", slot.strategy_id)
-      .order("entry_date", { ascending: false })
-      .limit(1);
-    waiting.push({ lane: slot.lane, last: String(data?.[0]?.entry_date ?? "") });
+    working.push(slot.lane);
   }
-  waiting.sort((a, b) => (a.last === b.last ? a.lane.localeCompare(b.lane) : a.last < b.last ? -1 : 1));
-  return new Set(waiting.slice(0, ROTATION_PER_DAY).map((w) => w.lane));
+  return new Set(working);
 }
 
 // ------------------------------------------------------- slot cash + book ----
@@ -738,9 +730,21 @@ export async function runRacePass(
           await openSlotTrade(slot, row.ticker, price, stake);
           cashLeft = Number((cashLeft - stake).toFixed(2));
           entry.opened.push({ ticker: row.ticker, price });
+          // The same idea is also written down for the 1-, 3- and 9-month
+          // horizons. Paper bookkeeping only: nothing is bought or held.
+          try {
+            const { recordHorizonPredictions } = await import("./long-term-research.server");
+            await recordHorizonPredictions(
+              { lane: slot.lane, name: slot.name, strategy_id: slot.strategy_id, params: slot.params },
+              { ticker: row.ticker, score: row.score, close: row.close },
+              price,
+            );
+          } catch (horizonError) {
+            console.error("horizon prediction skipped:", horizonError);
+          }
         }
       } else if (phase !== "exit" && !myTurn) {
-        entry.skipped = open.length > 0 ? "holding its current test position" : "not in today's rotation";
+        entry.skipped = "holding its current test position";
       }
     } catch (error) {
       entry.skipped = error instanceof Error ? error.message : "slot failed";

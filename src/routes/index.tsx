@@ -4,9 +4,11 @@ import { useState } from "react";
 
 import { HomeStockLookup } from "@/components/HomeStockLookup";
 import { InfoDot } from "@/components/InfoDot";
+import { LongTermReviewDialog } from "@/components/LongTermReviewDialog";
 import { LongTermSellDialog } from "@/components/LongTermSellDialog";
 import { MarketStatusBar } from "@/components/MarketStatusBar";
 import { PnlChart } from "@/components/PnlChart";
+import { horizonLabel } from "@/lib/horizons";
 import { Button } from "@/components/ui/button";
 import { dashboardQuery, money } from "@/lib/queries";
 import { setBotRunning } from "@/lib/scan.functions";
@@ -149,6 +151,10 @@ function HomePage() {
           basis={heldDollars}
           title="Live profit / loss"
           compact
+          primaryLabel="Same-Day P/L"
+          secondaryRows={d?.long_term_closed ?? []}
+          secondaryOpen={d?.long_term_open_pl ?? 0}
+          secondaryLabel="Long-Term P/L"
         />
       </section>
 
@@ -178,15 +184,28 @@ function HomePage() {
                 <p className="mt-1 text-sm tabular-nums text-muted-foreground">
                   {h.qty.toFixed(4)} sh · {money(h.dollars)} in · {money(h.market_value)} now
                 </p>
+                {/* The holding period the owner chose, and the review date. */}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {h.hold_horizon ? horizonLabel(h.hold_horizon) : "No holding period set"}
+                  {h.review_date ? ` · review ${h.review_date}` : ""}
+                </p>
                 <div className="mt-3 flex items-center gap-2">
                   {h.trade_id ? (
-                    <LongTermSellDialog
-                      tradeId={h.trade_id}
-                      ticker={h.ticker}
-                      marketValue={h.market_value}
-                      shares={h.qty}
-                      price={h.price}
-                    />
+                    <>
+                      <LongTermSellDialog
+                        tradeId={h.trade_id}
+                        ticker={h.ticker}
+                        marketValue={h.market_value}
+                        shares={h.qty}
+                        price={h.price}
+                      />
+                      <LongTermReviewDialog
+                        tradeId={h.trade_id}
+                        ticker={h.ticker}
+                        holdHorizon={h.hold_horizon}
+                        reviewDate={h.review_date}
+                      />
+                    </>
                   ) : null}
                 </div>
                 {h.note ? <p className="mt-2 text-xs text-muted-foreground">{h.note}</p> : null}

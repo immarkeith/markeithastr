@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
+import { getLongTermBoard } from "@/lib/long-term-research.functions";
 import { getScoreboard } from "@/lib/scoreboard.functions";
 
 export const Route = createFileRoute("/scoreboard")({
@@ -27,16 +28,23 @@ export const Route = createFileRoute("/scoreboard")({
 
 function ScoreboardPage() {
   const board = useQuery({ queryKey: ["scoreboard"], queryFn: () => getScoreboard() });
+  const longTerm = useQuery({
+    queryKey: ["long-term-board"],
+    queryFn: () => getLongTermBoard(),
+  });
   const sources = board.data?.sources ?? [];
   const [selectedId, setSelectedId] = useState("live");
   const selected = sources.find((source) => source.id === selectedId) ?? sources[0];
   const watchByTicker = new Map(
     (board.data?.watchlist ?? []).map((row) => [String(row.ticker), row]),
   );
+  const lt = longTerm.data;
 
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold">Scoreboard</h1>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Short-Term</h2>
+
 
       <label className="block max-w-md space-y-1">
         <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
@@ -107,6 +115,67 @@ function ScoreboardPage() {
           )}
         </>
       ) : null}
+
+      {/* A separate, additional board. The short-term board above is untouched. */}
+      <section className="space-y-2 border-t border-border/60 pt-5">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Long-Term</h2>
+        <p className="text-xs text-muted-foreground">
+          The top 10 long-term research candidates. 1-month, 3-month and 9-month candidates compete
+          in one list, ranked on the strength of their research evidence.
+        </p>
+        {longTerm.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading long-term candidates…</p>
+        ) : null}
+        {lt?.concentration.note ? (
+          <p className="rounded-md border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
+            {lt.concentration.note}
+          </p>
+        ) : null}
+        {lt && lt.candidates.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/50 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="p-3 text-left">Rank</th>
+                  <th className="p-3 text-left">Stock</th>
+                  <th className="p-3 text-left">Horizon</th>
+                  <th className="p-3 text-right">Quality</th>
+                  <th className="p-3 text-left">Evidence</th>
+                  <th className="p-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lt.candidates.map((row) => (
+                  <tr key={`${row.ticker}-${row.horizon}`} className="border-t border-border">
+                    <td className="p-3 tabular-nums text-muted-foreground">#{row.rank}</td>
+                    <td className="p-3 font-semibold">
+                      {row.ticker}
+                      <span className="block text-[10px] font-normal text-muted-foreground">
+                        {row.researcher}
+                      </span>
+                    </td>
+                    <td className="p-3 text-xs">{row.horizon_label}</td>
+                    <td className="p-3 text-right tabular-nums text-primary">
+                      {row.quality.toFixed(1)}
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground">{row.evidence}</td>
+                    <td className="p-3 text-right">
+                      {row.current_price && row.current_price > 0 ? (
+                        <LongTermBuyDialog ticker={row.ticker} price={row.current_price} />
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : !longTerm.isLoading ? (
+          <p className="rounded-md border border-dashed border-border p-5 text-sm text-muted-foreground">
+            No long-term candidates yet. These build up as the researchers record and then check
+            their 1-month, 3-month and 9-month calls.
+          </p>
+        ) : null}
+      </section>
 
       <footer className="border-t border-border/60 pt-4 text-xs text-muted-foreground">
         Each formula ranks the market on its own. Buy Long Term places a real live purchase that the

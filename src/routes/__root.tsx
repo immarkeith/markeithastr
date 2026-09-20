@@ -13,6 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, type ReactNode } from "react";
 import { Menu } from "lucide-react";
 
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
@@ -160,9 +161,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
-        {/* Full-width stationary brand banner; hamburger overlays the top-left. */}
+        {/* Full-width brand banner at the top of the PAGE: it scrolls away with
+            the content instead of being pinned to the screen. */}
         {!onUnlock && (
-        <header className="sticky top-0 z-30 -mt-px w-full border-b border-border/70">
+        <header className="relative z-30 -mt-px w-full border-b border-border/70">
           <div className="relative h-32 w-full overflow-hidden sm:h-44">
             <img
               src={ASTR_IMAGE}
@@ -205,6 +207,7 @@ function RootComponent() {
         <main className={onUnlock ? "" : "mx-auto max-w-6xl px-4 pb-16 pt-6"}>
           <Outlet />
         </main>
+        {!onUnlock && <ScrollToTop />}
       </div>
       <Toaster />
     </QueryClientProvider>
