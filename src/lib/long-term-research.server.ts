@@ -64,9 +64,10 @@ export async function recordHorizonPredictions(
     score: Number.isFinite(pick.score) ? pick.score : null,
     factors: (pick.factors ?? {}) as never,
     horizon,
-    evaluate_on: addCalendarMonths(day, horizon === "1M" ? 1 : horizon === "3M" ? 3 : 9),
+    evaluate_on: checkpointDate(horizon, day),
     outcome: "pending",
   }));
+
   const { error } = await supabaseAdmin
     .from("research_horizon_predictions")
     .upsert(rows, { onConflict: "lane,ticker,prediction_date,horizon", ignoreDuplicates: true });
@@ -259,6 +260,9 @@ export async function longTermTopTen(): Promise<LongTermBoard> {
   const latest = new Map<string, Record<string, unknown>>();
   for (const row of rows) {
     if (String(row.outcome) === "insufficient_data") continue;
+    // A candidate needs at least a one-month horizon to qualify here. The
+    // one-week checkpoint is still recorded and studied, just not ranked.
+    if (!LONG_TERM_RESEARCH_HORIZONS.includes(String(row.horizon) as never)) continue;
     const key = `${String(row.ticker)}|${String(row.horizon)}`;
     const held = latest.get(key);
     if (!held || String(row.prediction_date) > String(held['prediction_date'])) {
