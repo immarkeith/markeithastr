@@ -1,6 +1,14 @@
 -- ASTR fresh setup 2 of 4 (database structure)
 -- Run parts in order, each in its own new query.
 
+SET statement_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
 --
 -- Name: research_dead_ends; Type: TABLE; Schema: public; Owner: -
 --

@@ -1,6 +1,14 @@
 -- ASTR fresh setup 3 of 4 (database structure)
 -- Run parts in order, each in its own new query.
 
+SET statement_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
 --
 -- Name: model_predictions_model_idx; Type: INDEX; Schema: public; Owner: -
 --
@@ -365,7 +373,6 @@ GRANT USAGE ON SCHEMA public TO postgres;
 GRANT USAGE ON SCHEMA public TO anon;
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT USAGE ON SCHEMA public TO service_role;
-GRANT USAGE ON SCHEMA public TO sandbox_exec;
 
 
 --
@@ -402,7 +409,6 @@ GRANT ALL ON FUNCTION public.update_updated_at_column() TO service_role;
 --
 
 GRANT ALL ON TABLE public.app_settings TO service_role;
-GRANT SELECT,INSERT ON TABLE public.app_settings TO sandbox_exec;
 
 
 --
@@ -412,7 +418,6 @@ GRANT SELECT,INSERT ON TABLE public.app_settings TO sandbox_exec;
 GRANT ALL ON TABLE public.backup_tests TO anon;
 GRANT ALL ON TABLE public.backup_tests TO authenticated;
 GRANT ALL ON TABLE public.backup_tests TO service_role;
-GRANT SELECT,INSERT ON TABLE public.backup_tests TO sandbox_exec;
 
 
 --
@@ -422,7 +427,6 @@ GRANT SELECT,INSERT ON TABLE public.backup_tests TO sandbox_exec;
 GRANT ALL ON TABLE public.capital_ladder_events TO anon;
 GRANT ALL ON TABLE public.capital_ladder_events TO authenticated;
 GRANT ALL ON TABLE public.capital_ladder_events TO service_role;
-GRANT SELECT,INSERT ON TABLE public.capital_ladder_events TO sandbox_exec;
 
 
 --
@@ -432,7 +436,6 @@ GRANT SELECT,INSERT ON TABLE public.capital_ladder_events TO sandbox_exec;
 GRANT ALL ON TABLE public.capital_ladder_state TO anon;
 GRANT ALL ON TABLE public.capital_ladder_state TO authenticated;
 GRANT ALL ON TABLE public.capital_ladder_state TO service_role;
-GRANT SELECT,INSERT ON TABLE public.capital_ladder_state TO sandbox_exec;
 
 
 --
@@ -442,7 +445,6 @@ GRANT SELECT,INSERT ON TABLE public.capital_ladder_state TO sandbox_exec;
 GRANT ALL ON TABLE public.daily_bars TO anon;
 GRANT ALL ON TABLE public.daily_bars TO authenticated;
 GRANT ALL ON TABLE public.daily_bars TO service_role;
-GRANT SELECT,INSERT ON TABLE public.daily_bars TO sandbox_exec;
 
 
 --
@@ -450,7 +452,6 @@ GRANT SELECT,INSERT ON TABLE public.daily_bars TO sandbox_exec;
 --
 
 GRANT ALL ON TABLE public.health_checks TO service_role;
-GRANT SELECT,INSERT ON TABLE public.health_checks TO sandbox_exec;
 
 
 --
@@ -458,7 +459,6 @@ GRANT SELECT,INSERT ON TABLE public.health_checks TO sandbox_exec;
 --
 
 GRANT ALL ON TABLE public.hook_tokens TO service_role;
-GRANT SELECT,INSERT ON TABLE public.hook_tokens TO sandbox_exec;
 
 
 --
@@ -468,7 +468,6 @@ GRANT SELECT,INSERT ON TABLE public.hook_tokens TO sandbox_exec;
 GRANT ALL ON TABLE public.lead_tests TO anon;
 GRANT ALL ON TABLE public.lead_tests TO authenticated;
 GRANT ALL ON TABLE public.lead_tests TO service_role;
-GRANT SELECT,INSERT ON TABLE public.lead_tests TO sandbox_exec;
 
 
 --
@@ -476,7 +475,6 @@ GRANT SELECT,INSERT ON TABLE public.lead_tests TO sandbox_exec;
 --
 
 GRANT ALL ON TABLE public.ledger_entries TO service_role;
-GRANT SELECT,INSERT ON TABLE public.ledger_entries TO sandbox_exec;
 
 
 --
@@ -486,7 +484,6 @@ GRANT SELECT,INSERT ON TABLE public.ledger_entries TO sandbox_exec;
 GRANT ALL ON TABLE public.master_formula_versions TO anon;
 GRANT ALL ON TABLE public.master_formula_versions TO authenticated;
 GRANT ALL ON TABLE public.master_formula_versions TO service_role;
-GRANT SELECT,INSERT ON TABLE public.master_formula_versions TO sandbox_exec;
 
 
 --
@@ -496,7 +493,6 @@ GRANT SELECT,INSERT ON TABLE public.master_formula_versions TO sandbox_exec;
 GRANT ALL ON TABLE public.master_rules TO anon;
 GRANT ALL ON TABLE public.master_rules TO authenticated;
 GRANT ALL ON TABLE public.master_rules TO service_role;
-GRANT SELECT,INSERT ON TABLE public.master_rules TO sandbox_exec;
 
 
 --
@@ -506,7 +502,6 @@ GRANT SELECT,INSERT ON TABLE public.master_rules TO sandbox_exec;
 GRANT ALL ON TABLE public.model_predictions TO anon;
 GRANT ALL ON TABLE public.model_predictions TO authenticated;
 GRANT ALL ON TABLE public.model_predictions TO service_role;
-GRANT SELECT,INSERT ON TABLE public.model_predictions TO sandbox_exec;
 
 
 --
@@ -516,7 +511,6 @@ GRANT SELECT,INSERT ON TABLE public.model_predictions TO sandbox_exec;
 GRANT ALL ON TABLE public.model_versions TO anon;
 GRANT ALL ON TABLE public.model_versions TO authenticated;
 GRANT ALL ON TABLE public.model_versions TO service_role;
-GRANT SELECT,INSERT ON TABLE public.model_versions TO sandbox_exec;
 
 
 --
@@ -524,4 +518,35 @@ GRANT SELECT,INSERT ON TABLE public.model_versions TO sandbox_exec;
 --
 
 GRANT ALL ON TABLE public.notifications TO service_role;
-GRANT SELECT,INSERT ON TABLE public.notifications TO sandbox_exec;
+
+
+--
+-- Name: TABLE paper_slots; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.paper_slots TO service_role;
+
+
+--
+-- Name: TABLE push_subscriptions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.push_subscriptions TO service_role;
+
+
+--
+-- Name: TABLE research_candidates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.research_candidates TO anon;
+GRANT ALL ON TABLE public.research_candidates TO authenticated;
+GRANT ALL ON TABLE public.research_candidates TO service_role;
+
+
+--
+-- Name: TABLE research_dead_ends; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.research_dead_ends TO anon;
+GRANT ALL ON TABLE public.research_dead_ends TO authenticated;
+GRANT ALL ON TABLE public.research_dead_ends TO service_role;
