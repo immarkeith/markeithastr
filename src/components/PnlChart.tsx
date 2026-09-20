@@ -210,16 +210,19 @@ export function PnlChart({
   };
 
   const twoLine = compareSeries !== null;
-  // Single-line (live) charts colour by direction: rising green, falling red,
-  // flat or idle blue.
-  // Colour follows the OVERALL result for the selected range, not the last
-  // day's wiggle: up on the range = green, down on the range = red, flat or no
-  // activity = blue.
-  const direction = total > 0 ? "up" : total < 0 ? "down" : "flat";
-  const liveStroke =
-    direction === "up" ? "text-success" : direction === "down" ? "text-destructive" : "text-live";
-  const primaryStroke = twoLine ? "text-chart-2" : liveStroke;
-  const compareStroke = "text-chart-4";
+  // EVERY line reads the same way: profit is green, loss is red, flat or no
+  // activity is blue. It follows the overall result for the selected range, not
+  // the last day's wiggle. Solid versus dotted still tells the lines apart.
+  const toneOf = (value: number | null) =>
+    value === null || value === 0
+      ? "text-live"
+      : value > 0
+        ? "text-success"
+        : "text-destructive";
+  const fillOf = (value: number | null) =>
+    value === null || value === 0 ? "bg-live" : value > 0 ? "bg-success" : "bg-destructive";
+  const primaryStroke = toneOf(total);
+  const compareStroke = toneOf(compareTotal);
 
   return (
     <section
