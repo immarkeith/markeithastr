@@ -240,19 +240,9 @@ function DualMetric({
 function SlotCard({ slot, active }: { slot: Entrant; active: boolean }) {
   return (
     <section className="space-y-4">
+      {/* Every researcher tests every market day, so no status badge is needed. */}
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-lg font-bold leading-tight">{slot.name}</h2>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-            active
-              ? "bg-success/15 text-success"
-              : slot.holdings.length
-                ? "bg-primary/15 text-primary"
-                : "bg-secondary text-muted-foreground"
-          }`}
-        >
-          {active ? "Testing today" : slot.holdings.length ? "Holding a test" : "Not testing today"}
-        </span>
       </div>
 
       {/* Main level: P/L and Win Rate only. */}
@@ -276,7 +266,7 @@ function SlotCard({ slot, active }: { slot: Entrant; active: boolean }) {
         primaryLabel="3-Day"
         compareLabel="Same-Day"
         ranges={LAB_RANGES}
-        initialRange="1m"
+        initialRange="month"
         title="Profit — Same-Day vs 3-Day"
         compact
         unrealized={slot.unrealized}

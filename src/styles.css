@@ -234,12 +234,14 @@
 }
 
 @keyframes market-ticker-scroll {
-  from { transform: translateX(-18%); }
-  to { transform: translateX(0); }
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
+/* One continuous right-to-left crawl: the content is duplicated, so shifting by
+   half its width loops seamlessly with no bounce-back. */
 .market-ticker {
-  animation: market-ticker-scroll 10s linear infinite alternate;
+  animation: market-ticker-scroll 26s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
