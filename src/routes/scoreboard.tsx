@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
+import { getLongTermBoard } from "@/lib/long-term-research.functions";
 import { getScoreboard } from "@/lib/scoreboard.functions";
 
 export const Route = createFileRoute("/scoreboard")({
@@ -27,16 +28,23 @@ export const Route = createFileRoute("/scoreboard")({
 
 function ScoreboardPage() {
   const board = useQuery({ queryKey: ["scoreboard"], queryFn: () => getScoreboard() });
+  const longTerm = useQuery({
+    queryKey: ["long-term-board"],
+    queryFn: () => getLongTermBoard(),
+  });
   const sources = board.data?.sources ?? [];
   const [selectedId, setSelectedId] = useState("live");
   const selected = sources.find((source) => source.id === selectedId) ?? sources[0];
   const watchByTicker = new Map(
     (board.data?.watchlist ?? []).map((row) => [String(row.ticker), row]),
   );
+  const lt = longTerm.data;
 
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold">Scoreboard</h1>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Short-Term</h2>
+
 
       <label className="block max-w-md space-y-1">
         <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
