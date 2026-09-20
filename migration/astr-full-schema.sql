@@ -922,3 +922,18 @@ CREATE INDEX verification_reports_lane_idx ON public.verification_reports (lane,
 GRANT ALL ON public.verification_reports TO service_role;
 
 ALTER TABLE public.verification_reports ENABLE ROW LEVEL SECURITY;
+
+-- ---------------------------------------------------------------------------
+-- Final self-hosted defaults: free Alpaca IEX market data, real live trading
+-- for the bot (research slots always stay simulated), and the default
+-- strategy selected so the scoreboard and research team have a formula.
+-- ---------------------------------------------------------------------------
+UPDATE public.app_settings
+SET provider = 'alpaca',
+    paper_mode = false,
+    active_strategy_id = COALESCE(
+      active_strategy_id,
+      (SELECT id FROM public.strategies WHERE name = 'Balanced rotation (default)' LIMIT 1)
+    ),
+    updated_at = now()
+WHERE id = 1;
