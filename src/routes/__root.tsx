@@ -150,11 +150,17 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   const lock = useServerFn(lockSite);
+  // The passcode screen uses the ASTR picture as its own full-page background,
+  // so it does not get the banner header on top of it.
+  const onUnlock = useRouterState({
+    select: (s) => s.location.pathname.startsWith("/unlock"),
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
         {/* Full-width stationary brand banner; hamburger overlays the top-left. */}
+        {!onUnlock && (
         <header className="sticky top-0 z-30 -mt-px w-full border-b border-border/70">
           <div className="relative h-32 w-full overflow-hidden sm:h-44">
             <img
