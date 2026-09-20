@@ -161,9 +161,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
-        {/* Full-width stationary brand banner; hamburger overlays the top-left. */}
+        {/* Full-width brand banner at the top of the PAGE: it scrolls away with
+            the content instead of being pinned to the screen. */}
         {!onUnlock && (
-        {/* Sits at the top of the PAGE and scrolls away with it. */}
         <header className="relative z-30 -mt-px w-full border-b border-border/70">
           <div className="relative h-32 w-full overflow-hidden sm:h-44">
             <img
