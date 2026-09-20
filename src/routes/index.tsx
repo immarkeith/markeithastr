@@ -149,6 +149,10 @@ function HomePage() {
           basis={heldDollars}
           title="Live profit / loss"
           compact
+          primaryLabel="Same-Day P/L"
+          secondaryRows={d?.long_term_closed ?? []}
+          secondaryOpen={d?.long_term_open_pl ?? 0}
+          secondaryLabel="Long-Term P/L"
         />
       </section>
 
