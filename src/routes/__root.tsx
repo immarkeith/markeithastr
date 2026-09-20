@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
   redirect,
@@ -17,7 +18,7 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger 
 import { Toaster } from "@/components/ui/sonner";
 import { gateStatus, lockSite } from "@/lib/gate.functions";
 
-import astrLogo from "../assets/astr-logo.png.asset.json";
+import { ASTR_IMAGE } from "@/lib/brand";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -150,15 +151,21 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   const lock = useServerFn(lockSite);
+  // The passcode screen uses the ASTR picture as its own full-page background,
+  // so it does not get the banner header on top of it.
+  const onUnlock = useRouterState({
+    select: (s) => s.location.pathname.startsWith("/unlock"),
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen grid-backdrop">
         {/* Full-width stationary brand banner; hamburger overlays the top-left. */}
+        {!onUnlock && (
         <header className="sticky top-0 z-30 -mt-px w-full border-b border-border/70">
           <div className="relative h-32 w-full overflow-hidden sm:h-44">
             <img
-              src={astrLogo.url}
+              src={ASTR_IMAGE}
               alt="ASTR"
               className="absolute inset-0 h-full w-full object-cover object-center"
               loading="eager"
@@ -193,8 +200,9 @@ function RootComponent() {
             <Link to="/" aria-label="Home" className="absolute inset-0 block" />
           </div>
         </header>
+        )}
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <main className="mx-auto max-w-6xl px-4 pb-16 pt-6">
+        <main className={onUnlock ? "" : "mx-auto max-w-6xl px-4 pb-16 pt-6"}>
           <Outlet />
         </main>
       </div>
