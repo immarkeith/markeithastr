@@ -730,18 +730,6 @@ export async function runRacePass(
           await openSlotTrade(slot, row.ticker, price, stake);
           cashLeft = Number((cashLeft - stake).toFixed(2));
           entry.opened.push({ ticker: row.ticker, price });
-          // The same idea is also written down for the 1-, 3- and 9-month
-          // horizons. Paper bookkeeping only: nothing is bought or held.
-          try {
-            const { recordHorizonPredictions } = await import("./long-term-research.server");
-            await recordHorizonPredictions(
-              { lane: slot.lane, name: slot.name, strategy_id: slot.strategy_id, params: slot.params },
-              { ticker: row.ticker, score: row.score, close: row.close },
-              price,
-            );
-          } catch (horizonError) {
-            console.error("horizon prediction skipped:", horizonError);
-          }
         }
       } else if (phase !== "exit" && !myTurn) {
         entry.skipped = "holding its current test position";
