@@ -740,6 +740,43 @@ export async function runRacePass(
     }
     result.slots.push(entry);
   }
+
+  // ---- shared long-term research candidate (paper only)
+  // One candidate per trading day for the whole department — not one each. Every
+  // researcher then writes down its OWN prediction for that same stock at the
+  // 1-week, 1-month, 3-month and 9-month checkpoints, using its own formula.
+  // Nothing is bought and no live money is involved; the price data is the same
+  // cached bars the daily research already used.
+  if (phase !== "exit") {
+    try {
+      const { recordHorizonPredictions } = await import("./long-term-research.server");
+      const leadRanked = rankings.get(slots.find((s) => s.lane === "lead")?.id ?? -1) ?? [];
+      const pool = (leadRanked.length ? leadRanked : (rankings.get(slots[0]?.id ?? -1) ?? []))
+        .filter((r) => r.tradeable)
+        .slice(0, LONG_TERM_CANDIDATES_PER_DAY);
+      for (const candidate of pool) {
+        const marks = await latestCloses([candidate.ticker]);
+        const price = Number(marks.get(candidate.ticker) ?? candidate.close);
+        if (!price) continue;
+        for (const slot of slots) {
+          if (!slot.lane) continue;
+          const own = (rankings.get(slot.id) ?? []).find((r) => r.ticker === candidate.ticker);
+          await recordHorizonPredictions(
+            { lane: slot.lane, name: slot.name, strategy_id: slot.strategy_id, params: slot.params },
+            {
+              ticker: candidate.ticker,
+              score: own?.score ?? candidate.score,
+              close: candidate.close,
+            },
+            price,
+          );
+        }
+      }
+    } catch (horizonError) {
+      console.error("shared long-term candidate skipped:", horizonError);
+    }
+  }
+
   return result;
 }
 
