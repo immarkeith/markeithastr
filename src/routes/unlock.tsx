@@ -80,7 +80,8 @@ function UnlockPage() {
         <Button type="submit" className="w-full" disabled={busy || passcode.length === 0}>
           {busy ? "Checking…" : "Unlock"}
         </Button>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

@@ -17,7 +17,7 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger 
 import { Toaster } from "@/components/ui/sonner";
 import { gateStatus, lockSite } from "@/lib/gate.functions";
 
-import astrLogo from "../assets/astr-logo.png.asset.json";
+import { ASTR_IMAGE } from "@/lib/brand";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -158,7 +158,7 @@ function RootComponent() {
         <header className="sticky top-0 z-30 -mt-px w-full border-b border-border/70">
           <div className="relative h-32 w-full overflow-hidden sm:h-44">
             <img
-              src={astrLogo.url}
+              src={ASTR_IMAGE}
               alt="ASTR"
               className="absolute inset-0 h-full w-full object-cover object-center"
               loading="eager"
