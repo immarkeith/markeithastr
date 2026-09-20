@@ -116,6 +116,67 @@ function ScoreboardPage() {
         </>
       ) : null}
 
+      {/* A separate, additional board. The short-term board above is untouched. */}
+      <section className="space-y-2 border-t border-border/60 pt-5">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Long-Term</h2>
+        <p className="text-xs text-muted-foreground">
+          The top 10 long-term research candidates. 1-month, 3-month and 9-month candidates compete
+          in one list, ranked on the strength of their research evidence.
+        </p>
+        {longTerm.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading long-term candidates…</p>
+        ) : null}
+        {lt?.concentration.note ? (
+          <p className="rounded-md border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
+            {lt.concentration.note}
+          </p>
+        ) : null}
+        {lt && lt.candidates.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/50 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="p-3 text-left">Rank</th>
+                  <th className="p-3 text-left">Stock</th>
+                  <th className="p-3 text-left">Horizon</th>
+                  <th className="p-3 text-right">Quality</th>
+                  <th className="p-3 text-left">Evidence</th>
+                  <th className="p-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lt.candidates.map((row) => (
+                  <tr key={`${row.ticker}-${row.horizon}`} className="border-t border-border">
+                    <td className="p-3 tabular-nums text-muted-foreground">#{row.rank}</td>
+                    <td className="p-3 font-semibold">
+                      {row.ticker}
+                      <span className="block text-[10px] font-normal text-muted-foreground">
+                        {row.researcher}
+                      </span>
+                    </td>
+                    <td className="p-3 text-xs">{row.horizon_label}</td>
+                    <td className="p-3 text-right tabular-nums text-primary">
+                      {row.quality.toFixed(1)}
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground">{row.evidence}</td>
+                    <td className="p-3 text-right">
+                      {row.current_price && row.current_price > 0 ? (
+                        <LongTermBuyDialog ticker={row.ticker} price={row.current_price} />
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : !longTerm.isLoading ? (
+          <p className="rounded-md border border-dashed border-border p-5 text-sm text-muted-foreground">
+            No long-term candidates yet. These build up as the researchers record and then check
+            their 1-month, 3-month and 9-month calls.
+          </p>
+        ) : null}
+      </section>
+
       <footer className="border-t border-border/60 pt-4 text-xs text-muted-foreground">
         Each formula ranks the market on its own. Buy Long Term places a real live purchase that the
         daily rotation can never sell.
