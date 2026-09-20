@@ -188,8 +188,22 @@ export const fetchDashboard = createServerFn({ method: "GET" })
   .middleware([requireGate])
   .handler(async () => {
     const db = await admin();
-    const { data: settings } = await db.from("app_settings").select("*").eq("id", 1).single();
-    const mode = settings?.paper_mode === false ? "live" : "paper";
+    const { data: settings, error: settingsError } = await db
+      .from("app_settings")
+      .select("*")
+      .eq("id", 1)
+      .single();
+    // Never guess the account: if the saved settings cannot be read we must say
+    // so rather than quietly showing the simulated account's money.
+    if (settingsError || !settings) {
+      throw new Error(
+        `Could not read the saved settings, so the real account was not shown: ${
+          settingsError?.message ?? "no settings row found"
+        }`,
+      );
+    }
+    const mode = settings.paper_mode === false ? "live" : "paper";
+
 
     // Live broker snapshot. A broker outage must not blank the page.
     let account: {
