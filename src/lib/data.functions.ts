@@ -329,6 +329,9 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         score: score ? Number(score.score) : null,
         still_qualifies: Boolean(score?.tradeable),
         note: (t as { status_note?: string | null }).status_note ?? null,
+        // The owner's intended holding period, and when they will be asked.
+        hold_horizon: (t as { hold_horizon?: string | null }).hold_horizon ?? null,
+        review_date: (t as { review_date?: string | null }).review_date ?? null,
       };
     });
 
@@ -352,6 +355,8 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         score: null,
         still_qualifies: false,
         note: "Held at the broker without a matching ASTR trade record.",
+        hold_horizon: null,
+        review_date: null,
       });
     }
 
