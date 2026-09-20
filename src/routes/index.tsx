@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { HomeStockLookup } from "@/components/HomeStockLookup";
 import { InfoDot } from "@/components/InfoDot";
+import { LongTermReviewDialog } from "@/components/LongTermReviewDialog";
 import { LongTermSellDialog } from "@/components/LongTermSellDialog";
 import { MarketStatusBar } from "@/components/MarketStatusBar";
 import { PnlChart } from "@/components/PnlChart";
