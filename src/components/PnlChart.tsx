@@ -20,22 +20,19 @@ export interface PnlRange {
   calendar?: "week" | "month" | "months3";
 }
 
+/**
+ * Short labels only — LIVE, 1W, 1M, 3M. The windows themselves are still real
+ * calendar periods: this week, this month, this month plus the two before it.
+ */
 export const HOME_RANGES: PnlRange[] = [
   { key: "live", label: "LIVE", days: 1, live: true },
-  { key: "1d", label: "1D", days: 1, endYesterday: true },
-  { key: "week", label: "This Week", days: 7, calendar: "week" },
-  { key: "month", label: "This Month", days: 31, calendar: "month" },
-  { key: "months3", label: "Last 3 Months", days: 92, calendar: "months3" },
+  { key: "week", label: "1W", days: 7, calendar: "week" },
+  { key: "month", label: "1M", days: 31, calendar: "month" },
+  { key: "months3", label: "3M", days: 92, calendar: "months3" },
 ];
 
 /** The Research Lab reads the same calendar periods as the live graph. */
-export const LAB_RANGES: PnlRange[] = [
-  { key: "live", label: "LIVE", days: 1, live: true },
-  { key: "1d", label: "1D", days: 1, endYesterday: true },
-  { key: "week", label: "This Week", days: 7, calendar: "week" },
-  { key: "month", label: "This Month", days: 31, calendar: "month" },
-  { key: "months3", label: "Last 3 Months", days: 92, calendar: "months3" },
-];
+export const LAB_RANGES: PnlRange[] = HOME_RANGES;
 
 const isoDaysAgo = (n: number) => {
   const d = new Date();
@@ -213,16 +210,19 @@ export function PnlChart({
   };
 
   const twoLine = compareSeries !== null;
-  // Single-line (live) charts colour by direction: rising green, falling red,
-  // flat or idle blue.
-  // Colour follows the OVERALL result for the selected range, not the last
-  // day's wiggle: up on the range = green, down on the range = red, flat or no
-  // activity = blue.
-  const direction = total > 0 ? "up" : total < 0 ? "down" : "flat";
-  const liveStroke =
-    direction === "up" ? "text-success" : direction === "down" ? "text-destructive" : "text-live";
-  const primaryStroke = twoLine ? "text-chart-2" : liveStroke;
-  const compareStroke = "text-chart-4";
+  // EVERY line reads the same way: profit is green, loss is red, flat or no
+  // activity is blue. It follows the overall result for the selected range, not
+  // the last day's wiggle. Solid versus dotted still tells the lines apart.
+  const toneOf = (value: number | null) =>
+    value === null || value === 0
+      ? "text-live"
+      : value > 0
+        ? "text-success"
+        : "text-destructive";
+  const fillOf = (value: number | null) =>
+    value === null || value === 0 ? "bg-live" : value > 0 ? "bg-success" : "bg-destructive";
+  const primaryStroke = toneOf(total);
+  const compareStroke = toneOf(compareTotal);
 
   return (
     <section
@@ -234,14 +234,14 @@ export function PnlChart({
         <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground">{title}</h2>
         {twoLine ? (
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
-            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} text-chart-2`}>
+            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(total)}`}>
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {primaryLabel ?? "3-Day"}
               </span>
               {total >= 0 ? "+" : ""}
               {money(total)}
             </p>
-            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} text-chart-4`}>
+            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(compareTotal)}`}>
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {compareLabel ?? "Same-Day"}
               </span>
@@ -255,8 +255,8 @@ export function PnlChart({
             {money(total)}
           </p>
         )}
-        <p className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : tone}`}>
-          {twoLine ? "" : up ? "▲ " : "▼ "}
+        <p className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : toneOf(total)}`}>
+          {twoLine || total === 0 ? "" : up ? "▲ " : "▼ "}
           {pct === null ? "" : `${Math.abs(pct).toFixed(2)}% · `}
           {active.label === "LIVE" ? "today, live" : active.label}
         </p>
@@ -306,7 +306,7 @@ export function PnlChart({
                 strokeLinecap="round"
                 strokeDasharray="3 2"
                 stroke="currentColor"
-                className="text-chart-3"
+                className={toneOf(secondaryTotal)}
                 vectorEffect="non-scaling-stroke"
               />
             ) : null}
@@ -327,7 +327,7 @@ export function PnlChart({
                 strokeWidth="1.6"
                 strokeLinecap="round"
                 stroke="currentColor"
-                className={twoLine ? "text-chart-2" : "text-live"}
+                className="text-live"
                 vectorEffect="non-scaling-stroke"
               />
             ) : null}
@@ -346,13 +346,12 @@ export function PnlChart({
       {twoLine ? (
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-0.5 w-5 rounded bg-chart-2" />
+            <span className={`inline-block h-0.5 w-5 rounded ${fillOf(total)}`} />
             solid — {primaryLabel ?? "3-Day"}
           </span>
           <span className="flex items-center gap-1">
             <span
-              className="inline-block h-0 w-5 border-t-2 border-dotted"
-              style={{ borderColor: "var(--chart-4)" }}
+              className={`inline-block h-0 w-5 border-t-2 border-dotted border-current ${toneOf(compareTotal)}`}
             />
             dotted — {compareLabel ?? "Same-Day"}
           </span>
@@ -363,14 +362,13 @@ export function PnlChart({
       {secondarySeries ? (
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className={`inline-block h-0.5 w-5 rounded ${up ? "bg-success" : "bg-destructive"}`} />
+            <span className={`inline-block h-0.5 w-5 rounded ${fillOf(total)}`} />
             {primaryLabel ?? "Same-Day P/L"} {total >= 0 ? "+" : ""}
             {money(total)}
           </span>
           <span className="flex items-center gap-1">
             <span
-              className="inline-block h-0 w-5 border-t-2 border-dashed"
-              style={{ borderColor: "var(--chart-3)" }}
+              className={`inline-block h-0 w-5 border-t-2 border-dashed border-current ${toneOf(secondaryTotal)}`}
             />
             {secondaryLabel ?? "Long-Term P/L"}{" "}
             {secondaryTotal === null ? "—" : `${secondaryTotal >= 0 ? "+" : ""}${money(secondaryTotal)}`}

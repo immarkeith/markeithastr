@@ -13,7 +13,13 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-import { addCalendarMonths, RESEARCH_HORIZONS, horizonLabel } from "./horizons";
+import {
+  addCalendarMonths,
+  checkpointDate,
+  LONG_TERM_RESEARCH_HORIZONS,
+  RESEARCH_HORIZONS,
+  horizonLabel,
+} from "./horizons";
 import { nyParts } from "./market-calendar";
 
 const today = () => nyParts().date;
@@ -58,9 +64,10 @@ export async function recordHorizonPredictions(
     score: Number.isFinite(pick.score) ? pick.score : null,
     factors: (pick.factors ?? {}) as never,
     horizon,
-    evaluate_on: addCalendarMonths(day, horizon === "1M" ? 1 : horizon === "3M" ? 3 : 9),
+    evaluate_on: checkpointDate(horizon, day),
     outcome: "pending",
   }));
+
   const { error } = await supabaseAdmin
     .from("research_horizon_predictions")
     .upsert(rows, { onConflict: "lane,ticker,prediction_date,horizon", ignoreDuplicates: true });
@@ -240,7 +247,7 @@ export async function longTermTopTen(): Promise<LongTermBoard> {
 
   // Per-horizon reference points, so each horizon is judged against its peers.
   const perHorizon = new Map<string, { mu: number; sd: number }>();
-  for (const horizon of RESEARCH_HORIZONS) {
+  for (const horizon of LONG_TERM_RESEARCH_HORIZONS) {
     const means: number[] = [];
     for (const [key, cohort] of cohorts) {
       if (!key.endsWith(`|${horizon}`) || cohort.evaluated === 0) continue;
@@ -253,6 +260,9 @@ export async function longTermTopTen(): Promise<LongTermBoard> {
   const latest = new Map<string, Record<string, unknown>>();
   for (const row of rows) {
     if (String(row.outcome) === "insufficient_data") continue;
+    // A candidate needs at least a one-month horizon to qualify here. The
+    // one-week checkpoint is still recorded and studied, just not ranked.
+    if (!LONG_TERM_RESEARCH_HORIZONS.includes(String(row.horizon) as never)) continue;
     const key = `${String(row.ticker)}|${String(row.horizon)}`;
     const held = latest.get(key);
     if (!held || String(row.prediction_date) > String(held['prediction_date'])) {
@@ -378,7 +388,7 @@ export async function horizonRecommendation(ticker: string): Promise<{
     };
   }
   let best: { horizon: string; avg: number; wins: number; n: number } | null = null;
-  for (const horizon of RESEARCH_HORIZONS) {
+  for (const horizon of LONG_TERM_RESEARCH_HORIZONS) {
     const subset = rows.filter((r) => String(r.horizon) === horizon);
     if (subset.length === 0) continue;
     const avg = subset.reduce((a, r) => a + Number(r.return_pct), 0) / subset.length;
