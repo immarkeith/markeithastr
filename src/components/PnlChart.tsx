@@ -11,24 +11,30 @@ export interface PnlRange {
   live?: boolean;
   /** Ends yesterday — a finished session, so open positions are excluded. */
   endYesterday?: boolean;
+  /**
+   * A real calendar period instead of a rolling day count:
+   *   week    — the current week, from its first day through today
+   *   month   — the 1st of this month through today
+   *   months3 — this month plus the two whole months before it
+   */
+  calendar?: "week" | "month" | "months3";
 }
 
 export const HOME_RANGES: PnlRange[] = [
   { key: "live", label: "LIVE", days: 1, live: true },
   { key: "1d", label: "1D", days: 1, endYesterday: true },
-  { key: "1w", label: "1W", days: 7 },
-  { key: "1m", label: "1M", days: 30 },
-  { key: "3m", label: "3M", days: 90 },
+  { key: "week", label: "This Week", days: 7, calendar: "week" },
+  { key: "month", label: "This Month", days: 31, calendar: "month" },
+  { key: "months3", label: "Last 3 Months", days: 92, calendar: "months3" },
 ];
 
-/** The Research Lab compares strategies week by week over a one-month test. */
+/** The Research Lab reads the same calendar periods as the live graph. */
 export const LAB_RANGES: PnlRange[] = [
   { key: "live", label: "LIVE", days: 1, live: true },
   { key: "1d", label: "1D", days: 1, endYesterday: true },
-  { key: "1w", label: "1W", days: 7 },
-  { key: "2w", label: "2W", days: 14 },
-  { key: "3w", label: "3W", days: 21 },
-  { key: "1m", label: "1M", days: 28 },
+  { key: "week", label: "This Week", days: 7, calendar: "week" },
+  { key: "month", label: "This Month", days: 31, calendar: "month" },
+  { key: "months3", label: "Last 3 Months", days: 92, calendar: "months3" },
 ];
 
 const isoDaysAgo = (n: number) => {
@@ -36,6 +42,21 @@ const isoDaysAgo = (n: number) => {
   d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString().slice(0, 10);
 };
+
+/** First day of a calendar period, as an ISO date. */
+function calendarStart(kind: "week" | "month" | "months3"): string {
+  const today = isoDaysAgo(0);
+  if (kind === "week") {
+    const d = new Date(`${today}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+    return d.toISOString().slice(0, 10);
+  }
+  if (kind === "month") return `${today.slice(0, 7)}-01`;
+  // This month plus the two immediately preceding whole months.
+  const d = new Date(`${today.slice(0, 7)}-01T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() - 2);
+  return d.toISOString().slice(0, 10);
+}
 
 /**
  * Profit/loss over a chosen window: realised profit from closed trades, plus
@@ -58,6 +79,9 @@ export function PnlChart({
   compareRows,
   primaryLabel,
   compareLabel,
+  secondaryRows,
+  secondaryOpen = 0,
+  secondaryLabel,
 }: {
   rows: { exit_date: string | null; profit: number }[];
   ranges?: PnlRange[];
@@ -74,12 +98,24 @@ export function PnlChart({
   compareRows?: { exit_date: string | null; profit: number }[];
   primaryLabel?: string;
   compareLabel?: string;
+  /**
+   * An extra, independent line on the same axes and the same range controls —
+   * used for the combined live LONG_TERM profit/loss. It never changes how the
+   * main line is drawn or measured.
+   */
+  secondaryRows?: { exit_date: string | null; profit: number }[];
+  /** Open profit of those long-term positions right now. */
+  secondaryOpen?: number;
+  secondaryLabel?: string;
 }) {
   const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
   const active = ranges.find((r) => r.key === range) ?? ranges[0]!;
 
   const window = useMemo(() => {
     const today = isoDaysAgo(0);
+    if (active.calendar) {
+      return { today, from: calendarStart(active.calendar), until: today };
+    }
     const from = active.endYesterday ? isoDaysAgo(active.days) : isoDaysAgo(active.days - 1);
     const until = active.endYesterday ? isoDaysAgo(1) : today;
     return { today, from, until };
@@ -106,11 +142,28 @@ export function PnlChart({
       // The same-day line is fully hypothetical and already booked per day, so
       // it never adds an open-position move.
       compare: compareRows ? build(compareRows, 0) : null,
+      // Long-term holds: realised sales plus their current open move.
+      secondary: secondaryRows
+        ? build(secondaryRows, active.endYesterday ? 0 : secondaryOpen)
+        : null,
     };
-  }, [rows, compareRows, window, active, unrealized, unrealizedToday]);
+  }, [
+    rows,
+    compareRows,
+    secondaryRows,
+    secondaryOpen,
+    window,
+    active,
+    unrealized,
+    unrealizedToday,
+  ]);
 
   const days = useMemo(() => {
-    const all = new Set<string>([...daily.primary.keys(), ...(daily.compare?.keys() ?? [])]);
+    const all = new Set<string>([
+      ...daily.primary.keys(),
+      ...(daily.compare?.keys() ?? []),
+      ...(daily.secondary?.keys() ?? []),
+    ]);
     return [...all].sort();
   }, [daily]);
 
@@ -125,11 +178,16 @@ export function PnlChart({
 
   const series = cumulate(daily.primary) ?? [];
   const compareSeries = cumulate(daily.compare);
+  const secondarySeries = cumulate(daily.secondary);
 
   const total = series.length > 0 ? series[series.length - 1]!.cumulative : 0;
   const compareTotal =
     compareSeries && compareSeries.length > 0
       ? compareSeries[compareSeries.length - 1]!.cumulative
+      : null;
+  const secondaryTotal =
+    secondarySeries && secondarySeries.length > 0
+      ? secondarySeries[secondarySeries.length - 1]!.cumulative
       : null;
   const pct = basis > 0 ? (total / basis) * 100 : null;
   const up = total >= 0;
@@ -140,6 +198,7 @@ export function PnlChart({
     0.01,
     ...series.map((p) => Math.abs(p.cumulative)),
     ...(compareSeries ?? []).map((p) => Math.abs(p.cumulative)),
+    ...(secondarySeries ?? []).map((p) => Math.abs(p.cumulative)),
   );
 
   const pathOf = (points: { cumulative: number }[]) => {
