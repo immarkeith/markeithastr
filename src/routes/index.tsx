@@ -7,6 +7,7 @@ import { InfoDot } from "@/components/InfoDot";
 import { LongTermSellDialog } from "@/components/LongTermSellDialog";
 import { MarketStatusBar } from "@/components/MarketStatusBar";
 import { PnlChart } from "@/components/PnlChart";
+import { horizonLabel } from "@/lib/horizons";
 import { Button } from "@/components/ui/button";
 import { dashboardQuery, money } from "@/lib/queries";
 import { setBotRunning } from "@/lib/scan.functions";
