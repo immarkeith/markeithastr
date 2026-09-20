@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
   redirect,
@@ -199,8 +200,9 @@ function RootComponent() {
             <Link to="/" aria-label="Home" className="absolute inset-0 block" />
           </div>
         </header>
+        )}
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <main className="mx-auto max-w-6xl px-4 pb-16 pt-6">
+        <main className={onUnlock ? "" : "mx-auto max-w-6xl px-4 pb-16 pt-6"}>
           <Outlet />
         </main>
       </div>
