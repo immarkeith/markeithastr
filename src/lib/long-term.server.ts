@@ -1,7 +1,59 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+import { horizonLabel, reviewDateFor } from "./horizons";
+
 const EPS = 0.000001;
 const today = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Extends (or makes indefinite) the intended holding period of a live
+ * LONG_TERM position after the owner answers a review notification.
+ *
+ * Shares are never touched here, and the previous horizon is appended to the
+ * position's history rather than overwritten.
+ */
+export async function updateLongTermHorizon(tradeId: string, horizon: string) {
+  const { data: trade, error } = await supabaseAdmin
+    .from("trades")
+    .select("id, status, position_type, hold_horizon, review_date, horizon_history, ticker")
+    .eq("id", tradeId)
+    .single();
+  if (error) throw new Error(error.message);
+  if (trade!.position_type !== "LONG_TERM") {
+    throw new Error("Only long-term holdings have a holding period.");
+  }
+  if (trade!.status !== "open") throw new Error("That holding is already closed.");
+
+  const day = today();
+  const history = Array.isArray(trade!.horizon_history) ? trade!.horizon_history : [];
+  const nextReview = reviewDateFor(horizon, day);
+  const { error: upErr } = await supabaseAdmin
+    .from("trades")
+    .update({
+      hold_horizon: horizon,
+      review_date: nextReview,
+      horizon_history: [
+        ...history,
+        {
+          changed_on: day,
+          from: trade!.hold_horizon ?? null,
+          to: horizon,
+          previous_review_date: trade!.review_date ?? null,
+          new_review_date: nextReview,
+          decided_by: "owner",
+        },
+      ],
+    })
+    .eq("id", tradeId);
+  if (upErr) throw new Error(upErr.message);
+
+  return {
+    ticker: String(trade!.ticker),
+    hold_horizon: horizon,
+    hold_horizon_label: horizonLabel(horizon),
+    review_date: nextReview,
+  };
+}
 
 /**
  * Manual, user-driven sale of part (or all) of a protected LONG_TERM live
