@@ -416,6 +416,15 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         ticker: String(t.ticker),
         profit: Number(t.profit ?? 0),
       })),
+      // Long-term sales and the open long-term move, kept apart from same-day.
+      long_term_closed: (closedLongTerm ?? []).map((t) => ({
+        exit_date: String(t.exit_date),
+        ticker: String(t.ticker),
+        profit: Number(t.profit ?? 0),
+      })),
+      long_term_open_pl: Number(
+        longTermHoldings.reduce((sum, hold) => sum + Number(hold.pl ?? 0), 0).toFixed(2),
+      ),
       total_profit: Number(
         (closedTrades ?? []).reduce((sum, trade) => sum + Number(trade.profit ?? 0), 0).toFixed(2),
       ),
