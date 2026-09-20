@@ -57,8 +57,6 @@ export interface RankRow {
 const MAX_SLOTS = 7;
 /** A researcher never runs more than one stock at a time. */
 const STOCKS_PER_RESEARCHER = 1;
-/** How many of the six researchers open a new position on a market day. */
-const ROTATION_PER_DAY = 2;
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
 /**
