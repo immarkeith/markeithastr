@@ -13,7 +13,13 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-import { addCalendarMonths, RESEARCH_HORIZONS, horizonLabel } from "./horizons";
+import {
+  addCalendarMonths,
+  checkpointDate,
+  LONG_TERM_RESEARCH_HORIZONS,
+  RESEARCH_HORIZONS,
+  horizonLabel,
+} from "./horizons";
 import { nyParts } from "./market-calendar";
 
 const today = () => nyParts().date;
