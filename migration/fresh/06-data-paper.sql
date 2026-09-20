@@ -1,4 +1,4 @@
--- ASTR fresh setup 6 of 8: paper research slots
+-- ASTR fresh setup 6 of 9: paper research slots
 
 INSERT INTO public.paper_slots (id, strategy_id, enabled, stocks_per_day, position_dollars, stable_days, breach_days, last_evaluated_date, started_on, created_at, updated_at, lane) VALUES (1, 'fc99a1e4-686c-4a18-b961-22b7f3426059', false, 3, 20, 0, 0, '2026-09-17', '2026-08-24', '2026-08-24 04:03:17.564041+00', '2026-09-17 22:54:39.926768+00', NULL);
 INSERT INTO public.paper_slots (id, strategy_id, enabled, stocks_per_day, position_dollars, stable_days, breach_days, last_evaluated_date, started_on, created_at, updated_at, lane) VALUES (2, 'd72c5d37-a356-4881-9e26-4163a6638321', false, 1, 20, 0, 0, '2026-09-17', '2026-08-24', '2026-08-24 04:03:17.564041+00', '2026-09-17 22:54:39.926768+00', NULL);
