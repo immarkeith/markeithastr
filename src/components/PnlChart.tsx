@@ -234,14 +234,14 @@ export function PnlChart({
         <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground">{title}</h2>
         {twoLine ? (
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
-            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} text-chart-2`}>
+            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(total)}`}>
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {primaryLabel ?? "3-Day"}
               </span>
               {total >= 0 ? "+" : ""}
               {money(total)}
             </p>
-            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} text-chart-4`}>
+            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(compareTotal)}`}>
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {compareLabel ?? "Same-Day"}
               </span>
@@ -255,8 +255,8 @@ export function PnlChart({
             {money(total)}
           </p>
         )}
-        <p className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : tone}`}>
-          {twoLine ? "" : up ? "▲ " : "▼ "}
+        <p className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : toneOf(total)}`}>
+          {twoLine || total === 0 ? "" : up ? "▲ " : "▼ "}
           {pct === null ? "" : `${Math.abs(pct).toFixed(2)}% · `}
           {active.label === "LIVE" ? "today, live" : active.label}
         </p>
@@ -306,7 +306,7 @@ export function PnlChart({
                 strokeLinecap="round"
                 strokeDasharray="3 2"
                 stroke="currentColor"
-                className="text-chart-3"
+                className={toneOf(secondaryTotal)}
                 vectorEffect="non-scaling-stroke"
               />
             ) : null}
@@ -327,7 +327,7 @@ export function PnlChart({
                 strokeWidth="1.6"
                 strokeLinecap="round"
                 stroke="currentColor"
-                className={twoLine ? "text-chart-2" : "text-live"}
+                className="text-live"
                 vectorEffect="non-scaling-stroke"
               />
             ) : null}
@@ -346,13 +346,12 @@ export function PnlChart({
       {twoLine ? (
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-0.5 w-5 rounded bg-chart-2" />
+            <span className={`inline-block h-0.5 w-5 rounded ${fillOf(total)}`} />
             solid — {primaryLabel ?? "3-Day"}
           </span>
           <span className="flex items-center gap-1">
             <span
-              className="inline-block h-0 w-5 border-t-2 border-dotted"
-              style={{ borderColor: "var(--chart-4)" }}
+              className={`inline-block h-0 w-5 border-t-2 border-dotted border-current ${toneOf(compareTotal)}`}
             />
             dotted — {compareLabel ?? "Same-Day"}
           </span>
@@ -363,14 +362,13 @@ export function PnlChart({
       {secondarySeries ? (
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className={`inline-block h-0.5 w-5 rounded ${up ? "bg-success" : "bg-destructive"}`} />
+            <span className={`inline-block h-0.5 w-5 rounded ${fillOf(total)}`} />
             {primaryLabel ?? "Same-Day P/L"} {total >= 0 ? "+" : ""}
             {money(total)}
           </span>
           <span className="flex items-center gap-1">
             <span
-              className="inline-block h-0 w-5 border-t-2 border-dashed"
-              style={{ borderColor: "var(--chart-3)" }}
+              className={`inline-block h-0 w-5 border-t-2 border-dashed border-current ${toneOf(secondaryTotal)}`}
             />
             {secondaryLabel ?? "Long-Term P/L"}{" "}
             {secondaryTotal === null ? "—" : `${secondaryTotal >= 0 ? "+" : ""}${money(secondaryTotal)}`}
