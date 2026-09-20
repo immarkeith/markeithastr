@@ -372,5 +372,53 @@ export async function generateInsights(day: string): Promise<number> {
     if (ok) created += 1;
   }
 
+  created += await longTermReviewAlerts(day);
+
+  return created;
+}
+
+/**
+ * Warns before a live long-term holding reaches the holding period its owner
+ * chose, and adds what the accumulated research says. Purely informational:
+ * nothing is sold and nothing is extended without the owner's decision.
+ */
+export async function longTermReviewAlerts(day: string): Promise<number> {
+  const soon = new Date(`${day}T00:00:00Z`);
+  soon.setUTCDate(soon.getUTCDate() + 3);
+  const horizon = soon.toISOString().slice(0, 10);
+
+  const { data: due } = await supabaseAdmin
+    .from("trades")
+    .select("id, ticker, hold_horizon, review_date, dollars")
+    .eq("status", "open")
+    .eq("mode", "live")
+    .eq("position_type", "LONG_TERM")
+    .not("review_date", "is", null)
+    .lte("review_date", horizon);
+
+  const { horizonRecommendation } = await import("./long-term-research.server");
+  const { horizonLabel } = await import("./horizons");
+  let created = 0;
+  for (const row of due ?? []) {
+    const ticker = String(row.ticker);
+    const advice = await horizonRecommendation(ticker);
+    const ok = await notify({
+      kind: "long-term-review",
+      title: `${ticker} reaches its ${horizonLabel(String(row.hold_horizon))} holding period on ${row.review_date}`,
+      body: `${advice.summary} You decide what happens next: sell, extend 1, 3 or 9 months, or continue indefinitely. Nothing is sold automatically.`,
+      ticker,
+      severity: advice.supported ? "good" : "warn",
+      action: "Review this holding on the Home page",
+      meta: {
+        trade_id: String(row.id),
+        review_date: row.review_date,
+        hold_horizon: row.hold_horizon,
+        recommended_horizon: advice.best_horizon,
+        has_research: advice.supported,
+      },
+      dedupe_key: `long-term-review:${row.id}:${row.review_date}`,
+    });
+    if (ok) created += 1;
+  }
   return created;
 }
