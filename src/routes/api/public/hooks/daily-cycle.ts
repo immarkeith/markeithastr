@@ -29,6 +29,15 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
               depError instanceof Error ? depError.message : depError,
             );
           }
+          // Long-horizon paper predictions whose date has arrived get their real
+          // outcome appended. Paper bookkeeping only.
+          let horizons: unknown = null;
+          try {
+            const { evaluateDueHorizons } = await import("@/lib/long-term-research.server");
+            horizons = await evaluateDueHorizons();
+          } catch (horizonError) {
+            console.error("horizon evaluation failed:", horizonError);
+          }
           const settings = await loadSettings();
           if (!(settings as unknown as { auto_run: boolean }).auto_run) {
             return Response.json({ ran: false, reason: "auto_run is off", paper, department });
