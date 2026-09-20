@@ -191,13 +191,21 @@ function HomePage() {
                 </p>
                 <div className="mt-3 flex items-center gap-2">
                   {h.trade_id ? (
-                    <LongTermSellDialog
-                      tradeId={h.trade_id}
-                      ticker={h.ticker}
-                      marketValue={h.market_value}
-                      shares={h.qty}
-                      price={h.price}
-                    />
+                    <>
+                      <LongTermSellDialog
+                        tradeId={h.trade_id}
+                        ticker={h.ticker}
+                        marketValue={h.market_value}
+                        shares={h.qty}
+                        price={h.price}
+                      />
+                      <LongTermReviewDialog
+                        tradeId={h.trade_id}
+                        ticker={h.ticker}
+                        holdHorizon={h.hold_horizon}
+                        reviewDate={h.review_date}
+                      />
+                    </>
                   ) : null}
                 </div>
                 {h.note ? <p className="mt-2 text-xs text-muted-foreground">{h.note}</p> : null}
