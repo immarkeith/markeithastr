@@ -359,6 +359,25 @@ export function PnlChart({
         </div>
       ) : null}
 
+      {/* Two clearly named lines whenever long-term holds are included. */}
+      {secondarySeries ? (
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className={`inline-block h-0.5 w-5 rounded ${up ? "bg-success" : "bg-destructive"}`} />
+            {primaryLabel ?? "Same-Day P/L"} {total >= 0 ? "+" : ""}
+            {money(total)}
+          </span>
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block h-0 w-5 border-t-2 border-dashed"
+              style={{ borderColor: "var(--chart-3)" }}
+            />
+            {secondaryLabel ?? "Long-Term P/L"}{" "}
+            {secondaryTotal === null ? "—" : `${secondaryTotal >= 0 ? "+" : ""}${money(secondaryTotal)}`}
+          </span>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-1">
         {ranges.map((r) => (
           <button
