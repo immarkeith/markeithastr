@@ -20,22 +20,19 @@ export interface PnlRange {
   calendar?: "week" | "month" | "months3";
 }
 
+/**
+ * Short labels only — LIVE, 1W, 1M, 3M. The windows themselves are still real
+ * calendar periods: this week, this month, this month plus the two before it.
+ */
 export const HOME_RANGES: PnlRange[] = [
   { key: "live", label: "LIVE", days: 1, live: true },
-  { key: "1d", label: "1D", days: 1, endYesterday: true },
-  { key: "week", label: "This Week", days: 7, calendar: "week" },
-  { key: "month", label: "This Month", days: 31, calendar: "month" },
-  { key: "months3", label: "Last 3 Months", days: 92, calendar: "months3" },
+  { key: "week", label: "1W", days: 7, calendar: "week" },
+  { key: "month", label: "1M", days: 31, calendar: "month" },
+  { key: "months3", label: "3M", days: 92, calendar: "months3" },
 ];
 
 /** The Research Lab reads the same calendar periods as the live graph. */
-export const LAB_RANGES: PnlRange[] = [
-  { key: "live", label: "LIVE", days: 1, live: true },
-  { key: "1d", label: "1D", days: 1, endYesterday: true },
-  { key: "week", label: "This Week", days: 7, calendar: "week" },
-  { key: "month", label: "This Month", days: 31, calendar: "month" },
-  { key: "months3", label: "Last 3 Months", days: 92, calendar: "months3" },
-];
+export const LAB_RANGES: PnlRange[] = HOME_RANGES;
 
 const isoDaysAgo = (n: number) => {
   const d = new Date();
