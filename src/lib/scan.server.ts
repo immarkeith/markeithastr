@@ -497,6 +497,8 @@ export async function openTrade(input: {
   dollars: number;
   mode?: string;
   position_type?: "SAME_DAY" | "LONG_TERM";
+  /** Intended holding period for a LONG_TERM position: 1M, 3M, 9M, INDEFINITE. */
+  hold_horizon?: string | null;
 }) {
   const mode = input.mode === "live" ? "live" : "paper";
   const ticker = input.ticker.toUpperCase();
@@ -534,12 +536,17 @@ export async function openTrade(input: {
   }
 
 
+  // Only long-term holdings carry a holding period and a review date.
+  const entryDate = today();
+  const holdHorizon =
+    positionType === "LONG_TERM" ? (input.hold_horizon ?? "INDEFINITE") : null;
+  const { reviewDateFor } = await import("./horizons");
   const { data, error } = await supabaseAdmin
     .from("trades")
     .insert({
       ticker,
       kind: input.kind,
-      entry_date: today(),
+      entry_date: entryDate,
       entry_at: new Date().toISOString(),
       entry_price: entryPrice,
       dollars: input.dollars,
@@ -548,6 +555,8 @@ export async function openTrade(input: {
       position_type: positionType,
       filled_qty: filledQty,
       broker_order_id: brokerOrderId,
+      hold_horizon: holdHorizon,
+      review_date: holdHorizon ? reviewDateFor(holdHorizon, entryDate) : null,
     })
     .select("id")
     .single();

@@ -10,6 +10,8 @@ export const buyLongTerm = createServerFn({ method: "POST" })
       ticker: z.string().trim().min(1).max(10).regex(/^[A-Za-z.\-]+$/),
       dollars: z.number().min(1).max(1_000_000),
       estimated_price: z.number().positive(),
+      // The owner's intended holding period. Never permission to auto-sell.
+      hold_horizon: z.enum(["1M", "3M", "9M", "INDEFINITE"]).default("INDEFINITE"),
     }).parse(input),
   )
   .handler(async ({ data }) => {
@@ -27,7 +29,28 @@ export const buyLongTerm = createServerFn({ method: "POST" })
       dollars: data.dollars,
       mode: "live",
       position_type: "LONG_TERM",
+      hold_horizon: data.hold_horizon,
     });
+  });
+
+/**
+ * The owner's answer to a review notification: sell is handled by the sell
+ * dialog, so this only ever EXTENDS or makes a holding indefinite. It never
+ * touches shares.
+ */
+export const setLongTermHorizon = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .inputValidator((input) =>
+    z
+      .object({
+        trade_id: z.string().uuid(),
+        hold_horizon: z.enum(["1M", "3M", "9M", "INDEFINITE"]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { updateLongTermHorizon } = await import("./long-term.server");
+    return updateLongTermHorizon(data.trade_id, data.hold_horizon);
   });
 
 export const sellLongTerm = createServerFn({ method: "POST" })
