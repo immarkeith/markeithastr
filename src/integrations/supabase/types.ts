@@ -1026,6 +1026,89 @@ export type Database = {
         }
         Relationships: []
       }
+      research_horizon_predictions: {
+        Row: {
+          benchmark_return_pct: number | null
+          created_at: string
+          entry_price: number
+          evaluate_on: string
+          evaluated_at: string | null
+          exit_price: number | null
+          factors: Json
+          formula: Json
+          formula_version: string | null
+          horizon: string
+          id: string
+          lane: string
+          note: string | null
+          outcome: string
+          predicted_at: string
+          prediction_date: string
+          researcher_name: string
+          return_pct: number | null
+          score: number | null
+          strategy_id: string | null
+          successful: boolean | null
+          ticker: string
+        }
+        Insert: {
+          benchmark_return_pct?: number | null
+          created_at?: string
+          entry_price: number
+          evaluate_on: string
+          evaluated_at?: string | null
+          exit_price?: number | null
+          factors?: Json
+          formula?: Json
+          formula_version?: string | null
+          horizon: string
+          id?: string
+          lane: string
+          note?: string | null
+          outcome?: string
+          predicted_at?: string
+          prediction_date: string
+          researcher_name: string
+          return_pct?: number | null
+          score?: number | null
+          strategy_id?: string | null
+          successful?: boolean | null
+          ticker: string
+        }
+        Update: {
+          benchmark_return_pct?: number | null
+          created_at?: string
+          entry_price?: number
+          evaluate_on?: string
+          evaluated_at?: string | null
+          exit_price?: number | null
+          factors?: Json
+          formula?: Json
+          formula_version?: string | null
+          horizon?: string
+          id?: string
+          lane?: string
+          note?: string | null
+          outcome?: string
+          predicted_at?: string
+          prediction_date?: string
+          researcher_name?: string
+          return_pct?: number | null
+          score?: number | null
+          strategy_id?: string | null
+          successful?: boolean | null
+          ticker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_horizon_predictions_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       research_notebook: {
         Row: {
           accepted: boolean
@@ -1275,13 +1358,16 @@ export type Database = {
           exit_price: number | null
           filled_qty: number | null
           hold_days: number
+          hold_horizon: string | null
           hold_target_date: string | null
+          horizon_history: Json
           id: string
           kept: number | null
           kind: string
           mode: string
           position_type: string
           profit: number | null
+          review_date: string | null
           same_day_at: string | null
           same_day_pct: number | null
           same_day_price: number | null
@@ -1303,13 +1389,16 @@ export type Database = {
           exit_price?: number | null
           filled_qty?: number | null
           hold_days?: number
+          hold_horizon?: string | null
           hold_target_date?: string | null
+          horizon_history?: Json
           id?: string
           kept?: number | null
           kind?: string
           mode?: string
           position_type?: string
           profit?: number | null
+          review_date?: string | null
           same_day_at?: string | null
           same_day_pct?: number | null
           same_day_price?: number | null
@@ -1331,13 +1420,16 @@ export type Database = {
           exit_price?: number | null
           filled_qty?: number | null
           hold_days?: number
+          hold_horizon?: string | null
           hold_target_date?: string | null
+          horizon_history?: Json
           id?: string
           kept?: number | null
           kind?: string
           mode?: string
           position_type?: string
           profit?: number | null
+          review_date?: string | null
           same_day_at?: string | null
           same_day_pct?: number | null
           same_day_price?: number | null
