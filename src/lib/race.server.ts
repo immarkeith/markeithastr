@@ -303,23 +303,6 @@ export async function rankSlots(slots: RaceSlot[]): Promise<Map<number, RankRow[
   return out;
 }
 
-/**
- * Which researchers may open a new position today.
- *
- * Every researcher now works every market day — there is no turn-taking left.
- * A researcher already holding its one stock still opens nothing until that
- * position closes.
- */
-async function rotationToday(slots: RaceSlot[]): Promise<Set<string>> {
-  const working: string[] = [];
-  for (const slot of slots) {
-    if (!slot.lane || slot.lane === "lead" || !slot.enabled) continue;
-    const open = await slotOpenTrades(slot.strategy_id);
-    if (open.length > 0) continue;
-    working.push(slot.lane);
-  }
-  return new Set(working);
-}
 
 // ------------------------------------------------------- slot cash + book ----
 
@@ -622,7 +605,6 @@ export async function runRacePass(
   if (slots.length === 0) return result;
 
   const rankings = await rankSlots(slots);
-  const rotation = phase === "exit" ? new Set<string>() : await rotationToday(slots);
   const settlementDays = Number(base.settlement_days);
   const keepPct = Number(base.profit_keep_pct);
 
