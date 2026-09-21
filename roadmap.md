@@ -5,7 +5,7 @@
 - [x] Keep Research Lab always running and retain paper-only performance graphs
 - [x] Refine Home account figures, live P/L graph, long-term holds, and market ticker
 - [x] Add hamburger navigation and validate live/research separation
-- [ ] Remove user-visible 3-day research metrics and keep researcher graphs Same-Day only
-- [ ] Add separate 1M, 3M, and 9M researcher win rates
-- [ ] Keep researcher disagreements visible with an empty state
-- [ ] Show the current live ticker only on the open-market LIVE graph
+- [x] Remove user-visible 3-day research metrics and keep researcher graphs Same-Day only
+- [x] Add separate 1M, 3M, and 9M researcher win rates
+- [x] Keep researcher disagreements visible with an empty state
+- [x] Show the current live ticker only on the open-market LIVE graph

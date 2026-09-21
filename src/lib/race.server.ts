@@ -746,7 +746,7 @@ export async function runRacePass(
   // ---- shared long-term research candidate (paper only)
   // One candidate per trading day for the whole department — not one each. Every
   // researcher then writes down its OWN prediction for that same stock at the
-  // 1-week, 1-month, 3-month and 9-month checkpoints, using its own formula.
+  // 1-month, 3-month and 9-month checkpoints, using its own formula.
   // Nothing is bought and no live money is involved; the price data is the same
   // cached bars the daily research already used.
   if (phase !== "exit") {
