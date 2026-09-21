@@ -245,7 +245,6 @@ export function ResearchDepartment() {
   const findings = data?.findings ?? [];
   const deadEnds = data?.dead_ends ?? [];
   const notebook = data?.notebook ?? [];
-  const rotation = data?.last_run?.summary?.rotation ?? null;
   const master = data?.master;
   const activeRules = (master?.rules ?? []).filter((r) => r.status === "active");
   const leadTest = (master?.lead_tests ?? [])[0] ?? null;
@@ -265,14 +264,8 @@ export function ResearchDepartment() {
       {(leadTest || todayBackups.length > 0) && (
         <details>
           <summary className="cursor-pointer text-sm uppercase tracking-[0.15em] text-muted-foreground">
-            Today&apos;s three tests
+            Today&apos;s tests
           </summary>
-          {rotation ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Sitting out: {rotation.sitting_out.join(", ") || "nobody"} · next up:{" "}
-              {rotation.next.join(", ") || "—"}
-            </p>
-          ) : null}
           <div className="mt-3 grid gap-5 lg:grid-cols-3">
             {leadTest ? (
               <article className="space-y-1">
@@ -295,7 +288,7 @@ export function ResearchDepartment() {
                 <p className="text-xs text-muted-foreground">{leadTest.note}</p>
               </article>
             ) : null}
-            {todayBackups.slice(0, 2).map((b) => (
+            {todayBackups.map((b) => (
               <article key={b.id} className="space-y-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <h3 className="font-semibold">{b.researcher_name}</h3>
