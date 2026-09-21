@@ -946,12 +946,27 @@ export async function runDepartment(
     );
 
     // Discovery block first, so only the strongest few pay for a full workup.
+    // New work builds on what this researcher already learned: experiments that
+    // touch a characteristic it currently has supporting evidence for are looked
+    // at first. This only changes the ORDER ideas are tried in — every idea still
+    // faces the same out-of-sample test, the Skeptic and the same validation.
+    const learned = supportedCharacteristics.get(lane.lane) ?? new Set<string>();
+    const priorityOf = (variable: string) => {
+      const v = variable.toLowerCase();
+      for (const key of learned) if (v.includes(key.replace(/_/g, " "))) return 1;
+      return 0;
+    };
+
     const shortlist = book
       .map((e) => ({
         e,
         leg: legFrom(pickRows(rowsByDate, inDates, e.params, s, share)),
       }))
-      .sort((a, b) => lane.objective(b.leg) - lane.objective(a.leg))
+      .sort(
+        (a, b) =>
+          priorityOf(b.e.variable) - priorityOf(a.e.variable) ||
+          lane.objective(b.leg) - lane.objective(a.leg),
+      )
       .slice(0, 4);
 
     const trials = shortlist.map(({ e }) => evaluate(lane, e.label, e.signature, e.params));
