@@ -143,7 +143,7 @@ export async function capitalAnalysis(): Promise<CapitalAnalysisResult> {
             data: LongTermRow[] | null;
             error: { message: string } | null;
           }>,
-      ),
+      ).catch(() => [] as LongTermRow[]),
     ]);
   if (strategyError) throw new Error(strategyError.message);
 
