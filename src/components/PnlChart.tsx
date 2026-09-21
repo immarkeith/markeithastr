@@ -118,8 +118,15 @@ export function PnlChart({
       const state = marketStatus().state;
       setMarketOpen(state === "open" || state === "closing");
     };
-    const id = globalThis.setInterval(update, 30_000);
-    return () => globalThis.clearInterval(id);
+    update();
+    const id = globalThis.setInterval(update, 10_000);
+    globalThis.addEventListener?.("focus", update);
+    globalThis.addEventListener?.("visibilitychange", update);
+    return () => {
+      globalThis.clearInterval(id);
+      globalThis.removeEventListener?.("focus", update);
+      globalThis.removeEventListener?.("visibilitychange", update);
+    };
   }, []);
   const active = ranges.find((r) => r.key === range) ?? ranges[0]!;
   const activeLiveTicker = active.live && marketOpen && liveTicker ? liveTicker : null;

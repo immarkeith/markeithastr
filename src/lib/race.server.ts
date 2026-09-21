@@ -57,8 +57,15 @@ export interface RankRow {
 const MAX_SLOTS = 7;
 /** A researcher never runs more than one stock at a time. */
 const STOCKS_PER_RESEARCHER = 1;
-/** Shared long-term research candidates created per trading day (configurable). */
-const LONG_TERM_CANDIDATES_PER_DAY = 1;
+/** Shared long-term research candidates created per trading day. */
+const DEFAULT_LONG_TERM_CANDIDATES_PER_DAY = 1;
+
+function longTermCandidatesPerDay(): number {
+  const configured = Number(process.env['LONG_TERM_RESEARCH_CANDIDATES_PER_DAY'] ?? "");
+  return Number.isFinite(configured) && configured > 0
+    ? Math.max(1, Math.floor(configured))
+    : DEFAULT_LONG_TERM_CANDIDATES_PER_DAY;
+}
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
 /**
@@ -755,7 +762,7 @@ export async function runRacePass(
       const leadRanked = rankings.get(slots.find((s) => s.lane === "lead")?.id ?? -1) ?? [];
       const pool = (leadRanked.length ? leadRanked : (rankings.get(slots[0]?.id ?? -1) ?? []))
         .filter((r) => r.tradeable)
-        .slice(0, LONG_TERM_CANDIDATES_PER_DAY);
+        .slice(0, longTermCandidatesPerDay());
       for (const candidate of pool) {
         const marks = await latestCloses([candidate.ticker]);
         const price = Number(marks.get(candidate.ticker) ?? candidate.close);
@@ -1049,8 +1056,6 @@ export interface RaceEntrant {
    * had been sold at the normal same-day exit time. Paper research only.
    */
   same_day: HorizonStats;
-  /** The real paper leg: positions held for 3 trading days, then sold. */
-  three_day: HorizonStats;
   holdings: {
     ticker: string;
     entry_date: string;
@@ -1129,11 +1134,6 @@ export async function raceStandings(): Promise<{
       })),
       deposits,
     );
-    const threeDay = horizonStats(
-      closed.map((c) => ({ date: c.exit_date, profit: c.profit })),
-      deposits,
-    );
-
     return {
       key: `slot-${slot.id}`,
       lane: slot.lane,
@@ -1155,7 +1155,6 @@ export async function raceStandings(): Promise<{
       rank: 0,
       deposits,
       same_day: sameDay,
-      three_day: threeDay,
       holdings: open.map((t) => holdingOf(t as unknown as Record<string, unknown>, closes)),
       up_next: next
         ? {
@@ -1240,7 +1239,6 @@ export async function raceStandings(): Promise<{
     rank: 0,
     deposits: liveDeposits,
     same_day: liveHorizon,
-    three_day: liveHorizon,
     holdings: (liveOpen ?? []).map((t) =>
       holdingOf(t as unknown as Record<string, unknown>, liveCloses),
     ),
