@@ -1022,6 +1022,7 @@ function horizonStats(
 
 export interface RaceEntrant {
   key: string;
+  lane: string | null;
   slot_id: number | null;
   strategy_id: string | null;
   name: string;
@@ -1135,6 +1136,7 @@ export async function raceStandings(): Promise<{
 
     return {
       key: `slot-${slot.id}`,
+      lane: slot.lane,
       slot_id: slot.id,
       strategy_id: slot.strategy_id,
       name: slot.name,
@@ -1220,6 +1222,7 @@ export async function raceStandings(): Promise<{
 
   entrants.push({
     key: "live",
+    lane: null,
     slot_id: null,
     strategy_id: base.active_strategy_id,
     name: `${liveStrategy?.name ?? "Live strategy"} (live)`,
