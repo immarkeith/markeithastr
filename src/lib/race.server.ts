@@ -723,8 +723,6 @@ export async function runRacePass(
           cashLeft = Number((cashLeft - stake).toFixed(2));
           entry.opened.push({ ticker: row.ticker, price });
         }
-      } else if (phase !== "exit" && !myTurn) {
-        entry.skipped = "holding its current test position";
       }
     } catch (error) {
       entry.skipped = error instanceof Error ? error.message : "slot failed";
@@ -1124,8 +1122,8 @@ export async function raceStandings(): Promise<{
       name: slot.name,
       live: false,
       enabled: slot.enabled,
-      testing_today:
-        slot.enabled && (slot.lane === "lead" || (slot.lane !== null && rotation.has(slot.lane))),
+      // Every enabled researcher tests every market day — there is no rotation.
+      testing_today: slot.enabled,
       started_on: slot.started_on,
       stake: slot.position_dollars,
       stocks_per_day: slot.stocks_per_day,
