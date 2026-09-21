@@ -30,7 +30,6 @@ export const LONG_TERM_RESEARCH_HORIZONS = ["1M", "3M", "9M"] as const;
 
 export function horizonLabel(value: string | null | undefined): string {
   if (!value) return "Indefinite";
-  if (value === "1W") return "1 Week";
   return HOLD_HORIZONS.find((h) => h.value === value)?.label ?? String(value);
 }
 

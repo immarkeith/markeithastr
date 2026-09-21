@@ -311,8 +311,7 @@ export async function longTermTopTen(): Promise<LongTermBoard> {
   const latest = new Map<string, Record<string, unknown>>();
   for (const row of rows) {
     if (String(row.outcome) === "insufficient_data") continue;
-    // A candidate needs at least a one-month horizon to qualify here. The
-    // one-week checkpoint is still recorded and studied, just not ranked.
+    // A candidate needs at least a one-month horizon to qualify here.
     if (!LONG_TERM_RESEARCH_HORIZONS.includes(String(row.horizon) as never)) continue;
     const key = `${String(row.ticker)}|${String(row.horizon)}`;
     const held = latest.get(key);
