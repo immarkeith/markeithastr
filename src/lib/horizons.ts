@@ -20,11 +20,9 @@ export const HOLD_HORIZONS: ReadonlyArray<{
 ];
 
 /**
- * Checkpoints the Research Lab evaluates on paper. The one-week checkpoint is
- * research only: it is an early read on a long-term idea, and it never appears
- * on the Long-Term scoreboard, which needs at least a one-month horizon.
+ * Long-term checkpoints the Research Lab evaluates on paper.
  */
-export const RESEARCH_HORIZONS = ["1W", "1M", "3M", "9M"] as const;
+export const RESEARCH_HORIZONS = ["1M", "3M", "9M"] as const;
 export type ResearchHorizon = (typeof RESEARCH_HORIZONS)[number];
 
 /** Horizons that qualify for the Long-Term board (minimum one month). */
@@ -40,13 +38,8 @@ export function horizonMonths(value: string | null | undefined): number | null {
   return HOLD_HORIZONS.find((h) => h.value === value)?.months ?? null;
 }
 
-/** The evaluation date for a research checkpoint, including the week one. */
+/** The evaluation date for a research checkpoint. */
 export function checkpointDate(horizon: string, fromIso: string): string {
-  if (horizon === "1W") {
-    const d = new Date(`${fromIso.slice(0, 10)}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + 7);
-    return d.toISOString().slice(0, 10);
-  }
   const months = horizon === "1M" ? 1 : horizon === "3M" ? 3 : 9;
   return addCalendarMonths(fromIso, months);
 }

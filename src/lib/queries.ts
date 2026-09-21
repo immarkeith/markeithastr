@@ -182,7 +182,8 @@ export const dashboardQuery = queryOptions({
     const { fetchDashboard } = await import("@/lib/data.functions");
     return fetchDashboard();
   },
-  refetchInterval: 60_000,
+  // Keep the LIVE graph's current-position label from lingering after a sale.
+  refetchInterval: 30_000,
 });
 
 export const tradeHistoryQuery = queryOptions({

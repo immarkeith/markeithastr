@@ -118,8 +118,8 @@ export function PnlChart({
       const state = marketStatus().state;
       setMarketOpen(state === "open" || state === "closing");
     };
-    const id = window.setInterval(update, 30_000);
-    return () => window.clearInterval(id);
+    const id = globalThis.setInterval(update, 30_000);
+    return () => globalThis.clearInterval(id);
   }, []);
   const active = ranges.find((r) => r.key === range) ?? ranges[0]!;
   const activeLiveTicker = active.live && marketOpen && liveTicker ? liveTicker : null;

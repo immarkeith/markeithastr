@@ -746,7 +746,7 @@ export async function runRacePass(
   // ---- shared long-term research candidate (paper only)
   // One candidate per trading day for the whole department — not one each. Every
   // researcher then writes down its OWN prediction for that same stock at the
-  // 1-week, 1-month, 3-month and 9-month checkpoints, using its own formula.
+  // 1-month, 3-month and 9-month checkpoints, using its own formula.
   // Nothing is bought and no live money is involved; the price data is the same
   // cached bars the daily research already used.
   if (phase !== "exit") {
@@ -1022,6 +1022,7 @@ function horizonStats(
 
 export interface RaceEntrant {
   key: string;
+  lane: string | null;
   slot_id: number | null;
   strategy_id: string | null;
   name: string;
@@ -1135,6 +1136,7 @@ export async function raceStandings(): Promise<{
 
     return {
       key: `slot-${slot.id}`,
+      lane: slot.lane,
       slot_id: slot.id,
       strategy_id: slot.strategy_id,
       name: slot.name,
@@ -1220,6 +1222,7 @@ export async function raceStandings(): Promise<{
 
   entrants.push({
     key: "live",
+    lane: null,
     slot_id: null,
     strategy_id: base.active_strategy_id,
     name: `${liveStrategy?.name ?? "Live strategy"} (live)`,

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { InfoDot } from "@/components/InfoDot";
@@ -80,7 +81,7 @@ function LabPage() {
   const assistants = slots.filter((s) => !/lead/i.test(s.name));
   const best = assistants.length
     ? assistants.reduce(
-        (top, s) => (s.three_day.total_pnl > top.three_day.total_pnl ? s : top),
+        (top, s) => (s.same_day.total_pnl > top.same_day.total_pnl ? s : top),
         assistants[0]!,
       )
     : null;
@@ -159,7 +160,12 @@ function LabPage() {
         <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Testing today</h2>
         <div className="grid gap-4 lg:grid-cols-3">
           {active.map((slot) => (
-            <SlotCard key={slot.key} slot={slot} active />
+            <SlotCard
+              key={slot.key}
+              slot={slot}
+              longTermRates={slot.lane ? (d?.long_term_win_rates[slot.lane] ?? []) : []}
+              active
+            />
           ))}
         </div>
       </div>
@@ -171,7 +177,12 @@ function LabPage() {
           </h2>
           <div className="grid gap-4 lg:grid-cols-3">
             {inactive.map((slot) => (
-              <SlotCard key={slot.key} slot={slot} active={false} />
+              <SlotCard
+                key={slot.key}
+                slot={slot}
+                longTermRates={slot.lane ? (d?.long_term_win_rates[slot.lane] ?? []) : []}
+                active={false}
+              />
             ))}
           </div>
         </div>
@@ -182,8 +193,7 @@ function LabPage() {
       <footer className="space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
         <p>
           The Lead and every assistant researcher always use simulated money, completely separate
-          from live trading. Each test buy is measured twice: what a same-day sale would have made,
-          and what actually happened over three trading days.
+          from live trading. Each short-term result shows what a same-day sale would have made.
         </p>
         <p>
           Every simulated trade is written to the{" "}
@@ -199,45 +209,70 @@ function LabPage() {
 
 type Entrant = NonNullable<Awaited<ReturnType<typeof fetchRace>>>["entrants"][number];
 
-/**
- * One metric with both research horizons side by side: the hypothetical
- * same-day sale and the real 3-trading-day paper hold.
- */
-function DualMetric({
-  label,
-  sameDay,
-  threeDay,
-  hint,
-}: {
-  label: string;
-  sameDay: string;
-  threeDay: string;
-  hint?: string;
-}) {
+function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <div className="mt-1 space-y-0.5">
-        <p className="flex items-baseline justify-between gap-2 text-sm font-bold tabular-nums text-chart-4">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            SD
-          </span>
-          {sameDay}
-        </p>
-        <p className="flex items-baseline justify-between gap-2 text-sm font-bold tabular-nums text-chart-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            3D
-          </span>
-          {threeDay}
-        </p>
-      </div>
+      <p className="mt-1 text-sm font-bold tabular-nums text-chart-4">{value}</p>
       {hint ? <p className="mt-1 text-[10px] text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
 
+type LongTermRate = {
+  horizon: "1M" | "3M" | "9M";
+  wins: number;
+  completed: number;
+  win_rate: number | null;
+};
 
-function SlotCard({ slot }: { slot: Entrant; active?: boolean }) {
+function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
+  const [horizon, setHorizon] = useState<"1M" | "3M" | "9M">("1M");
+  const selected = rates.find((rate) => rate.horizon === horizon);
+  const labels = { "1M": "1 Month", "3M": "3 Months", "9M": "9 Months" } as const;
+
+  return (
+    <section className="space-y-2 border-t border-border/60 pt-3">
+      <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+        Long-Term Win Rate
+      </p>
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Long-term win-rate horizon">
+        {(Object.keys(labels) as Array<keyof typeof labels>).map((value) => (
+          <Button
+            key={value}
+            type="button"
+            size="sm"
+            variant={horizon === value ? "secondary" : "ghost"}
+            onClick={() => setHorizon(value)}
+          >
+            {labels[value]}
+          </Button>
+        ))}
+      </div>
+      {!selected || selected.completed === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Insufficient data — no completed {labels[horizon].toLowerCase()} predictions yet.
+        </p>
+      ) : (
+        <p className="text-sm tabular-nums">
+          <span className="font-semibold">{selected.win_rate}%</span>{" "}
+          <span className="text-xs text-muted-foreground">
+            {selected.wins} correct of {selected.completed} completed predictions
+          </span>
+        </p>
+      )}
+    </section>
+  );
+}
+
+function SlotCard({
+  slot,
+  longTermRates,
+}: {
+  slot: Entrant;
+  longTermRates: LongTermRate[];
+  active?: boolean;
+}) {
   return (
     <section className="space-y-4">
       {/* Every researcher tests every market day, so no status badge is needed. */}
@@ -247,30 +282,24 @@ function SlotCard({ slot }: { slot: Entrant; active?: boolean }) {
 
       {/* Main level: P/L and Win Rate only. */}
       <div className="grid grid-cols-2 gap-2">
-        <DualMetric
-          label="P&amp;L"
-          sameDay={`${slot.same_day.total_pnl >= 0 ? "+" : ""}${money(slot.same_day.total_pnl)}`}
-          threeDay={`${slot.three_day.total_pnl >= 0 ? "+" : ""}${money(slot.three_day.total_pnl)}`}
+        <Metric
+          label="Same-Day P&amp;L"
+          value={`${slot.same_day.total_pnl >= 0 ? "+" : ""}${money(slot.same_day.total_pnl)}`}
         />
-        <DualMetric
-          label="Win rate"
-          sameDay={slot.same_day.win_rate === null ? "—" : `${slot.same_day.win_rate}%`}
-          threeDay={slot.three_day.win_rate === null ? "—" : `${slot.three_day.win_rate}%`}
+        <Metric
+          label="Same-Day Win Rate"
+          value={slot.same_day.win_rate === null ? "—" : `${slot.same_day.win_rate}%`}
         />
       </div>
 
 
       <PnlChart
-        rows={slot.three_day.rows}
-        compareRows={slot.same_day.rows}
-        primaryLabel="3-Day"
-        compareLabel="Same-Day"
+        rows={slot.same_day.rows}
+        primaryLabel="Same-Day"
         ranges={LAB_RANGES}
         initialRange="month"
-        title="Profit — Same-Day vs 3-Day"
+        title="Same-Day Profit"
         compact
-        unrealized={slot.unrealized}
-        unrealizedToday={slot.unrealized_today}
         basis={slot.basis}
       />
 
@@ -281,26 +310,21 @@ function SlotCard({ slot }: { slot: Entrant; active?: boolean }) {
         </summary>
         <div className="mt-3 space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <DualMetric
-              label="Return"
-              sameDay={
+            <Metric
+              label="Same-Day Return"
+              value={
                 slot.same_day.return_pct === null
                   ? "—"
                   : `${slot.same_day.return_pct >= 0 ? "+" : ""}${slot.same_day.return_pct}%`
               }
-              threeDay={
-                slot.three_day.return_pct === null
-                  ? "—"
-                  : `${slot.three_day.return_pct >= 0 ? "+" : ""}${slot.three_day.return_pct}%`
-              }
             />
-            <DualMetric
-              label="Value"
-              sameDay={money(slot.same_day.value)}
-              threeDay={money(slot.three_day.value)}
+            <Metric
+              label="Same-Day Value"
+              value={money(slot.same_day.value)}
               hint={`${money(slot.cash.available)} cash ready`}
             />
           </div>
+          <LongTermWinRate rates={longTermRates} />
           <p className="text-xs text-muted-foreground">
             Rank #{slot.rank} · {money(slot.stake)} per stock · {slot.stocks_per_day} at a time
           </p>
