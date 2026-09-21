@@ -300,8 +300,6 @@ function SlotCard({
         initialRange="month"
         title="Same-Day Profit"
         compact
-        unrealized={slot.unrealized}
-        unrealizedToday={slot.unrealized_today}
         basis={slot.basis}
       />
 
