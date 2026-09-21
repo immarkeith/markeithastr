@@ -132,7 +132,7 @@ export function ResearchDisagreements() {
  * assumptions it has dropped because they stopped holding up. Research only —
  * nothing here changes live trading.
  */
-function LearnedProfile({ lane, data }: { lane: string; data?: Overview }) {
+function LearnedProfile({ lane, data }: { lane: string; data: Overview | undefined }) {
   const learning = data?.learning;
   const beliefs = (learning?.beliefs ?? []).filter((b) => b.lane === lane);
   const counts = learning?.example_counts?.[lane] ?? {};
