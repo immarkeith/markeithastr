@@ -870,6 +870,24 @@ export async function runDepartment(
 
   const researchers = await listResearchers();
   const deadEnds = await loadDeadEnds();
+
+  // Each researcher's own supported characteristics, kept strictly per lane so
+  // one researcher's learning never touches another's search.
+  const supportedCharacteristics = new Map<string, Set<string>>();
+  try {
+    const { data: supported } = await supabaseAdmin
+      .from("researcher_beliefs")
+      .select("lane, characteristic, direction, status")
+      .eq("status", "supported")
+      .eq("direction", "helps");
+    for (const b of (supported ?? []) as { lane: string; characteristic: string }[]) {
+      const set = supportedCharacteristics.get(b.lane) ?? new Set<string>();
+      for (const part of b.characteristic.split("+")) set.add(part);
+      supportedCharacteristics.set(b.lane, set);
+    }
+  } catch {
+    // no learned profile yet — the search simply starts from its usual order
+  }
   let deadAdded = 0;
   const latestDate = panel.dates[panel.dates.length - 1];
 
