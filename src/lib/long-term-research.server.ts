@@ -217,7 +217,9 @@ export async function researcherLongTermWinRates(): Promise<
     .in("horizon", [...LONG_TERM_RESEARCH_HORIZONS])
     .not("successful", "is", null)
     .limit(10000);
-  if (error) throw new Error(error.message);
+  // A database that has not run the long-term research migration yet simply has
+  // no horizon history: report empty rates instead of breaking the whole Lab.
+  if (error) return {};
 
   const totals = new Map<string, { wins: number; completed: number }>();
   for (const row of data ?? []) {
