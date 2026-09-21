@@ -1259,6 +1259,19 @@ export async function runDepartment(
     out_of_sample: master.lead_test?.out_of_sample ?? baselineOut,
   };
 
+  // Each researcher now learns from its own completed examples: what the
+  // starting conditions were, what happened, and whether the characteristic it
+  // credited still holds up across the accumulated sample. Research only — it
+  // never writes settings, strategy params or any live position logic.
+  try {
+    const { runLearningPass } = await import("./learning.server");
+    await runLearningPass();
+  } catch (err) {
+    warnings.push(
+      `Learning pass skipped: ${err instanceof Error ? err.message : "unknown error"}`,
+    );
+  }
+
   // Where researchers agree and where they disagree — both are findings.
   const cross: string[] = crossFindings(laneFinal, reports);
 
