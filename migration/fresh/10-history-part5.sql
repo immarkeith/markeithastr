@@ -1,7 +1,6 @@
 -- ASTR historical data 5 of 5: real research history carried over from the original ASTR.
 -- Run AFTER parts 1-9, in order. Safe to run more than once.
 
-SET standard_conforming_strings = off;
 
 INSERT INTO public.scan_runs (id, run_date, status, universe_size, scored_count, bars_as_of, note, created_at) VALUES ('ccaf8f12-2095-47d4-a9d9-142875d5bf85', '2026-08-13', 'complete', 703, 677, '2026-08-12', 'market proxy SPY 5d -0.08%', '2026-08-13 07:07:05.651618+00') ON CONFLICT DO NOTHING;
 INSERT INTO public.scan_runs (id, run_date, status, universe_size, scored_count, bars_as_of, note, created_at) VALUES ('e85584a4-4203-4d8c-affc-f0c031aab7de', '2026-08-13', 'complete', 703, 677, '2026-08-12', 'market proxy SPY 5d -0.08%', '2026-08-13 08:07:05.871916+00') ON CONFLICT DO NOTHING;

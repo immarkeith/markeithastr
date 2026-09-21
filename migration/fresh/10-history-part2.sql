@@ -1,7 +1,6 @@
 -- ASTR historical data 2 of 5: real research history carried over from the original ASTR.
 -- Run AFTER parts 1-9, in order. Safe to run more than once.
 
-SET standard_conforming_strings = off;
 
 INSERT INTO public.research_dead_ends (id, lane, signature, label, reason, edge, hits, created_at, updated_at) VALUES ('085c7e65-1207-4f7d-aef5-1469f532bf89', 'growth', 'growth|growth_acceleration:31,long_relative_strength:31,momentum:12,sustained_advance:26|s60|n1|rsi-/-|atr-/-|rv-', 'Growth Researcher: momentum weight down 3', 'No edge on fresh days (-1.125% per trade vs the current rule).', -1.125, 1, '2026-09-18 21:30:20.314135+00', '2026-09-18 21:30:20.314135+00') ON CONFLICT DO NOTHING;
 INSERT INTO public.research_dead_ends (id, lane, signature, label, reason, edge, hits, created_at, updated_at) VALUES ('ab9133f2-6d50-4078-aab1-c0a0ccfe098f', 'growth', 'growth|growth_acceleration:31,long_relative_strength:31,momentum:13,sustained_advance:26|s60|n1|rsi-/-|atr-/-|rv-', 'Growth Researcher: momentum weight down 2', 'No edge on fresh days (-1.23% per trade vs the current rule).', -1.23, 1, '2026-09-18 21:30:20.420049+00', '2026-09-18 21:30:20.420049+00') ON CONFLICT DO NOTHING;
