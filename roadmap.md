@@ -1,11 +1,5 @@
-- [x] Simplify Scoreboard to selector + Top 10 + long-term buy actions
-- [x] Add protected LONG_TERM live position ledger, ordering, reconciliation, and Home display
-- [x] Add Analyze long-term buy confirmation using shared live purchase flow
-- [x] Refine Trade Log filters and context-aware fields
-- [x] Keep Research Lab always running and retain paper-only performance graphs
-- [x] Refine Home account figures, live P/L graph, long-term holds, and market ticker
-- [x] Add hamburger navigation and validate live/research separation
-- [x] Remove user-visible 3-day research metrics and keep researcher graphs Same-Day only
-- [x] Add separate 1M, 3M, and 9M researcher win rates
-- [x] Keep researcher disagreements visible with an empty state
-- [x] Show the current live ticker only on the open-market LIVE graph
+# Roadmap
+
+- [x] Calculate capital-analysis readiness and observed strategy statistics from existing completed research
+- [x] Add the configurable advisory capital analysis to the Research Lab
+- [x] Validate data counts, projection safeguards, and desktop/mobile presentation
