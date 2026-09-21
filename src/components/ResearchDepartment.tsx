@@ -35,8 +35,7 @@ function NotebookTable({ entries }: { entries: Notebook[] }) {
             <th className="p-2 text-left">Gen</th>
             <th className="p-2 text-left">Experiment</th>
             <th className="p-2 text-left">Change</th>
-            <th className="p-2 text-right">1d</th>
-            <th className="p-2 text-right">3d</th>
+            <th className="p-2 text-right">Same-Day</th>
             <th className="p-2 text-left">Conclusion</th>
           </tr>
         </thead>
@@ -50,11 +49,15 @@ function NotebookTable({ entries }: { entries: Notebook[] }) {
               <td className="p-2 text-xs tabular-nums text-muted-foreground">
                 {n.previous_value} → {n.new_value}
               </td>
-              {["1", "3"].map((h) => (
-                <td key={h} className="p-2 text-right text-xs tabular-nums">
-                  {n.horizons[h] !== undefined ? <Signed value={n.horizons[h]!} /> : "—"}
-                </td>
-              ))}
+              <td className="p-2 text-right text-xs tabular-nums">
+                {n.horizons["same_day"] !== undefined ? (
+                  <Signed value={n.horizons["same_day"]!} />
+                ) : n.horizons["1"] !== undefined ? (
+                  <Signed value={n.horizons["1"]!} />
+                ) : (
+                  "—"
+                )}
+              </td>
               <td
                 className={`max-w-[280px] p-2 text-xs ${
                   n.accepted ? "text-success" : "text-muted-foreground"
@@ -95,14 +98,18 @@ function DeadEndList({ entries }: { entries: DeadEnd[] }) {
 export function ResearchDisagreements() {
   const dept = useDepartment();
   const cross = dept.data?.last_run?.summary?.cross_findings ?? [];
-  if (!cross.length) return null;
   return (
     <section className="space-y-2">
       <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
         Where researchers agree &amp; disagree
       </h2>
-      <ul className="space-y-1.5 text-sm">
-        {cross.map((c) => (
+      {cross.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No active disagreements need attention right now.
+        </p>
+      ) : (
+        <ul className="space-y-1.5 text-sm">
+          {cross.map((c) => (
           <li key={c} className="flex gap-2">
             <span
               className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
@@ -111,8 +118,9 @@ export function ResearchDisagreements() {
             />
             <span className="text-muted-foreground">{c}</span>
           </li>
-        ))}
-      </ul>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -281,9 +289,7 @@ export function ResearchDepartment() {
                 </p>
                 <p className="text-xs tabular-nums text-muted-foreground">
                   <span className="text-chart-4">Same-Day</span>{" "}
-                  <Signed value={Number(leadTest.horizons["same_day"] ?? 0)} /> ·{" "}
-                  <span className="text-chart-2">3-Day</span>{" "}
-                  <Signed value={Number(leadTest.horizons["3"] ?? 0)} /> · edge{" "}
+                  <Signed value={Number(leadTest.horizons["same_day"] ?? 0)} /> · edge{" "}
                   <Signed value={Number(leadTest.edge ?? 0)} />
                 </p>
                 <p className="text-xs text-muted-foreground">{leadTest.note}</p>
@@ -302,9 +308,7 @@ export function ResearchDepartment() {
                 </p>
                 <p className="text-xs tabular-nums text-muted-foreground">
                   <span className="text-chart-4">Same-Day</span>{" "}
-                  <Signed value={Number(b.horizons["same_day"] ?? 0)} /> ·{" "}
-                  <span className="text-chart-2">3-Day</span>{" "}
-                  <Signed value={Number(b.horizons["3"] ?? 0)} /> · edge{" "}
+                  <Signed value={Number(b.horizons["same_day"] ?? 0)} /> · edge{" "}
                   <Signed value={Number(b.edge ?? 0)} />
                 </p>
                 <p className="text-xs text-muted-foreground">{b.note}</p>
