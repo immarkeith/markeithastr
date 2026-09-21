@@ -247,7 +247,13 @@ export async function characteristicsFor(
     close: Number(b.close),
     volume: Number(b.volume),
   }));
-  if (bars[bars.length - 1]!.date !== date) return null;
+  // The researcher only ever had the latest session at or before its own
+  // decision date. A small cache gap is fine; a stale window is not.
+  const last = bars[bars.length - 1]!.date;
+  const gapDays = Math.round(
+    (new Date(date).getTime() - new Date(last).getTime()) / 86_400_000,
+  );
+  if (gapDays < 0 || gapDays > 10) return null;
   const snap = snapshot(bars);
   if (!snap) return null;
 
