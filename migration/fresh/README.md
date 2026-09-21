@@ -28,8 +28,10 @@ Each file is small enough to copy and paste on a phone.
    - replace `https://YOUR-APP.vercel.app` with your live app address
    - replace `PASTE_A_LONG_RANDOM_SECRET_HERE` with any 32+ random characters
      (keep a copy — it is only used by the scheduler, nothing to paste elsewhere)
-5. Then run `10-history-part1.sql` through `10-history-part5.sql` the same way,
-   in order, to load the existing research history.
+ 5. Then run `10-history-part1.sql` through `10-history-part5.sql` the same way,
+    in order, to load the existing research history.
+ 6. Finally run `11-long-term-research.sql` — it adds the long-term research
+    storage the Research Lab and Capital Analysis read from.
 
 ## 2. New app deployment
 Create a new Vercel project from the GitHub repo and add these Environment

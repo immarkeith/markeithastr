@@ -159,8 +159,22 @@ function LabPage() {
 
       {race.isLoading ? <p className="text-sm text-muted-foreground">Loading the race…</p> : null}
 
+      {race.isError ? (
+        <section className="rounded border border-destructive/60 bg-destructive/10 p-3 text-sm">
+          <p className="font-semibold text-destructive">Researcher data could not be loaded.</p>
+          <p className="mt-1 text-xs text-muted-foreground break-words">
+            {(race.error as Error)?.message ?? "Unknown error"}
+          </p>
+        </section>
+      ) : null}
+
       <div className="space-y-3">
         <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Testing today</h2>
+        {!race.isLoading && !race.isError && active.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No researcher is testing today yet — results appear after the next test pass.
+          </p>
+        ) : null}
         <div className="grid gap-4 lg:grid-cols-3">
           {active.map((slot) => (
             <SlotCard
