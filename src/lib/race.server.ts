@@ -303,23 +303,6 @@ export async function rankSlots(slots: RaceSlot[]): Promise<Map<number, RankRow[
   return out;
 }
 
-/**
- * Which researchers may open a new position today.
- *
- * Every researcher now works every market day — there is no turn-taking left.
- * A researcher already holding its one stock still opens nothing until that
- * position closes.
- */
-async function rotationToday(slots: RaceSlot[]): Promise<Set<string>> {
-  const working: string[] = [];
-  for (const slot of slots) {
-    if (!slot.lane || slot.lane === "lead" || !slot.enabled) continue;
-    const open = await slotOpenTrades(slot.strategy_id);
-    if (open.length > 0) continue;
-    working.push(slot.lane);
-  }
-  return new Set(working);
-}
 
 // ------------------------------------------------------- slot cash + book ----
 
@@ -622,7 +605,6 @@ export async function runRacePass(
   if (slots.length === 0) return result;
 
   const rankings = await rankSlots(slots);
-  const rotation = phase === "exit" ? new Set<string>() : await rotationToday(slots);
   const settlementDays = Number(base.settlement_days);
   const keepPct = Number(base.profit_keep_pct);
 
@@ -706,8 +688,9 @@ export async function runRacePass(
       }
 
       // ---- entries
-      const myTurn = slot.lane === "lead" || (slot.lane !== null && rotation.has(slot.lane));
-      if (phase !== "exit" && myTurn) {
+      // Every researcher tests every market day; a researcher already holding
+      // its one stock simply buys nothing until that position closes.
+      if (phase !== "exit") {
         const stillOpen = new Set(
           open
             .filter((t) => !entry.closed.some((c) => c.ticker === String(t.ticker)))
@@ -740,8 +723,6 @@ export async function runRacePass(
           cashLeft = Number((cashLeft - stake).toFixed(2));
           entry.opened.push({ ticker: row.ticker, price });
         }
-      } else if (phase !== "exit" && !myTurn) {
-        entry.skipped = "holding its current test position";
       }
     } catch (error) {
       entry.skipped = error instanceof Error ? error.message : "slot failed";
@@ -1094,7 +1075,6 @@ export async function raceStandings(): Promise<{
   const base = await loadSettings();
   const slots = await loadSlots();
   const rankings = await rankSlots(slots.filter((s) => s.enabled));
-  const rotation = await rotationToday(slots);
 
   // Every researcher book is read in parallel — the Lab has seven of them, and
   // doing this one at a time was what made the page slow to appear.
@@ -1142,8 +1122,8 @@ export async function raceStandings(): Promise<{
       name: slot.name,
       live: false,
       enabled: slot.enabled,
-      testing_today:
-        slot.enabled && (slot.lane === "lead" || (slot.lane !== null && rotation.has(slot.lane))),
+      // Every enabled researcher tests every market day — there is no rotation.
+      testing_today: slot.enabled,
       started_on: slot.started_on,
       stake: slot.position_dollars,
       stocks_per_day: slot.stocks_per_day,

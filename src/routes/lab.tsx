@@ -67,16 +67,13 @@ function LabPage() {
   const slots = (d?.entrants ?? []).filter((e) => !e.live);
 
   const researchRunning = d?.research_running !== false;
-  // Lead first, then researchers currently in the rotation, then the rest.
+  // Lead first, then every assistant by rank — they all test every market day.
   const ordered = [...slots].sort((a, b) => {
     const lead = (s: Entrant) => (/lead/i.test(s.name) ? 0 : 1);
     if (lead(a) !== lead(b)) return lead(a) - lead(b);
-    const on = (s: Entrant) => (s.testing_today ? 0 : 1);
-    if (on(a) !== on(b)) return on(a) - on(b);
     return a.rank - b.rank;
   });
-  const active = ordered.filter((s) => s.testing_today);
-  const inactive = ordered.filter((s) => !s.testing_today);
+  const active = ordered.filter((s) => s.enabled);
   // The Best Formula is never the Lead's own formula — the Lead validates and
   // combines what the assistant researchers discover.
   const assistants = slots.filter((s) => !/lead/i.test(s.name));
@@ -181,29 +178,10 @@ function LabPage() {
               key={slot.key}
               slot={slot}
               longTermRates={slot.lane ? (d?.long_term_win_rates[slot.lane] ?? []) : []}
-              active
             />
           ))}
         </div>
       </div>
-
-      {inactive.length ? (
-        <div className="space-y-3">
-          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-            Not testing today
-          </h2>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {inactive.map((slot) => (
-              <SlotCard
-                key={slot.key}
-                slot={slot}
-                longTermRates={slot.lane ? (d?.long_term_win_rates[slot.lane] ?? []) : []}
-                active={false}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       <ResearchDepartment />
 
@@ -288,7 +266,6 @@ function SlotCard({
 }: {
   slot: Entrant;
   longTermRates: LongTermRate[];
-  active?: boolean;
 }) {
   return (
     <section className="space-y-4">
