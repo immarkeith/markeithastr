@@ -688,8 +688,9 @@ export async function runRacePass(
       }
 
       // ---- entries
-      const myTurn = slot.lane === "lead" || (slot.lane !== null && rotation.has(slot.lane));
-      if (phase !== "exit" && myTurn) {
+      // Every researcher tests every market day; a researcher already holding
+      // its one stock simply buys nothing until that position closes.
+      if (phase !== "exit") {
         const stillOpen = new Set(
           open
             .filter((t) => !entry.closed.some((c) => c.ticker === String(t.ticker)))
@@ -1076,7 +1077,6 @@ export async function raceStandings(): Promise<{
   const base = await loadSettings();
   const slots = await loadSlots();
   const rankings = await rankSlots(slots.filter((s) => s.enabled));
-  const rotation = await rotationToday(slots);
 
   // Every researcher book is read in parallel — the Lab has seven of them, and
   // doing this one at a time was what made the page slow to appear.
