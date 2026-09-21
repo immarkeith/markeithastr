@@ -1184,6 +1184,153 @@ export type Database = {
         }
         Relationships: []
       }
+      researcher_beliefs: {
+        Row: {
+          avg_return_in: number | null
+          avg_return_out: number | null
+          band: string
+          characteristic: string
+          confidence: number
+          confirmations: number
+          created_at: string
+          direction: string
+          down_market_lift: number | null
+          failures: number
+          first_half_lift: number | null
+          first_seen_on: string
+          horizon: string
+          hypothesis: string
+          id: string
+          kind: string
+          lane: string
+          last_tested_on: string | null
+          lift: number | null
+          note: string | null
+          sample_size: number
+          second_half_lift: number | null
+          status: string
+          up_market_lift: number | null
+          updated_at: string
+          win_rate_in: number | null
+          win_rate_out: number | null
+        }
+        Insert: {
+          avg_return_in?: number | null
+          avg_return_out?: number | null
+          band: string
+          characteristic: string
+          confidence?: number
+          confirmations?: number
+          created_at?: string
+          direction: string
+          down_market_lift?: number | null
+          failures?: number
+          first_half_lift?: number | null
+          first_seen_on?: string
+          horizon: string
+          hypothesis: string
+          id?: string
+          kind: string
+          lane: string
+          last_tested_on?: string | null
+          lift?: number | null
+          note?: string | null
+          sample_size?: number
+          second_half_lift?: number | null
+          status?: string
+          up_market_lift?: number | null
+          updated_at?: string
+          win_rate_in?: number | null
+          win_rate_out?: number | null
+        }
+        Update: {
+          avg_return_in?: number | null
+          avg_return_out?: number | null
+          band?: string
+          characteristic?: string
+          confidence?: number
+          confirmations?: number
+          created_at?: string
+          direction?: string
+          down_market_lift?: number | null
+          failures?: number
+          first_half_lift?: number | null
+          first_seen_on?: string
+          horizon?: string
+          hypothesis?: string
+          id?: string
+          kind?: string
+          lane?: string
+          last_tested_on?: string | null
+          lift?: number | null
+          note?: string | null
+          sample_size?: number
+          second_half_lift?: number | null
+          status?: string
+          up_market_lift?: number | null
+          updated_at?: string
+          win_rate_in?: number | null
+          win_rate_out?: number | null
+        }
+        Relationships: []
+      }
+      researcher_examples: {
+        Row: {
+          benchmark_return_pct: number | null
+          conditions: Json
+          created_at: string
+          example_date: string
+          factors: Json
+          horizon: string
+          id: string
+          lane: string
+          regime: string | null
+          resolved_on: string | null
+          return_pct: number | null
+          score: number | null
+          source: string
+          source_id: string
+          successful: boolean | null
+          ticker: string
+        }
+        Insert: {
+          benchmark_return_pct?: number | null
+          conditions?: Json
+          created_at?: string
+          example_date: string
+          factors?: Json
+          horizon: string
+          id?: string
+          lane: string
+          regime?: string | null
+          resolved_on?: string | null
+          return_pct?: number | null
+          score?: number | null
+          source: string
+          source_id: string
+          successful?: boolean | null
+          ticker: string
+        }
+        Update: {
+          benchmark_return_pct?: number | null
+          conditions?: Json
+          created_at?: string
+          example_date?: string
+          factors?: Json
+          horizon?: string
+          id?: string
+          lane?: string
+          regime?: string | null
+          resolved_on?: string | null
+          return_pct?: number | null
+          score?: number | null
+          source?: string
+          source_id?: string
+          successful?: boolean | null
+          ticker?: string
+        }
+        Relationships: []
+      }
       researchers: {
         Row: {
           best_edge: number | null
