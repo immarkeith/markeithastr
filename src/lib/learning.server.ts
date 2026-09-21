@@ -338,9 +338,9 @@ function buildTests(examples: StoredExample[]): Test[] {
   // Combinations: only the two strongest single readings, tested to see whether
   // together they beat either one alone.
   ranked.sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift));
-  const pair = ranked.slice(0, 2);
-  if (pair.length === 2) {
-    const [a, b] = pair as [{ key: FactorKey; high: number }, { key: FactorKey; high: number }];
+  const a = ranked[0];
+  const b = ranked[1];
+  if (a && b) {
     const both = examples.filter(
       (e) => (e.factors[a.key] ?? -1) >= a.high && (e.factors[b.key] ?? -1) >= b.high,
     );
