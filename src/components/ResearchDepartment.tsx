@@ -125,6 +125,95 @@ export function ResearchDisagreements() {
   );
 }
 
+
+/**
+ * One researcher's own learned profile: the characteristics it has tested
+ * against its accumulated examples, how confident it currently is, and the
+ * assumptions it has dropped because they stopped holding up. Research only —
+ * nothing here changes live trading.
+ */
+function LearnedProfile({ lane, data }: { lane: string; data?: Overview }) {
+  const learning = data?.learning;
+  const beliefs = (learning?.beliefs ?? []).filter((b) => b.lane === lane);
+  const counts = learning?.example_counts?.[lane] ?? {};
+  const minimums = (learning?.minimums ?? {}) as Record<string, number>;
+  const horizons = ["same_day", "1M", "3M", "9M"] as const;
+  const labels: Record<string, string> = {
+    same_day: "Same-day",
+    "1M": "1 month",
+    "3M": "3 months",
+    "9M": "9 months",
+  };
+
+  const live = beliefs.filter((b) => b.status !== "dropped");
+  const dropped = beliefs.filter((b) => b.status === "dropped");
+
+  const statusTone: Record<string, string> = {
+    supported: "text-success",
+    forming: "text-muted-foreground",
+    weakening: "text-warning",
+    dropped: "text-destructive",
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[11px] text-muted-foreground">
+        Examples studied: {" "}
+        {horizons
+          .map(
+            (h) =>
+              `${labels[h]} ${counts[h] ?? 0}${minimums[h] ? `/${minimums[h]}` : ""}`,
+          )
+          .join(" · ")}
+      </p>
+      {live.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Still collecting completed examples — no characteristic has enough evidence to
+          test yet.
+        </p>
+      ) : (
+        <ul className="space-y-2 text-xs">
+          {live.slice(0, 12).map((b) => (
+            <li key={b.id} className="border-t border-border/40 pt-2 first:border-0 first:pt-0">
+              <p className="text-sm">
+                {b.hypothesis}
+              </p>
+              <p className="text-muted-foreground">
+                {labels[b.horizon] ?? b.horizon} ·{" "}
+                <span className={statusTone[b.status] ?? "text-muted-foreground"}>
+                  {b.status}
+                </span>{" "}
+                · confidence {Math.round(Number(b.confidence))}% · {b.sample_size} examples ·{" "}
+                {b.direction === "helps" ? "better by " : "worse by "}
+                <Signed value={Number(b.lift ?? 0)} /> per example
+              </p>
+              <p className="text-muted-foreground">
+                Win rate {b.win_rate_in ?? 0}% vs {b.win_rate_out ?? 0}% without it · hold-out
+                half <Signed value={Number(b.second_half_lift ?? 0)} />
+                {b.note ? ` · ${b.note}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+      {dropped.length > 0 ? (
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+            Assumptions dropped
+          </p>
+          <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+            {dropped.slice(0, 8).map((b) => (
+              <li key={b.id}>
+                {b.hypothesis} — stopped holding up after {b.failures} re-test(s).
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Drop({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <details>
