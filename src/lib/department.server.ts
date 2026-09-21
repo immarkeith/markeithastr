@@ -218,6 +218,79 @@ export async function buildPanel(universe: number, proxyTicker: string) {
   return { rows, dates: [...dates].sort(), tickers: series.length };
 }
 
+/**
+ * Starting characteristics for one ticker on one past date, read from the
+ * SHARED cached daily bars — the same history the panel, the scanner and every
+ * researcher already use. No new download, no duplicated price data. Used when
+ * a researcher's completed example is on a stock outside the sampled research
+ * panel, so nothing is thrown away just because it is a smaller name.
+ */
+export async function characteristicsFor(
+  ticker: string,
+  date: string,
+  proxyBars?: Bar[],
+): Promise<Pick<PanelRow, "pct" | "atr_pct" | "rsi14" | "rel_volume" | "benchmark_return"> | null> {
+  const { data } = await supabaseAdmin
+    .from("daily_bars")
+    .select("bar_date, open, high, low, close, volume")
+    .eq("ticker", ticker.toUpperCase())
+    .lte("bar_date", date)
+    .order("bar_date", { ascending: false })
+    .limit(HISTORY_DAYS);
+  const rows = (data ?? []).slice().reverse();
+  if (rows.length < 62) return null;
+  const bars: Bar[] = rows.map((b) => ({
+    date: b.bar_date,
+    open: Number(b.open),
+    high: Number(b.high),
+    low: Number(b.low),
+    close: Number(b.close),
+    volume: Number(b.volume),
+  }));
+  if (bars[bars.length - 1]!.date !== date) return null;
+  const snap = snapshot(bars);
+  if (!snap) return null;
+
+  let marketRoc5 = 0;
+  let benchmark: number | null = null;
+  let market = { roc20: 0, roc60: 0 };
+  if (proxyBars?.length) {
+    const pIdx = proxyBars.findIndex((b) => b.date === date);
+    if (pIdx > 5) {
+      const now = proxyBars[pIdx]!.close;
+      const back = proxyBars[pIdx - 5]?.close;
+      if (back) marketRoc5 = pctChange(now, back);
+      const exit = proxyBars[pIdx + 1];
+      if (exit) benchmark = pctChange(exit.close, now);
+      market = marketContext(proxyBars, pIdx);
+    }
+  }
+
+  const scored = scoreSecurity(bars, marketRoc5, {
+    weights: UNIT_WEIGHTS,
+    minPrice: 0,
+    minAvgDollarVolume: 0,
+  });
+  if (!scored) return null;
+
+  return {
+    pct: {
+      trend: scored.factors["trend"]!.weighted_points,
+      momentum: scored.factors["momentum"]!.weighted_points,
+      volume: scored.factors["volume"]!.weighted_points,
+      relative_strength: scored.factors["relative_strength"]!.weighted_points,
+      volatility_quality: scored.factors["volatility_quality"]!.weighted_points,
+      ...extraFactors(bars, market),
+    },
+    atr_pct: (snap.atr14 / snap.close) * 100,
+    rsi14: snap.rsi14,
+    rel_volume: snap.relVolume,
+    benchmark_return: benchmark,
+  };
+}
+
+
+
 // -------------------------------------------------------------- evaluation
 
 export function normalize(weights: Partial<Record<FactorKey, number>>): Partial<Record<FactorKey, number>> {
