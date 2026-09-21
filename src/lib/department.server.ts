@@ -1584,5 +1584,19 @@ export async function departmentOverview() {
       const { masterFormulaOverview } = await import("./master-formula.server");
       return { master: await masterFormulaOverview() };
     })()),
+    learning: await (async () => {
+      try {
+        const { learnedProfiles } = await import("./learning.server");
+        return await learnedProfiles();
+      } catch {
+        return {
+          beliefs: [] as Awaited<
+            ReturnType<typeof import("./learning.server").learnedProfiles>
+          >["beliefs"],
+          example_counts: {} as Record<string, Record<string, number>>,
+          minimums: {} as Record<string, number>,
+        };
+      }
+    })(),
   };
 }
