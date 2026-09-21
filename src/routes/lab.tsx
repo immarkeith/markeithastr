@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { InfoDot } from "@/components/InfoDot";
@@ -218,9 +219,12 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
   );
 }
 
-type LongTermRate = NonNullable<
-  Awaited<ReturnType<typeof fetchRace>>["long_term_win_rates"][string]
->[number];
+type LongTermRate = {
+  horizon: "1M" | "3M" | "9M";
+  wins: number;
+  completed: number;
+  win_rate: number | null;
+};
 
 function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
   const [horizon, setHorizon] = useState<"1M" | "3M" | "9M">("1M");
