@@ -1,10 +1,20 @@
 # ASTR fresh start — exact setup steps
 
-These 9 files rebuild the database exactly as ASTR runs today (every table,
+Files 01 → 09 rebuild the database exactly as ASTR runs today (every table,
 column, index, security rule, permission, the 8 strategies, the 6 researchers
 plus Lead, the paper research slots, the Master Formula rules, the settings, and
-the automatic daily schedule). Old research history is not included — the
-researchers start writing new notes and findings from day one.
+the automatic daily schedule).
+
+Files `10-history-part1.sql` → `10-history-part5.sql` then carry over the real
+history already gathered by the original ASTR: 49 completed paper trades, 188
+researcher notebook entries, 109 "what doesn't work" dead ends, 52 findings, the
+Master Formula versions and rules, the Lead and backup tests, the paper cash
+ledger, past alerts, watchlist names and scan history. Run them after 09, in
+order, so the Scoreboard, Trade Log, Research Lab and Capital Analysis have real
+numbers on day one.
+
+Daily price history is not included — the app refills it by itself on the first
+scan and health check.
 
 Each file is small enough to copy and paste on a phone.
 
