@@ -33,7 +33,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { FACTOR_KEYS, FACTOR_LABELS_ALL, type FactorKey } from "./factors";
-import { buildPanel, type PanelRow } from "./department.server";
+import { buildPanel, characteristicsFor, type PanelRow } from "./department.server";
 import { loadSettings } from "./scan.server";
 
 /** Research horizons a belief can be graded on. */
@@ -107,7 +107,22 @@ async function regimeByDate(proxy: string): Promise<Map<string, string>> {
  * part of the app uses — so no price data is duplicated and nothing is
  * backdated: an example is only ever dated on the day the researcher acted.
  */
-async function harvestExamples(panel: PanelIndex, regime: Map<string, string>) {
+async function harvestExamples(
+  panel: PanelIndex,
+  regime: Map<string, string>,
+  proxyBars: { date: string; open: number; high: number; low: number; close: number; volume: number }[],
+) {
+  // Characteristics come from the panel when the stock is in the sampled
+  // research universe, otherwise from the same shared cached bars. Memoised so
+  // one pass never reads the same ticker/date twice.
+  const cache = new Map<string, Awaited<ReturnType<typeof characteristicsFor>>>();
+  const conditionsFor = async (ticker: string, date: string) => {
+    const fromPanel = panel.get(panelKey(ticker, date));
+    if (fromPanel) return fromPanel;
+    const key = panelKey(ticker, date);
+    if (!cache.has(key)) cache.set(key, await characteristicsFor(ticker, date, proxyBars));
+    return cache.get(key) ?? null;
+  };
   const rows: (ExampleRow & { source: string; source_id: string; resolved_on: string | null })[] =
     [];
 
@@ -136,7 +151,7 @@ async function harvestExamples(panel: PanelIndex, regime: Map<string, string>) {
   }[]) {
     const lane = t.strategy_id ? laneOf.get(t.strategy_id) : undefined;
     if (!lane || t.same_day_pct === null || t.same_day_pct === undefined) continue;
-    const row = panel.get(panelKey(t.ticker, t.entry_date));
+    const row = await conditionsFor(t.ticker, t.entry_date);
     if (!row) continue; // characteristics no longer in the cached window
     rows.push({
       lane,
@@ -179,7 +194,7 @@ async function harvestExamples(panel: PanelIndex, regime: Map<string, string>) {
     evaluated_at: string | null;
   }[]) {
     if (!LEARNING_HORIZONS.includes(p.horizon as LearningHorizon)) continue;
-    const row = panel.get(panelKey(p.ticker, p.prediction_date));
+    const row = await conditionsFor(p.ticker, p.prediction_date);
     const factors = (row?.pct ?? (p.factors as Partial<Record<FactorKey, number>>) ?? {}) as Partial<
       Record<FactorKey, number>
     >;
@@ -483,7 +498,7 @@ export async function runLearningPass(): Promise<LearningResult> {
   for (const row of panel.rows) index.set(panelKey(row.ticker, row.date), row);
   const regime = await regimeByDate(String(s.market_proxy));
 
-  const filed = await harvestExamples(index, regime);
+  const filed = await harvestExamples(index, regime, proxyBars);
 
   const { data: stored } = await supabaseAdmin
     .from("researcher_examples")
