@@ -175,6 +175,9 @@ export function ResearcherTabs({ name }: { name: string }) {
       <Drop label="Notebook">
         <NotebookTable entries={notebook.slice(0, 30)} />
       </Drop>
+      <Drop label="What I&apos;ve learned">
+        <LearnedProfile lane={lane} data={data} />
+      </Drop>
       <Drop label="Why it doesn&apos;t work">
         <DeadEndList entries={deadEnds} />
       </Drop>
