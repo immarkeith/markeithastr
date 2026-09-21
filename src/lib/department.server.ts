@@ -218,6 +218,85 @@ export async function buildPanel(universe: number, proxyTicker: string) {
   return { rows, dates: [...dates].sort(), tickers: series.length };
 }
 
+/**
+ * Starting characteristics for one ticker on one past date, read from the
+ * SHARED cached daily bars — the same history the panel, the scanner and every
+ * researcher already use. No new download, no duplicated price data. Used when
+ * a researcher's completed example is on a stock outside the sampled research
+ * panel, so nothing is thrown away just because it is a smaller name.
+ */
+export async function characteristicsFor(
+  ticker: string,
+  date: string,
+  proxyBars?: Bar[],
+): Promise<Pick<PanelRow, "pct" | "atr_pct" | "rsi14" | "rel_volume" | "benchmark_return"> | null> {
+  const { data } = await supabaseAdmin
+    .from("daily_bars")
+    .select("bar_date, open, high, low, close, volume")
+    .eq("ticker", ticker.toUpperCase())
+    .lte("bar_date", date)
+    .order("bar_date", { ascending: false })
+    .limit(HISTORY_DAYS);
+  const rows = (data ?? []).slice().reverse();
+  if (rows.length < 62) return null;
+  const bars: Bar[] = rows.map((b) => ({
+    date: b.bar_date,
+    open: Number(b.open),
+    high: Number(b.high),
+    low: Number(b.low),
+    close: Number(b.close),
+    volume: Number(b.volume),
+  }));
+  // The researcher only ever had the latest session at or before its own
+  // decision date. A small cache gap is fine; a stale window is not.
+  const last = bars[bars.length - 1]!.date;
+  const gapDays = Math.round(
+    (new Date(date).getTime() - new Date(last).getTime()) / 86_400_000,
+  );
+  if (gapDays < 0 || gapDays > 10) return null;
+  const snap = snapshot(bars);
+  if (!snap) return null;
+
+  let marketRoc5 = 0;
+  let benchmark: number | null = null;
+  let market = { roc20: 0, roc60: 0 };
+  if (proxyBars?.length) {
+    const pIdx = proxyBars.findIndex((b) => b.date === date);
+    if (pIdx > 5) {
+      const now = proxyBars[pIdx]!.close;
+      const back = proxyBars[pIdx - 5]?.close;
+      if (back) marketRoc5 = pctChange(now, back);
+      const exit = proxyBars[pIdx + 1];
+      if (exit) benchmark = pctChange(exit.close, now);
+      market = marketContext(proxyBars, pIdx);
+    }
+  }
+
+  const scored = scoreSecurity(bars, marketRoc5, {
+    weights: UNIT_WEIGHTS,
+    minPrice: 0,
+    minAvgDollarVolume: 0,
+  });
+  if (!scored) return null;
+
+  return {
+    pct: {
+      trend: scored.factors["trend"]!.weighted_points,
+      momentum: scored.factors["momentum"]!.weighted_points,
+      volume: scored.factors["volume"]!.weighted_points,
+      relative_strength: scored.factors["relative_strength"]!.weighted_points,
+      volatility_quality: scored.factors["volatility_quality"]!.weighted_points,
+      ...extraFactors(bars, market),
+    },
+    atr_pct: (snap.atr14 / snap.close) * 100,
+    rsi14: snap.rsi14,
+    rel_volume: snap.relVolume,
+    benchmark_return: benchmark,
+  };
+}
+
+
+
 // -------------------------------------------------------------- evaluation
 
 export function normalize(weights: Partial<Record<FactorKey, number>>): Partial<Record<FactorKey, number>> {
@@ -870,6 +949,24 @@ export async function runDepartment(
 
   const researchers = await listResearchers();
   const deadEnds = await loadDeadEnds();
+
+  // Each researcher's own supported characteristics, kept strictly per lane so
+  // one researcher's learning never touches another's search.
+  const supportedCharacteristics = new Map<string, Set<string>>();
+  try {
+    const { data: supported } = await supabaseAdmin
+      .from("researcher_beliefs")
+      .select("lane, characteristic, direction, status")
+      .eq("status", "supported")
+      .eq("direction", "helps");
+    for (const b of (supported ?? []) as { lane: string; characteristic: string }[]) {
+      const set = supportedCharacteristics.get(b.lane) ?? new Set<string>();
+      for (const part of b.characteristic.split("+")) set.add(part);
+      supportedCharacteristics.set(b.lane, set);
+    }
+  } catch {
+    // no learned profile yet — the search simply starts from its usual order
+  }
   let deadAdded = 0;
   const latestDate = panel.dates[panel.dates.length - 1];
 
@@ -946,12 +1043,27 @@ export async function runDepartment(
     );
 
     // Discovery block first, so only the strongest few pay for a full workup.
+    // New work builds on what this researcher already learned: experiments that
+    // touch a characteristic it currently has supporting evidence for are looked
+    // at first. This only changes the ORDER ideas are tried in — every idea still
+    // faces the same out-of-sample test, the Skeptic and the same validation.
+    const learned = supportedCharacteristics.get(lane.lane) ?? new Set<string>();
+    const priorityOf = (variable: string) => {
+      const v = variable.toLowerCase();
+      for (const key of learned) if (v.includes(key.replace(/_/g, " "))) return 1;
+      return 0;
+    };
+
     const shortlist = book
       .map((e) => ({
         e,
         leg: legFrom(pickRows(rowsByDate, inDates, e.params, s, share)),
       }))
-      .sort((a, b) => lane.objective(b.leg) - lane.objective(a.leg))
+      .sort(
+        (a, b) =>
+          priorityOf(b.e.variable) - priorityOf(a.e.variable) ||
+          lane.objective(b.leg) - lane.objective(a.leg),
+      )
       .slice(0, 4);
 
     const trials = shortlist.map(({ e }) => evaluate(lane, e.label, e.signature, e.params));
@@ -1258,6 +1370,19 @@ export async function runDepartment(
     note: master.lead_test?.note ?? "",
     out_of_sample: master.lead_test?.out_of_sample ?? baselineOut,
   };
+
+  // Each researcher now learns from its own completed examples: what the
+  // starting conditions were, what happened, and whether the characteristic it
+  // credited still holds up across the accumulated sample. Research only — it
+  // never writes settings, strategy params or any live position logic.
+  try {
+    const { runLearningPass } = await import("./learning.server");
+    await runLearningPass();
+  } catch (err) {
+    warnings.push(
+      `Learning pass skipped: ${err instanceof Error ? err.message : "unknown error"}`,
+    );
+  }
 
   // Where researchers agree and where they disagree — both are findings.
   const cross: string[] = crossFindings(laneFinal, reports);
@@ -1571,5 +1696,19 @@ export async function departmentOverview() {
       const { masterFormulaOverview } = await import("./master-formula.server");
       return { master: await masterFormulaOverview() };
     })()),
+    learning: await (async () => {
+      try {
+        const { learnedProfiles } = await import("./learning.server");
+        return await learnedProfiles();
+      } catch {
+        return {
+          beliefs: [] as Awaited<
+            ReturnType<typeof import("./learning.server").learnedProfiles>
+          >["beliefs"],
+          example_counts: {} as Record<string, Record<string, number>>,
+          minimums: {} as Record<string, number>,
+        };
+      }
+    })(),
   };
 }
