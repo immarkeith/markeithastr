@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { money } from "@/lib/queries";
+import { marketStatus } from "@/lib/market-calendar";
 
 export interface PnlRange {
   key: string;
@@ -61,8 +62,7 @@ function calendarStart(kind: "week" | "month" | "months3"): string {
  * sold. Shared by the Home dashboard and every Research Lab slot so the two
  * always read the same way.
  *
- * A second series can be supplied (`compareRows`) to draw both research time
- * horizons — Same-Day and 3-Day — as two lines on one graph with a legend.
+ * An optional comparison series can draw a second independent line.
  */
 export function PnlChart({
   rows,
@@ -79,6 +79,7 @@ export function PnlChart({
   secondaryRows,
   secondaryOpen = 0,
   secondaryLabel,
+  liveTicker,
 }: {
   rows: { exit_date: string | null; profit: number }[];
   ranges?: PnlRange[];
@@ -104,9 +105,24 @@ export function PnlChart({
   /** Open profit of those long-term positions right now. */
   secondaryOpen?: number;
   secondaryLabel?: string;
+  /** Current real same-day holding, shown only while the LIVE range and market are active. */
+  liveTicker?: string | null;
 }) {
   const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
+  const [marketOpen, setMarketOpen] = useState(() => {
+    const state = marketStatus().state;
+    return state === "open" || state === "closing";
+  });
+  useEffect(() => {
+    const update = () => {
+      const state = marketStatus().state;
+      setMarketOpen(state === "open" || state === "closing");
+    };
+    const id = window.setInterval(update, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
   const active = ranges.find((r) => r.key === range) ?? ranges[0]!;
+  const activeLiveTicker = active.live && marketOpen && liveTicker ? liveTicker : null;
 
   const window = useMemo(() => {
     const today = isoDaysAgo(0);
@@ -236,7 +252,7 @@ export function PnlChart({
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
             <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(total)}`}>
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {primaryLabel ?? "3-Day"}
+                {primaryLabel ?? "Primary"}
               </span>
               {total >= 0 ? "+" : ""}
               {money(total)}
@@ -263,7 +279,12 @@ export function PnlChart({
       </div>
 
       {/* The graph is always drawn, even with no activity: a flat baseline. */}
-      <div className="flex items-stretch gap-2">
+      <div className="relative flex items-stretch gap-2">
+        {activeLiveTicker ? (
+          <span className="absolute right-1 top-0 z-10 text-[10px] font-semibold uppercase text-primary">
+            LIVE — {activeLiveTicker}
+          </span>
+        ) : null}
         <span className="flex w-6 shrink-0 items-center justify-center text-[9px] uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180">
           P/L ($)
         </span>
@@ -347,7 +368,7 @@ export function PnlChart({
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
             <span className={`inline-block h-0.5 w-5 rounded ${fillOf(total)}`} />
-            solid — {primaryLabel ?? "3-Day"}
+            solid — {primaryLabel ?? "Primary"}
           </span>
           <span className="flex items-center gap-1">
             <span

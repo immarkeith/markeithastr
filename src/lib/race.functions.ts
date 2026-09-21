@@ -11,8 +11,12 @@ export const fetchRace = createServerFn({ method: "GET" })
   .middleware([requireGate])
   .handler(async () => {
     const { raceStandings } = await import("./race.server");
+    const { researcherLongTermWinRates } = await import("./long-term-research.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const standings = await raceStandings();
+    const [standings, longTermWinRates] = await Promise.all([
+      raceStandings(),
+      researcherLongTermWinRates(),
+    ]);
     const { data: strategies } = await supabaseAdmin
       .from("strategies")
       .select("id, name, description")
@@ -26,6 +30,7 @@ export const fetchRace = createServerFn({ method: "GET" })
       ...standings,
       strategies: strategies ?? [],
       research_running: settings?.research_auto !== false,
+      long_term_win_rates: longTermWinRates,
     };
   });
 

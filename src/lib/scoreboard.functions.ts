@@ -132,7 +132,6 @@ export const getScoreboard = createServerFn({ method: "GET" })
               master_version: latestLead.master_version,
               picks: latestLead.picks.map((pick) => pick.ticker),
               same_day: Number(latestLead.horizons["same_day"] ?? 0),
-              three_day: Number(latestLead.horizons["3"] ?? 0),
               edge: latestLead.edge,
               verdict: latestLead.verdict,
               note: latestLead.note,

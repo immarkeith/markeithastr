@@ -231,7 +231,7 @@ function VerificationPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {res.by_horizon.map((h) => (
+                          {res.by_horizon.filter((h) => h.horizon !== 3).map((h) => (
                             <tr key={h.horizon} className="border-t border-border/60">
                               <td className="p-2">{h.horizon} day(s)</td>
                               <td className="p-2 text-right tabular-nums">{h.signals}</td>

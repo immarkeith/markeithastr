@@ -155,6 +155,7 @@ function HomePage() {
           secondaryRows={d?.long_term_closed ?? []}
           secondaryOpen={d?.long_term_open_pl ?? 0}
           secondaryLabel="Long-Term P/L"
+          liveTicker={(d?.same_day_holdings ?? [])[0]?.ticker ?? null}
         />
       </section>
 

@@ -197,6 +197,57 @@ export interface LongTermBoard {
   total_predictions: number;
 }
 
+export interface ResearcherHorizonWinRate {
+  horizon: "1M" | "3M" | "9M";
+  wins: number;
+  completed: number;
+  win_rate: number | null;
+}
+
+/**
+ * Completed long-term prediction accuracy for each researcher, kept separate
+ * by horizon. These are research outcomes, never accumulated trading P/L.
+ */
+export async function researcherLongTermWinRates(): Promise<
+  Record<string, ResearcherHorizonWinRate[]>
+> {
+  const { data, error } = await supabaseAdmin
+    .from("research_horizon_predictions")
+    .select("lane, horizon, successful")
+    .in("horizon", [...LONG_TERM_RESEARCH_HORIZONS])
+    .not("successful", "is", null)
+    .limit(10000);
+  if (error) throw new Error(error.message);
+
+  const totals = new Map<string, { wins: number; completed: number }>();
+  for (const row of data ?? []) {
+    const key = `${String(row.lane)}|${String(row.horizon)}`;
+    const current = totals.get(key) ?? { wins: 0, completed: 0 };
+    current.completed += 1;
+    if (row.successful === true) current.wins += 1;
+    totals.set(key, current);
+  }
+
+  const lanes = Array.from(new Set((data ?? []).map((row) => String(row.lane))));
+  return Object.fromEntries(
+    lanes.map((lane) => [
+      lane,
+      LONG_TERM_RESEARCH_HORIZONS.map((horizon) => {
+        const total = totals.get(`${lane}|${horizon}`) ?? { wins: 0, completed: 0 };
+        return {
+          horizon,
+          wins: total.wins,
+          completed: total.completed,
+          win_rate:
+            total.completed > 0
+              ? Number(((total.wins / total.completed) * 100).toFixed(1))
+              : null,
+        };
+      }),
+    ]),
+  );
+}
+
 const logistic = (x: number) => 1 / (1 + Math.exp(-x));
 
 /**
