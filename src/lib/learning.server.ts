@@ -79,22 +79,38 @@ function panelKey(ticker: string, date: string) {
   return `${ticker}|${date}`;
 }
 
-/** Up or down market on the day the example started, from the cached proxy bars. */
-async function regimeByDate(proxy: string): Promise<Map<string, string>> {
+/**
+ * The market proxy's own cached bars, plus whether each session was an up or a
+ * down market when the example started. Read from the shared price history.
+ */
+async function loadProxy(proxy: string) {
   const { data } = await supabaseAdmin
     .from("daily_bars")
-    .select("bar_date, close")
+    .select("bar_date, open, high, low, close, volume")
     .eq("ticker", proxy.toUpperCase())
     .order("bar_date", { ascending: true });
-  const bars = (data ?? []) as { bar_date: string; close: number }[];
-  const out = new Map<string, string>();
+  const bars = ((data ?? []) as {
+    bar_date: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }[]).map((b) => ({
+    date: b.bar_date,
+    open: Number(b.open),
+    high: Number(b.high),
+    low: Number(b.low),
+    close: Number(b.close),
+    volume: Number(b.volume),
+  }));
+  const regime = new Map<string, string>();
   for (let i = 5; i < bars.length; i++) {
-    const now = Number(bars[i]!.close);
-    const back = Number(bars[i - 5]!.close);
+    const back = bars[i - 5]!.close;
     if (!back) continue;
-    out.set(bars[i]!.bar_date, now >= back ? "up" : "down");
+    regime.set(bars[i]!.date, bars[i]!.close >= back ? "up" : "down");
   }
-  return out;
+  return { bars, regime };
 }
 
 /**
