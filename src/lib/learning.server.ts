@@ -512,7 +512,7 @@ export async function runLearningPass(): Promise<LearningResult> {
   const panel = await buildPanel(Math.min(400, Number(s.max_universe) || 300), String(s.market_proxy));
   const index: PanelIndex = new Map();
   for (const row of panel.rows) index.set(panelKey(row.ticker, row.date), row);
-  const regime = await regimeByDate(String(s.market_proxy));
+  const { bars: proxyBars, regime } = await loadProxy(String(s.market_proxy));
 
   const filed = await harvestExamples(index, regime, proxyBars);
 
