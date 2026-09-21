@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { InfoDot } from "@/components/InfoDot";
+import { FutureCapitalAnalysis } from "@/components/FutureCapitalAnalysis";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import {
   ResearchDepartment,
@@ -142,6 +143,8 @@ function LabPage() {
 
       {/* Findings that agree or conflict sit directly under the Lead's suggestions. */}
       <ResearchDisagreements />
+
+      {d?.capital_analysis ? <FutureCapitalAnalysis analysis={d.capital_analysis} /> : null}
 
       <section>
         <p className="flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
