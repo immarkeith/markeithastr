@@ -315,10 +315,10 @@ export function PnlChart({
         ) : activeTicker !== undefined ? (
           <p
             className={`font-bold tabular-nums ${compact ? "text-xl" : "text-3xl"} ${
-              activeTicker ? "text-primary" : "text-muted-foreground"
+              shownActiveTicker ? "text-primary" : "text-muted-foreground"
             }`}
           >
-            {activeTicker ? activeTicker.toUpperCase() : "—"}
+            {shownActiveTicker ? shownActiveTicker.toUpperCase() : "—"}
           </p>
         ) : (
           <p className={`font-bold tabular-nums ${compact ? "text-xl" : "text-3xl"}`}>
