@@ -138,6 +138,8 @@ export function PnlChart({
   const activeLiveTicker = active.live && marketOpen && liveTicker ? liveTicker : null;
   const showsLiveHolding = liveTicker !== undefined;
   const todayActiveTicker = marketOpen && liveTicker ? liveTicker.toUpperCase() : "—";
+  // Same-day only: never show a held ticker outside the regular session.
+  const shownActiveTicker = marketOpen ? (activeTicker ?? null) : null;
 
   const window = useMemo(() => {
     const today = isoDaysAgo(0);
