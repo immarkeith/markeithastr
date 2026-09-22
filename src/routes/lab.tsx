@@ -292,9 +292,10 @@ function SlotCard({
         primaryLabel="Same-Day"
         ranges={LAB_RANGES}
         initialRange="month"
-        title="Same-Day Profit"
+        title="Today's Active"
         compact
         basis={slot.basis}
+        activeTicker={slot.holdings[0]?.ticker ?? null}
       />
 
       {/* Everything secondary lives under this researcher's own dropdown. */}

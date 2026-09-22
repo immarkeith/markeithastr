@@ -80,6 +80,7 @@ export function PnlChart({
   secondaryOpen = 0,
   secondaryLabel,
   liveTicker,
+  activeTicker,
 }: {
   rows: { exit_date: string | null; profit: number }[];
   ranges?: PnlRange[];
@@ -107,6 +108,11 @@ export function PnlChart({
   secondaryLabel?: string;
   /** Current real same-day holding, shown only while the LIVE range and market are active. */
   liveTicker?: string | null;
+  /**
+   * This slot's currently held ticker. When provided, the headline shows the
+   * ticker (or "—" when nothing is held) instead of the duplicated dollar P/L.
+   */
+  activeTicker?: string | null;
 }) {
   const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
   const [marketOpen, setMarketOpen] = useState(() => {
@@ -304,6 +310,14 @@ export function PnlChart({
               {money(compareTotal ?? 0)}
             </p>
           </div>
+        ) : activeTicker !== undefined ? (
+          <p
+            className={`font-bold tabular-nums ${compact ? "text-xl" : "text-3xl"} ${
+              activeTicker ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            {activeTicker ? activeTicker.toUpperCase() : "—"}
+          </p>
         ) : (
           <p className={`font-bold tabular-nums ${compact ? "text-xl" : "text-3xl"}`}>
             {up ? "+" : ""}
