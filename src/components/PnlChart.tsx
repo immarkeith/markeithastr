@@ -80,6 +80,7 @@ export function PnlChart({
   secondaryOpen = 0,
   secondaryLabel,
   liveTicker,
+  activeTicker,
 }: {
   rows: { exit_date: string | null; profit: number }[];
   ranges?: PnlRange[];
