@@ -130,6 +130,8 @@ export function PnlChart({
   }, []);
   const active = ranges.find((r) => r.key === range) ?? ranges[0]!;
   const activeLiveTicker = active.live && marketOpen && liveTicker ? liveTicker : null;
+  const showsLiveHolding = liveTicker !== undefined;
+  const todayActiveTicker = marketOpen && liveTicker ? liveTicker.toUpperCase() : "—";
 
   const window = useMemo(() => {
     const today = isoDaysAgo(0);
@@ -255,7 +257,37 @@ export function PnlChart({
     >
       <div className="space-y-0.5">
         <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground">{title}</h2>
-        {twoLine ? (
+        {showsLiveHolding && secondaryRows !== undefined ? (
+          <div className="grid grid-cols-3 divide-x divide-border/60 pt-1">
+            <div className="min-w-0 pr-2">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                {primaryLabel ?? "Same-Day P/L"}
+              </p>
+              <p className={`truncate text-lg font-bold tabular-nums ${toneOf(total)}`}>
+                {total >= 0 ? "+" : ""}
+                {money(total)}
+              </p>
+            </div>
+            <div className="min-w-0 px-2">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                {secondaryLabel ?? "Long-Term P/L"}
+              </p>
+              <p className={`truncate text-lg font-bold tabular-nums ${toneOf(secondaryTotal)}`}>
+                {secondaryTotal === null
+                  ? "—"
+                  : `${secondaryTotal >= 0 ? "+" : ""}${money(secondaryTotal)}`}
+              </p>
+            </div>
+            <div className="min-w-0 pl-2">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                Today’s Active
+              </p>
+              <p className={`truncate text-lg font-bold ${todayActiveTicker === "—" ? "text-muted-foreground" : "text-primary"}`}>
+                {todayActiveTicker}
+              </p>
+            </div>
+          </div>
+        ) : twoLine ? (
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
             <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(total)}`}>
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
