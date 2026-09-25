@@ -36,7 +36,8 @@ function stamp(iso: string | null, fallbackDate: string | null) {
   if (!iso) return fallbackDate ?? "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return fallbackDate ?? "—";
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString("en-US", {
+    timeZone: "America/New_York",
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -80,14 +81,14 @@ function TradeHistoryPage() {
   const researchers = CANONICAL_SOURCES;
   const events = useMemo(() => {
     const now = Date.now();
-    const today = new Date().toLocaleDateString();
+    const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
     return all.flatMap<TradeEvent>((row) => {
       const items: TradeEvent[] = [{ id: `${row.id}-buy`, side: "BUY", ticker: row.ticker, amount: row.dollars, at: row.entry_at ?? `${row.entry_date}T12:00:00`, source: row.source_name, live: row.mode === "live", note: row.source_description }];
       if (row.exit_date && row.status === "closed") items.push({ id: `${row.id}-sell`, side: "SELL", ticker: row.ticker, amount: row.proceeds ?? row.dollars, at: row.exit_at ?? `${row.exit_date}T12:00:00`, source: row.source_name, live: row.mode === "live", note: row.status_note });
       return items;
     }).filter((event) => {
       const time = new Date(event.at).getTime();
-      if (view === "today") return new Date(event.at).toLocaleDateString() === today;
+      if (view === "today") return new Date(event.at).toLocaleDateString("en-US", { timeZone: "America/New_York" }) === today;
       if (view === "72h") return Number.isFinite(time) && time >= now - 72 * 60 * 60 * 1000;
       return event.source === researcher && Number.isFinite(time) && time >= now - 90 * 86400000;
     }).sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
@@ -139,7 +140,7 @@ function TradeHistoryPage() {
       <footer className="border-t border-border/60 pt-4 text-xs text-muted-foreground">
         Blue is live real-money activity, green is Research Lab paper testing.
         {data?.strategy_name ? ` Active live strategy: ${data.strategy_name}.` : ""} Times before
-        today are approximate — they use when the record was written.
+        are shown in New York market time.
       </footer>
     </div>
   );

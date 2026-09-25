@@ -1,7 +1,7 @@
 /**
  * The paper strategy race.
  *
- * Three saved strategies trade a simulated book side by side with the one live
+ * Seven researchers trade simulated books side by side with the one live
  * strategy, using the SAME cached daily bars the live scan already downloaded —
  * so the race costs no extra market-data requests and sends no broker orders.
  *
@@ -53,7 +53,7 @@ export interface RankRow {
   invalidation: string;
 }
 
-/** The Lead Researcher plus the six rotating researchers. */
+/** The Lead Researcher plus the six assistant researchers. */
 const MAX_SLOTS = 7;
 /** A researcher never runs more than one stock at a time. */
 const STOCKS_PER_RESEARCHER = 1;
@@ -68,12 +68,6 @@ function longTermCandidatesPerDay(): number {
 }
 /** A month of sessions before the race is allowed to suggest a switch. */
 export const RACE_MIN_DAYS = 28;
-/**
- * How long a research paper position is held, counted in TRADING days with the
- * entry day as day 1. Paper research only — the live strategy still exits the
- * same session it entered.
- */
-export const HOLD_TRADING_DAYS = 3;
 
 
 /** Today's New York trading date — the calendar the market actually keeps. */
@@ -436,9 +430,8 @@ async function openSlotTrade(
       status: "open",
       mode: "paper",
       strategy_id: slot.strategy_id,
-      // The 3-trading-day research hold: entry day counts as day 1, so the
-      // exit lands two further trading days later (weekends/holidays skipped).
-      hold_target_date: settlementDate(day, HOLD_TRADING_DAYS - 1),
+      // Short-term researcher positions always close in their entry session.
+      hold_target_date: day,
     })
     .select("id")
     .single();
@@ -456,7 +449,7 @@ async function openSlotTrade(
 function holdTarget(trade: Record<string, unknown>): string {
   const stored = trade['hold_target_date'];
   if (stored) return String(stored);
-  return settlementDate(String(trade['entry_date'] ?? today()), HOLD_TRADING_DAYS - 1);
+  return String(trade['entry_date'] ?? today());
 }
 
 /**
@@ -629,11 +622,8 @@ export async function runRacePass(
       ]);
 
       // ---- exits (paper research only)
-      // Two horizons from the SAME position: at the normal pre-close exit time
-      // the hypothetical same-day result is recorded but nothing is sold, and
-      // the position is carried until its 3rd trading day, when it is actually
-      // sold in the paper book. Cash settlement (T+1) is handled separately in
-      // closeSlotTrade and never decides whether a position stays open.
+      // Record and realize each researcher's short-term result before the same
+      // session closes. Long-horizon predictions are a separate paper ledger.
       if (phase !== "entry") {
         const marks = new Map(closes);
         try {
@@ -661,14 +651,7 @@ export async function runRacePass(
             }
           }
 
-          // 3-day leg: keep holding until the third trading day.
-          const target = holdTarget(row);
-          if (today() < target) {
-            entry.held.push(ticker);
-            continue;
-          }
-
-          const why = "paper 3-trading-day hold complete";
+          const why = "paper same-day research hold complete";
           const profit = await closeSlotTrade(
             slot,
             row,
@@ -778,11 +761,9 @@ export interface SafetyCloseResult {
 /**
  * Safety net for the research testers.
  *
- * A paper position is meant to live for 3 trading days, so this no longer
- * closes anything just because a session ended. It closes positions that are
- * PAST their hold target date (a missed or failed pre-close pass, a weekend or
- * holiday in between), and it back-fills a missing same-day figure so the
- * short-term leg of the comparison is never lost. Idempotent: it only touches
+ * A paper position must close in its entry session. This closes anything left
+ * open when that session ends and back-fills a missing same-day figure.
+ * Idempotent: it only touches
  * rows still marked `open`, and `closeSlotTrade` claims the row atomically.
  *
  * Note this closes the STOCK only. Sale proceeds keep following T+1 on the
@@ -820,7 +801,7 @@ export async function safetyCloseStalePaper(
 
       const stale = open.filter((t) => {
         const target = holdTarget(t as unknown as Record<string, unknown>);
-        if (target < day) return true; // the 3-day hold ended on an earlier session
+        if (target < day) return true;
         if (target === day) return options.force === true || sessionOver;
         return false;
       });
@@ -831,8 +812,8 @@ export async function safetyCloseStalePaper(
         if (!price) continue;
         const why =
           holdTarget(trade as unknown as Record<string, unknown>) < day
-            ? "paper safety close — the 3-day research hold had already ended"
-            : "paper 3-trading-day hold complete (safety close)";
+            ? "paper safety close — the same-day research hold missed its exit"
+            : "paper same-day research hold complete (safety close)";
         const profit = await closeSlotTrade(
           slot,
           trade as unknown as Record<string, unknown>,
@@ -1311,6 +1292,10 @@ export async function runPaperTesting(
   // open from an earlier session must never survive into the next one.
   const safety = await safetyCloseStalePaper();
   if (!status.tradingDay) return { ran: false, reason: "market closed today", safety };
+  const settings = await loadSettings();
+  if (!settings.research_auto && phase !== "exit") {
+    return { ran: false, reason: "researchers are stopped", safety };
+  }
 
   let scored: number | undefined;
   try {

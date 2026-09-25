@@ -11,3 +11,11 @@
 - [x] "What I've learned" + dropped assumptions shown in each researcher card
 - [x] Supported characteristics bias experiment ORDER only; skeptic/validation unchanged
 - [x] SQL for the self-hosted copy: migration/fresh/12-researcher-learning.sql
+
+## Reliability, controls, and phone alerts
+- [x] Keep researcher entries inside the post-open window and exits before the same close
+- [x] Make the Research Lab stop control block all new scheduled researcher tests
+- [x] Display trade timestamps in New York market time
+- [x] Upgrade push encryption for current iPhone web notifications
+- [ ] Match live allocation quantities and prices against the broker in Self Check
+- [ ] Replace fixed UTC scheduler times with daylight-saving-safe calls
