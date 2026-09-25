@@ -1171,7 +1171,15 @@ export async function managePaperTrades(
       continue;
     }
 
-    // SAME_DAY allocations never carry overnight.
+    // Still the best available name: carry it instead of churning it.
+    if (trade.kind === "day" && holdSet.has(ticker)) {
+      held.push({
+        ticker,
+        rank: Number(score?.rank ?? 0),
+        score: Number(score?.score ?? 0),
+      });
+      continue;
+    }
 
 
     const res = await closeTrade({ id: trade.id as string, exit_price: price });
@@ -1320,8 +1328,7 @@ export async function runDailyCycle(options: { force?: boolean } = {}): Promise<
 
 
   const scan = await runScan();
-  // After-close maintenance never trades. Intraday hooks own every entry/exit.
-  const sim = { opened: [], closed: [] };
+  const sim = await managePaperTrades();
   const { generateInsights } = await import("./notify.server");
   await generateInsights(status.nyDate);
 
@@ -1545,9 +1552,6 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
             ? "Waiting for the opening bell."
             : `Score runs ${wait} minute(s) after the open.`,
       };
-    }
-    if (sinceOpen > wait + 12) {
-      return { ...base, reason: "The post-open entry window has passed." };
     }
     if ((status.minutesToClose ?? 0) <= Math.max(1, Number(s.exit_buffer_minutes ?? 8))) {
       return { ...base, reason: "Too late in the session for a new entry." };
