@@ -45,6 +45,16 @@ function stamp(iso: string | null, fallbackDate: string | null) {
   });
 }
 
+function timeOnly(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 type ViewFilter = "today" | "72h" | "researcher";
 
 const CANONICAL_SOURCES = [
