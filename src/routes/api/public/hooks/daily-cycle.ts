@@ -15,7 +15,7 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
           const { runDailyCycle, loadSettings } = await import("@/lib/scan.server");
           // Paper testing is independent of the live switch (see preopen hook).
           const { runPaperTesting } = await import("@/lib/race.server");
-          const paper = await runPaperTesting("both");
+          const paper = await runPaperTesting("exit");
           // One research-department generation per market day. Pure replay of
           // cached bars, so it never costs data calls — and it runs whether or
           // not the live bot is switched on.
