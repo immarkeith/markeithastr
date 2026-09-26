@@ -500,6 +500,57 @@ export type Database = {
           },
         ]
       }
+      market_events: {
+        Row: {
+          accession: string
+          category: string
+          cik: string
+          confidence: string
+          created_at: string
+          filed_on: string
+          form: string
+          id: string
+          items: string[]
+          reason: string
+          score: number
+          sentiment: string
+          ticker: string
+          url: string | null
+        }
+        Insert: {
+          accession: string
+          category: string
+          cik: string
+          confidence?: string
+          created_at?: string
+          filed_on: string
+          form: string
+          id?: string
+          items?: string[]
+          reason: string
+          score?: number
+          sentiment: string
+          ticker: string
+          url?: string | null
+        }
+        Update: {
+          accession?: string
+          category?: string
+          cik?: string
+          confidence?: string
+          created_at?: string
+          filed_on?: string
+          form?: string
+          id?: string
+          items?: string[]
+          reason?: string
+          score?: number
+          sentiment?: string
+          ticker?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       master_formula_versions: {
         Row: {
           after_performance: Json
