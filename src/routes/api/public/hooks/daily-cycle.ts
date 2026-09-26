@@ -38,6 +38,16 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
           } catch (horizonError) {
             console.error("horizon evaluation failed:", horizonError);
           }
+          // Research-only Event Intelligence + deeper shared history. Fail-safe.
+          let events: unknown = null;
+          try {
+            const ev = await import("@/lib/events.server");
+            const { deepenHistory } = await import("@/lib/historical-data.server");
+            events = { scan: await ev.scanEvents(), lead: await ev.evaluateEvents(), history: await deepenHistory() };
+          } catch (evError) {
+            console.error("event intelligence failed:", evError instanceof Error ? evError.message : evError);
+          }
+          void events;
           const settings = await loadSettings();
           if (!(settings as unknown as { auto_run: boolean }).auto_run) {
             return Response.json({ ran: false, reason: "auto_run is off", paper, department, horizons });

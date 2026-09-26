@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { InfoDot } from "@/components/InfoDot";
 import { FutureCapitalAnalysis } from "@/components/FutureCapitalAnalysis";
+import { EventIntelligence } from "@/components/EventIntelligence";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import {
   ResearchDepartment,
@@ -142,6 +143,7 @@ function LabPage() {
       <ResearchDisagreements />
 
       {d?.capital_analysis ? <FutureCapitalAnalysis analysis={d.capital_analysis} /> : null}
+      <EventIntelligence />
 
       <section>
         <p className="flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">

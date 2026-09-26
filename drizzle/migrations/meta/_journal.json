@@ -43,6 +43,13 @@
       "when": 1789963602004,
       "tag": "0005_researcher_learning",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790386081326,
+      "tag": "0006_event_intelligence",
+      "breakpoints": true
     }
   ]
 }
