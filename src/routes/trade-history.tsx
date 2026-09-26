@@ -45,6 +45,16 @@ function stamp(iso: string | null, fallbackDate: string | null) {
   });
 }
 
+function timeOnly(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 type ViewFilter = "today" | "72h" | "researcher";
 
 const CANONICAL_SOURCES = [
@@ -127,7 +137,7 @@ function TradeHistoryPage() {
                 <span className="font-semibold tabular-nums">{money(event.amount)}</span>
               </div>
               <div className="text-sm text-muted-foreground sm:text-right">
-                {view !== "today" ? <p>{stamp(event.at, null)}</p> : null}
+                {view === "today" ? <p>{timeOnly(event.at)}</p> : <p>{stamp(event.at, null)}</p>}
                 {view !== "researcher" ? <p>{event.source}</p> : null}
               </div>
               {event.note ? <p className="text-xs text-muted-foreground sm:col-span-2">{event.note}</p> : null}
