@@ -96,7 +96,7 @@ export async function evaluateEvents() {
   const summary = Object.fromEntries(
     Object.entries(groups).map(([k, v]) => [k, { n: v.length, avg_5d_pct: v.length ? +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : null }]),
   );
-  const b = summary.bearish as { n: number; avg_5d_pct: number | null };
+  const b = summary["bearish"] as { n: number; avg_5d_pct: number | null };
   const ready = b.n >= 20;
   const verdict = !ready
     ? `Collecting: ${b.n}/20 bearish filings with a completed 5-session outcome.`
