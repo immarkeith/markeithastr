@@ -33,15 +33,23 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
   const settings = await loadSettings();
   const share = await volumeShare(settings);
 
-  // 1. Fetch all distinct trading calendar dates from 2026-02-09
-  const { data: dateRows, error: dateError } = await supabaseAdmin
-    .from("daily_bars")
-    .select("bar_date")
-    .gte("bar_date", "2026-02-09")
-    .lte("bar_date", "2026-09-25")
-    .order("bar_date", { ascending: true }) .limit(100000);
-
-  if (dateError || !dateRows) throw new Error("Failed to fetch trading dates: " + dateError?.message);
+  // 1. Fetch all distinct trading calendar dates from 2026-02-09.
+  // PostgREST caps every response at 1,000 rows server-side, so we page
+  // through with .range() until a short page comes back.
+  const dateRows: { bar_date: string }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: page, error: dateError } = await supabaseAdmin
+      .from("daily_bars")
+      .select("bar_date")
+      .gte("bar_date", "2026-02-09")
+      .lte("bar_date", "2026-09-25")
+      .order("bar_date", { ascending: true })
+      .range(from, from + 999);
+    if (dateError) throw new Error("Failed to fetch trading dates: " + dateError.message);
+    if (!page || page.length === 0) break;
+    dateRows.push(...page);
+    if (page.length < 1000) break;
+  }
 
   const allTradingDays = Array.from(new Set(dateRows.map((r) => r.bar_date)));
   const totalDays = allTradingDays.length;
@@ -60,14 +68,20 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
   const fetchStartDate = allTradingDays[lookbackStartIndex];
   const fetchEndDate = batchDays[batchDays.length - 1];
 
-  const { data: rawBars, error: barError } = await supabaseAdmin
-    .from("daily_bars")
-    .select("ticker, bar_date, open, high, low, close, volume")
-    .gte("bar_date", fetchStartDate)
-    .lte("bar_date", fetchEndDate)
-    .order("bar_date", { ascending: true }) .limit(100000);
-
-  if (barError || !rawBars) throw new Error("Failed to fetch price bars: " + barError?.message);
+  const rawBars: { ticker: string; bar_date: string; open: number; high: number; low: number; close: number; volume: number }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: page, error: barError } = await supabaseAdmin
+      .from("daily_bars")
+      .select("ticker, bar_date, open, high, low, close, volume")
+      .gte("bar_date", fetchStartDate)
+      .lte("bar_date", fetchEndDate)
+      .order("bar_date", { ascending: true })
+      .range(from, from + 999);
+    if (barError) throw new Error("Failed to fetch price bars: " + barError.message);
+    if (!page || page.length === 0) break;
+    rawBars.push(...page);
+    if (page.length < 1000) break;
+  }
 
   // Group bars by ticker
   const tickerBars = new Map<string, Bar[]>();
@@ -134,7 +148,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
 
       const window = bars.slice(0, dayIdx + 1);
       const snap = snapshot(window);
-      if (!snap || snap.close <= 2.0 || snap.volume < 20000) continue;
+      if (!snap || snap.close <= 2.0 || bars[dayIdx]!.volume < 20000) continue;
 
       dayCandidates.push({ ticker, snap, bar: bars[dayIdx] });
     }
@@ -171,7 +185,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
 
       // Calculate same-day & 3-day exit outcomes
       const exitDayIdx = Math.min(allTradingDays.length - 1, currentDayIdx + 3);
-      const exitDate = allTradingDays[exitDayIdx];
+      const exitDate = allTradingDays[exitDayIdx]!;
 
       // Lookup exit close price
       const futureBars = tickerBars.get(best.ticker) ?? [];
@@ -245,7 +259,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
             predicted_at: `${currentDay}T13:35:00Z`,
             lane: "lead",
             researcher_name: "Lead Researcher",
-            strategy_id: STRATEGY_IDS.lead,
+            strategy_id: STRATEGY_IDS["lead"],
             ticker: best.ticker,
             entry_price: entryPrice,
             score: Number(best.score.toFixed(1)),
