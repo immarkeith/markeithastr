@@ -39,7 +39,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
     .select("bar_date")
     .gte("bar_date", "2026-02-09")
     .lte("bar_date", "2026-09-25")
-    .order("bar_date", { ascending: true });
+    .order("bar_date", { ascending: true }) .limit(100000);
 
   if (dateError || !dateRows) throw new Error("Failed to fetch trading dates: " + dateError?.message);
 
@@ -65,7 +65,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
     .select("ticker, bar_date, open, high, low, close, volume")
     .gte("bar_date", fetchStartDate)
     .lte("bar_date", fetchEndDate)
-    .order("bar_date", { ascending: true });
+    .order("bar_date", { ascending: true }) .limit(100000);
 
   if (barError || !rawBars) throw new Error("Failed to fetch price bars: " + barError?.message);
 
