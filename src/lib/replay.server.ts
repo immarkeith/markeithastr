@@ -148,7 +148,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
 
       const window = bars.slice(0, dayIdx + 1);
       const snap = snapshot(window);
-      if (!snap || snap.close <= 2.0 || snap.volume < 20000) continue;
+      if (!snap || snap.close <= 2.0 || bars[dayIdx]!.volume < 20000) continue;
 
       dayCandidates.push({ ticker, snap, bar: bars[dayIdx] });
     }
@@ -185,7 +185,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
 
       // Calculate same-day & 3-day exit outcomes
       const exitDayIdx = Math.min(allTradingDays.length - 1, currentDayIdx + 3);
-      const exitDate = allTradingDays[exitDayIdx];
+      const exitDate = allTradingDays[exitDayIdx]!;
 
       // Lookup exit close price
       const futureBars = tickerBars.get(best.ticker) ?? [];
@@ -259,7 +259,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
             predicted_at: `${currentDay}T13:35:00Z`,
             lane: "lead",
             researcher_name: "Lead Researcher",
-            strategy_id: STRATEGY_IDS.lead,
+            strategy_id: STRATEGY_IDS["lead"],
             ticker: best.ticker,
             entry_price: entryPrice,
             score: Number(best.score.toFixed(1)),
