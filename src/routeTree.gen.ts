@@ -27,6 +27,7 @@ import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/publi
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksPrecloseRouteImport } from './routes/api/public/hooks/preclose'
 import { Route as ApiPublicHooksPreopenRouteImport } from './routes/api/public/hooks/preopen'
+import { Route as ApiPublicHooksReplayRouteImport } from './routes/api/public/hooks/replay'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -119,6 +120,11 @@ const ApiPublicHooksPreopenRoute = ApiPublicHooksPreopenRouteImport.update({
   path: '/api/public/hooks/preopen',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksReplayRoute = ApiPublicHooksReplayRouteImport.update({
+  id: '/api/public/hooks/replay',
+  path: '/api/public/hooks/replay',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
+  '/api/public/hooks/replay': typeof ApiPublicHooksReplayRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
+  '/api/public/hooks/replay': typeof ApiPublicHooksReplayRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
+  '/api/public/hooks/replay': typeof ApiPublicHooksReplayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
+    | '/api/public/hooks/replay'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
+    | '/api/public/hooks/replay'
   id:
     | '__root__'
     | '/'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
+    | '/api/public/hooks/replay'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -263,6 +275,7 @@ export interface RootRouteChildren {
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
   ApiPublicHooksPrecloseRoute: typeof ApiPublicHooksPrecloseRoute
   ApiPublicHooksPreopenRoute: typeof ApiPublicHooksPreopenRoute
+  ApiPublicHooksReplayRoute: typeof ApiPublicHooksReplayRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -393,6 +406,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksPreopenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/replay': {
+      id: '/api/public/hooks/replay'
+      path: '/api/public/hooks/replay'
+      fullPath: '/api/public/hooks/replay'
+      preLoaderRoute: typeof ApiPublicHooksReplayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -415,6 +435,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
   ApiPublicHooksPrecloseRoute: ApiPublicHooksPrecloseRoute,
   ApiPublicHooksPreopenRoute: ApiPublicHooksPreopenRoute,
+  ApiPublicHooksReplayRoute: ApiPublicHooksReplayRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
