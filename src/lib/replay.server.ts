@@ -113,7 +113,7 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
       ? { ...seed, ...saved, weights: { ...seed.weights, ...((saved.weights as object) ?? {}) } as LaneParams["weights"] }
       : seed;
     for (const k of Object.keys(seed.weights) as (keyof LaneParams["weights"])[]) {
-      if (!Number.isFinite(Number(params.weights[k]))) params.weights[k] = seed.weights[k];
+      if (!Number.isFinite(Number(params.weights[k]))) params.weights[k] = seed.weights[k] ?? 0;
     }
     if (!Number.isFinite(Number(params.min_score_to_trade))) params.min_score_to_trade = seed.min_score_to_trade;
     laneParamsMap.set(lane.lane, params);
