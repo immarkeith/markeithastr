@@ -193,7 +193,7 @@ export async function runHistoryRebuildStep() {
   if (trades.length) {
     const { data: existing } = await supabaseAdmin.from("trades").select("strategy_id, ticker, entry_date").eq("mode", "paper").gte("entry_date", stepDays[0]!).lte("entry_date", stepDays[stepDays.length - 1]!);
     const seen = new Set((existing ?? []).map((t) => `${t.strategy_id}|${t.ticker}|${t.entry_date}`));
-    fresh = trades.filter((t) => !seen.has(`${t.strategy_id}|${t.ticker}|${t.entry_date}`));
+    fresh = trades.filter((t) => !seen.has(`${t["strategy_id"]}|${t["ticker"]}|${t["entry_date"]}`));
     if (fresh.length) {
       const { error } = await supabaseAdmin.from("trades").insert(fresh as never);
       if (error) throw new Error("trade insert failed: " + error.message);
