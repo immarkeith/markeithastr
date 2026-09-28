@@ -26,10 +26,11 @@ export interface PnlRange {
  * calendar periods: this week, this month, this month plus the two before it.
  */
 export const HOME_RANGES: PnlRange[] = [
-  { key: "live", label: "LIVE", days: 1, live: true },
-  { key: "week", label: "1W", days: 7, calendar: "week" },
-  { key: "month", label: "1M", days: 31, calendar: "month" },
-  { key: "months3", label: "3M", days: 92, calendar: "months3" },
+  { key: "live", label: "1D", days: 1, live: true },
+  { key: "month", label: "1M", days: 31 },
+  { key: "months3", label: "3M", days: 92 },
+  { key: "months9", label: "9M", days: 275 },
+  { key: "all", label: "All", days: 36500 },
 ];
 
 /** The Research Lab reads the same calendar periods as the live graph. */

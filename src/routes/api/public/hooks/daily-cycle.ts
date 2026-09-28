@@ -48,6 +48,13 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
             console.error("event intelligence failed:", evError instanceof Error ? evError.message : evError);
           }
           void events;
+          // Paper-only history rebuild continues a little each day until caught up.
+          try {
+            const { runHistoryRebuild } = await import("@/lib/replay.server");
+            await runHistoryRebuild(4000);
+          } catch (rbError) {
+            console.error("history rebuild step failed:", rbError instanceof Error ? rbError.message : rbError);
+          }
           const settings = await loadSettings();
           if (!(settings as unknown as { auto_run: boolean }).auto_run) {
             return Response.json({ ran: false, reason: "auto_run is off", paper, department, horizons });
