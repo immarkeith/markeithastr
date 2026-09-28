@@ -106,7 +106,16 @@ export async function runHistoricalReplayBatch(batchNumber: number = 1, batchSiz
   const laneParamsMap = new Map<string, LaneParams>();
   for (const lane of LANES) {
     const row = researchers.find((r) => r.lane === lane.lane);
-    const params = row?.params && (row.params as LaneParams).weights ? (row.params as LaneParams) : laneSeedParams(lane, settings);
+    const seed = laneSeedParams(lane, settings);
+    const saved = row?.params as Partial<LaneParams> | undefined;
+    // Merge saved params over the seed so a missing weight (e.g. "trend") never crashes a batch.
+    const params: LaneParams = saved && typeof saved === "object"
+      ? { ...seed, ...saved, weights: { ...seed.weights, ...((saved.weights as object) ?? {}) } as LaneParams["weights"] }
+      : seed;
+    for (const k of Object.keys(seed.weights) as (keyof LaneParams["weights"])[]) {
+      if (!Number.isFinite(Number(params.weights[k]))) params.weights[k] = seed.weights[k];
+    }
+    if (!Number.isFinite(Number(params.min_score_to_trade))) params.min_score_to_trade = seed.min_score_to_trade;
     laneParamsMap.set(lane.lane, params);
   }
 
