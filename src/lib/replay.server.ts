@@ -30,7 +30,7 @@ const pct = (a: number, b: number) => (b ? ((a - b) / b) * 100 : 0);
 
 const VERSION = 2; // v2 = strict same-day paper trades, every researcher trades every session
 
-type State = { next: number; holds: Record<string, number>; done: boolean; trades: number; through?: string; version?: number };
+type State = { next: number; holds: Record<string, number>; done: boolean; trades: number; through?: string | undefined; version?: number };
 
 async function loadState(): Promise<State> {
   const { data } = await supabaseAdmin.from("research_runs").select("summary").eq("kind", KIND).order("created_at", { ascending: false }).limit(1).maybeSingle();
