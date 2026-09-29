@@ -48,6 +48,28 @@ async function pageAll<T>(build: (from: number) => PromiseLike<{ data: T[] | nul
   return out;
 }
 
+/**
+ * Every real trading day present in the shared history, oldest first.
+ * Read from the whole market (not one index ticker) so a thinly covered proxy
+ * can never hide the history.
+ */
+async function tradingDays(proxy: string, today: string): Promise<string[]> {
+  try {
+    const rows = await pageAll<{ bar_date: string; ticker_count: number }>((f) =>
+      supabaseAdmin.rpc("bar_dates_present").gte("ticker_count", 5).lt("bar_date", today).order("bar_date", { ascending: true }).range(f, f + 999),
+    );
+    const days = rows.map((r) => r.bar_date);
+    if (days.length > LOOKBACK) return days;
+  } catch { /* fall through to per-ticker discovery */ }
+  for (const ticker of [proxy, "AAPL", "QQQ", "FXY", "FLTW", "ALB"]) {
+    const rows = await pageAll<{ bar_date: string }>((f) =>
+      supabaseAdmin.from("daily_bars").select("bar_date").eq("ticker", ticker).lt("bar_date", today).order("bar_date").range(f, f + 999),
+    );
+    if (rows.length > LOOKBACK) return rows.map((r) => r.bar_date);
+  }
+  return [];
+}
+
 /** Runs one checkpointed step. Safe to call repeatedly; stops once caught up. */
 export async function runHistoryRebuildStep() {
   const settings = await loadSettings();
@@ -55,18 +77,19 @@ export async function runHistoryRebuildStep() {
   const proxy = (settings.market_proxy || "SPY").toUpperCase();
   const today = new Date().toISOString().slice(0, 10);
 
-  const dateRows = await pageAll<{ bar_date: string }>((f) =>
-    supabaseAdmin.from("daily_bars").select("bar_date").eq("ticker", proxy).lt("bar_date", today).order("bar_date").range(f, f + 999),
-  );
-  const days = dateRows.map((r) => r.bar_date);
+  const days = await tradingDays(proxy, today);
   const state = await loadState();
-  const start = Math.max(state.next, LOOKBACK);
+  // A checkpoint that finished without logging anything came from an empty
+  // calendar read, so start over rather than staying stuck at "complete".
+  const resume = state.trades === 0 ? LOOKBACK : Math.max(state.next, LOOKBACK);
+  const start = resume;
   if (days.length <= LOOKBACK || start >= days.length) {
     return { done: true, processed: 0, total: days.length, position: Math.min(start, days.length), trades: state.trades };
   }
   const stepDays = days.slice(start, start + STEP_DAYS);
   const fetchFrom = days[start - LOOKBACK]!;
-  const fetchTo = days[Math.min(days.length - 1, start + STEP_DAYS - 1 + 63)]!; // include future bars for outcomes only
+  const fetchTo = days[Math.min(days.length - 1, start + STEP_DAYS - 1 + 189)]!; // future bars used for outcomes only
+
 
   const raw = await pageAll<{ ticker: string; bar_date: string; open: number; high: number; low: number; close: number; volume: number }>((f) =>
     supabaseAdmin.from("daily_bars").select("ticker, bar_date, open, high, low, close, volume").gte("bar_date", fetchFrom).lte("bar_date", fetchTo).order("ticker").order("bar_date").range(f, f + 999),
