@@ -161,19 +161,46 @@ export async function runHistoryRebuildStep() {
     }
 
     for (const lane of lanes) {
-      if (holds[lane] !== undefined && dayIdx < holds[lane]! + 3) continue;
-      delete holds[lane];
       const p = lane === "lead" ? master : laneParams.get(lane);
       if (!p) continue;
       const bands = lane === "lead" ? master.bands : [];
-      let best: (typeof rows)[number] | null = null;
-      let bestScore = -Infinity;
+      const laneName = lane === "lead" ? "Lead Researcher" : LANES.find((l) => l.lane === lane)?.name ?? lane;
+
+      // Rank everything this researcher would have qualified that morning.
+      const ranked: { r: (typeof rows)[number]; s: number }[] = [];
       for (const r of rows) {
         if (!passesFilters(r.row, p, settings, share)) continue;
         const s = scoreWith(r.row, p.weights) + bandBonus(r.row as never, bands);
-        if (s > bestScore) { bestScore = s; best = r; }
+        if (s >= p.min_score_to_trade) ranked.push({ r, s });
       }
-      if (!best || bestScore < p.min_score_to_trade || !(best.bar.open > 0)) continue;
+      ranked.sort((a, b) => b.s - a.s);
+      if (!ranked.length) continue;
+
+      // Background depth: runners-up are monitored across the long horizons even
+      // when the researcher is already holding something.
+      for (const cand of ranked.slice(1, 4)) {
+        if (!(cand.r.bar.open > 0)) continue;
+        for (const [horizon, n] of [["1M", 21], ["3M", 63], ["9M", 189]] as const) {
+          const evalDate = days[dayIdx + n];
+          const evalBar = evalDate ? cand.r.bars.find((b) => b.date === evalDate) : undefined;
+          const ret = evalBar ? +pct(evalBar.close, cand.r.bar.open).toFixed(2) : null;
+          predictions.push({
+            prediction_date: day, predicted_at: `${day}T13:35:00Z`, lane, researcher_name: laneName, strategy_id: STRATEGY_IDS[lane],
+            ticker: cand.r.row.ticker, entry_price: cand.r.bar.open, score: +cand.s.toFixed(1), factors: cand.r.row.pct,
+            horizon, evaluate_on: evalDate ?? day, evaluated_at: evalBar ? `${evalDate}T20:00:00Z` : null,
+            exit_price: evalBar?.close ?? null, return_pct: ret,
+            successful: ret === null ? null : ret > 0, outcome: ret === null ? "pending" : ret > 0 ? "won" : "lost",
+            note: "historical rebuild (background watch)",
+          });
+        }
+      }
+
+      // One stock at a time: a researcher still inside its 3-day hold cannot buy.
+      if (holds[lane] !== undefined && dayIdx < holds[lane]! + 3) continue;
+      delete holds[lane];
+      const best = ranked[0]!.r;
+      const bestScore = ranked[0]!.s;
+      if (!(best.bar.open > 0)) continue;
       holds[lane] = dayIdx;
 
       const exitDate = days[Math.min(days.length - 1, dayIdx + 3)]!;
@@ -195,20 +222,21 @@ export async function runHistoryRebuildStep() {
         score: +bestScore.toFixed(1), conditions: { rsi: +best.row.rsi14.toFixed(1), rel_volume: +best.row.rel_volume.toFixed(2), atr_pct: +best.row.atr_pct.toFixed(2) },
         factors: best.row.pct, return_pct: sameDayPct, successful: sameDayPct > 0, resolved_on: day,
       });
-      if (lane === "lead") {
-        for (const [horizon, n] of [["1M", 21], ["3M", 63]] as const) {
-          const evalDate = days[dayIdx + n];
-          const evalBar = evalDate ? best.bars.find((b) => b.date === evalDate) : undefined;
-          const ret = evalBar ? +pct(evalBar.close, entry).toFixed(2) : null;
-          predictions.push({
-            prediction_date: day, predicted_at: `${day}T13:35:00Z`, lane: "lead", researcher_name: "Lead Researcher", strategy_id: STRATEGY_IDS["lead"],
-            ticker: best.row.ticker, entry_price: entry, score: +bestScore.toFixed(1), horizon, evaluate_on: evalDate ?? day,
-            evaluated_at: evalBar ? `${evalDate}T20:00:00Z` : null, exit_price: evalBar?.close ?? null, return_pct: ret,
-            successful: ret === null ? null : ret > 0, outcome: ret === null ? "pending" : ret > 0 ? "won" : "lost",
-          });
-        }
+      for (const [horizon, n] of [["1M", 21], ["3M", 63], ["9M", 189]] as const) {
+        const evalDate = days[dayIdx + n];
+        const evalBar = evalDate ? best.bars.find((b) => b.date === evalDate) : undefined;
+        const ret = evalBar ? +pct(evalBar.close, entry).toFixed(2) : null;
+        predictions.push({
+          prediction_date: day, predicted_at: `${day}T13:35:00Z`, lane, researcher_name: laneName, strategy_id: STRATEGY_IDS[lane],
+          ticker: best.row.ticker, entry_price: entry, score: +bestScore.toFixed(1), factors: best.row.pct,
+          horizon, evaluate_on: evalDate ?? day, evaluated_at: evalBar ? `${evalDate}T20:00:00Z` : null,
+          exit_price: evalBar?.close ?? null, return_pct: ret,
+          successful: ret === null ? null : ret > 0, outcome: ret === null ? "pending" : ret > 0 ? "won" : "lost",
+          note: "historical rebuild",
+        });
       }
     }
+
   }
 
   // Never duplicate a trade that already exists for the same researcher/day/ticker.
