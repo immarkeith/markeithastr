@@ -28,12 +28,20 @@ const STEP_DAYS = 8;
 const LOOKBACK = 65;
 const pct = (a: number, b: number) => (b ? ((a - b) / b) * 100 : 0);
 
-type State = { next: number; holds: Record<string, number>; done: boolean; trades: number };
+const VERSION = 2; // v2 = strict same-day paper trades, every researcher trades every session
+
+type State = { next: number; holds: Record<string, number>; done: boolean; trades: number; through?: string; version?: number };
 
 async function loadState(): Promise<State> {
   const { data } = await supabaseAdmin.from("research_runs").select("summary").eq("kind", KIND).order("created_at", { ascending: false }).limit(1).maybeSingle();
   const s = (data?.summary ?? null) as Partial<State> | null;
-  return { next: Number(s?.next ?? 0), holds: (s?.holds as Record<string, number>) ?? {}, done: Boolean(s?.done), trades: Number(s?.trades ?? 0) };
+  if (Number(s?.version ?? 1) !== VERSION) {
+    // Old rebuild used a 3-day hold. Wipe ONLY its paper records and restart.
+    await supabaseAdmin.from("trades").delete().eq("mode", "paper").eq("status_note", "historical rebuild");
+    await supabaseAdmin.from("research_runs").delete().eq("kind", KIND);
+    return { next: 0, holds: {}, done: false, trades: 0, version: VERSION };
+  }
+  return { next: Number(s?.next ?? 0), holds: {}, done: Boolean(s?.done), trades: Number(s?.trades ?? 0), through: s?.through, version: VERSION };
 }
 
 async function pageAll<T>(build: (from: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
@@ -79,10 +87,12 @@ export async function runHistoryRebuildStep() {
 
   const days = await tradingDays(proxy, today);
   const state = await loadState();
-  // A checkpoint that finished without logging anything came from an empty
-  // calendar read, so start over rather than staying stuck at "complete".
-  const resume = state.trades === 0 ? LOOKBACK : Math.max(state.next, LOOKBACK);
-  const start = resume;
+  // Resume by date (not index) so deeper history added later can't shift the checkpoint.
+  let start = LOOKBACK;
+  if (state.through) {
+    const idx = days.findIndex((d) => d > state.through!);
+    start = idx === -1 ? days.length : Math.max(idx, LOOKBACK);
+  }
   if (days.length <= LOOKBACK || start >= days.length) {
     return { done: true, processed: 0, total: days.length, position: Math.min(start, days.length), trades: state.trades };
   }
@@ -195,26 +205,22 @@ export async function runHistoryRebuildStep() {
         }
       }
 
-      // One stock at a time: a researcher still inside its 3-day hold cannot buy.
-      if (holds[lane] !== undefined && dayIdx < holds[lane]! + 3) continue;
-      delete holds[lane];
+      // Strict same-day: buy the top pick at the open, sell at that day's close.
+      // Every researcher trades every session; longer horizons are tracked separately.
       const best = ranked[0]!.r;
       const bestScore = ranked[0]!.s;
-      if (!(best.bar.open > 0)) continue;
-      holds[lane] = dayIdx;
+      if (!(best.bar.open > 0) || !(best.bar.close > 0)) continue;
 
-      const exitDate = days[Math.min(days.length - 1, dayIdx + 3)]!;
-      const exitBar = best.bars.find((b) => b.date === exitDate) ?? best.bar;
       const entry = best.bar.open;
       const qty = 20 / entry;
       const sameDayPct = +pct(best.bar.close, entry).toFixed(2);
-      const closed = exitDate <= lastDate && exitDate > day;
+      const sameDayProfit = +(qty * (best.bar.close - entry)).toFixed(2);
       trades.push({
         ticker: best.row.ticker, kind: "day", entry_date: day, entry_price: entry, dollars: 20, filled_qty: +qty.toFixed(4),
-        exit_date: closed ? exitDate : null, exit_price: closed ? exitBar.close : null, profit: closed ? +(qty * (exitBar.close - entry)).toFixed(2) : null,
-        same_day_price: best.bar.close, same_day_profit: +(qty * (best.bar.close - entry)).toFixed(2), same_day_pct: sameDayPct,
-        status: closed ? "closed" : "open", mode: "paper", position_type: "SAME_DAY", strategy_id: STRATEGY_IDS[lane],
-        entry_at: `${day}T13:35:00Z`, exit_at: closed ? `${exitDate}T19:50:00Z` : null, same_day_at: `${day}T19:50:00Z`,
+        exit_date: day, exit_price: best.bar.close, profit: sameDayProfit,
+        same_day_price: best.bar.close, same_day_profit: sameDayProfit, same_day_pct: sameDayPct,
+        status: "closed", mode: "paper", position_type: "SAME_DAY", strategy_id: STRATEGY_IDS[lane],
+        entry_at: `${day}T13:35:00Z`, exit_at: `${day}T19:50:00Z`, same_day_at: `${day}T19:50:00Z`,
         status_note: "historical rebuild",
       });
       examples.push({
