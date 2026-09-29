@@ -88,7 +88,7 @@ export async function runHistoryRebuildStep() {
   }
   const stepDays = days.slice(start, start + STEP_DAYS);
   const fetchFrom = days[start - LOOKBACK]!;
-  const fetchTo = days[Math.min(days.length - 1, start + STEP_DAYS - 1 + 189)]!; // future bars used for outcomes only
+  const fetchTo = days[Math.min(days.length - 1, start + STEP_DAYS - 1 + 63)]!; // future bars used for outcomes only
 
 
   const raw = await pageAll<{ ticker: string; bar_date: string; open: number; high: number; low: number; close: number; volume: number }>((f) =>
