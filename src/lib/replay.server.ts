@@ -48,6 +48,28 @@ async function pageAll<T>(build: (from: number) => PromiseLike<{ data: T[] | nul
   return out;
 }
 
+/**
+ * Every real trading day present in the shared history, oldest first.
+ * Read from the whole market (not one index ticker) so a thinly covered proxy
+ * can never hide the history.
+ */
+async function tradingDays(proxy: string, today: string): Promise<string[]> {
+  try {
+    const rows = await pageAll<{ bar_date: string; ticker_count: number }>((f) =>
+      supabaseAdmin.rpc("bar_dates_present").gte("ticker_count", 5).lt("bar_date", today).order("bar_date", { ascending: true }).range(f, f + 999),
+    );
+    const days = rows.map((r) => r.bar_date);
+    if (days.length > LOOKBACK) return days;
+  } catch { /* fall through to per-ticker discovery */ }
+  for (const ticker of [proxy, "AAPL", "QQQ", "FXY", "FLTW", "ALB"]) {
+    const rows = await pageAll<{ bar_date: string }>((f) =>
+      supabaseAdmin.from("daily_bars").select("bar_date").eq("ticker", ticker).lt("bar_date", today).order("bar_date").range(f, f + 999),
+    );
+    if (rows.length > LOOKBACK) return rows.map((r) => r.bar_date);
+  }
+  return [];
+}
+
 /** Runs one checkpointed step. Safe to call repeatedly; stops once caught up. */
 export async function runHistoryRebuildStep() {
   const settings = await loadSettings();
@@ -55,18 +77,19 @@ export async function runHistoryRebuildStep() {
   const proxy = (settings.market_proxy || "SPY").toUpperCase();
   const today = new Date().toISOString().slice(0, 10);
 
-  const dateRows = await pageAll<{ bar_date: string }>((f) =>
-    supabaseAdmin.from("daily_bars").select("bar_date").eq("ticker", proxy).lt("bar_date", today).order("bar_date").range(f, f + 999),
-  );
-  const days = dateRows.map((r) => r.bar_date);
+  const days = await tradingDays(proxy, today);
   const state = await loadState();
-  const start = Math.max(state.next, LOOKBACK);
+  // A checkpoint that finished without logging anything came from an empty
+  // calendar read, so start over rather than staying stuck at "complete".
+  const resume = state.trades === 0 ? LOOKBACK : Math.max(state.next, LOOKBACK);
+  const start = resume;
   if (days.length <= LOOKBACK || start >= days.length) {
     return { done: true, processed: 0, total: days.length, position: Math.min(start, days.length), trades: state.trades };
   }
   const stepDays = days.slice(start, start + STEP_DAYS);
   const fetchFrom = days[start - LOOKBACK]!;
-  const fetchTo = days[Math.min(days.length - 1, start + STEP_DAYS - 1 + 63)]!; // include future bars for outcomes only
+  const fetchTo = days[Math.min(days.length - 1, start + STEP_DAYS - 1 + 63)]!; // future bars used for outcomes only
+
 
   const raw = await pageAll<{ ticker: string; bar_date: string; open: number; high: number; low: number; close: number; volume: number }>((f) =>
     supabaseAdmin.from("daily_bars").select("ticker, bar_date, open, high, low, close, volume").gte("bar_date", fetchFrom).lte("bar_date", fetchTo).order("ticker").order("bar_date").range(f, f + 999),
@@ -138,19 +161,46 @@ export async function runHistoryRebuildStep() {
     }
 
     for (const lane of lanes) {
-      if (holds[lane] !== undefined && dayIdx < holds[lane]! + 3) continue;
-      delete holds[lane];
       const p = lane === "lead" ? master : laneParams.get(lane);
       if (!p) continue;
       const bands = lane === "lead" ? master.bands : [];
-      let best: (typeof rows)[number] | null = null;
-      let bestScore = -Infinity;
+      const laneName = lane === "lead" ? "Lead Researcher" : LANES.find((l) => l.lane === lane)?.name ?? lane;
+
+      // Rank everything this researcher would have qualified that morning.
+      const ranked: { r: (typeof rows)[number]; s: number }[] = [];
       for (const r of rows) {
         if (!passesFilters(r.row, p, settings, share)) continue;
         const s = scoreWith(r.row, p.weights) + bandBonus(r.row as never, bands);
-        if (s > bestScore) { bestScore = s; best = r; }
+        if (s >= p.min_score_to_trade) ranked.push({ r, s });
       }
-      if (!best || bestScore < p.min_score_to_trade || !(best.bar.open > 0)) continue;
+      ranked.sort((a, b) => b.s - a.s);
+      if (!ranked.length) continue;
+
+      // Background depth: runners-up are monitored across the long horizons even
+      // when the researcher is already holding something.
+      for (const cand of ranked.slice(1, 4)) {
+        if (!(cand.r.bar.open > 0)) continue;
+        for (const [horizon, n] of [["1M", 21], ["3M", 63], ["9M", 189]] as const) {
+          const evalDate = days[dayIdx + n];
+          const evalBar = evalDate ? cand.r.bars.find((b) => b.date === evalDate) : undefined;
+          const ret = evalBar ? +pct(evalBar.close, cand.r.bar.open).toFixed(2) : null;
+          predictions.push({
+            prediction_date: day, predicted_at: `${day}T13:35:00Z`, lane, researcher_name: laneName, strategy_id: STRATEGY_IDS[lane],
+            ticker: cand.r.row.ticker, entry_price: cand.r.bar.open, score: +cand.s.toFixed(1), factors: cand.r.row.pct,
+            horizon, evaluate_on: evalDate ?? day, evaluated_at: evalBar ? `${evalDate}T20:00:00Z` : null,
+            exit_price: evalBar?.close ?? null, return_pct: ret,
+            successful: ret === null ? null : ret > 0, outcome: ret === null ? "pending" : ret > 0 ? "won" : "lost",
+            note: "historical rebuild (background watch)",
+          });
+        }
+      }
+
+      // One stock at a time: a researcher still inside its 3-day hold cannot buy.
+      if (holds[lane] !== undefined && dayIdx < holds[lane]! + 3) continue;
+      delete holds[lane];
+      const best = ranked[0]!.r;
+      const bestScore = ranked[0]!.s;
+      if (!(best.bar.open > 0)) continue;
       holds[lane] = dayIdx;
 
       const exitDate = days[Math.min(days.length - 1, dayIdx + 3)]!;
@@ -172,20 +222,21 @@ export async function runHistoryRebuildStep() {
         score: +bestScore.toFixed(1), conditions: { rsi: +best.row.rsi14.toFixed(1), rel_volume: +best.row.rel_volume.toFixed(2), atr_pct: +best.row.atr_pct.toFixed(2) },
         factors: best.row.pct, return_pct: sameDayPct, successful: sameDayPct > 0, resolved_on: day,
       });
-      if (lane === "lead") {
-        for (const [horizon, n] of [["1M", 21], ["3M", 63]] as const) {
-          const evalDate = days[dayIdx + n];
-          const evalBar = evalDate ? best.bars.find((b) => b.date === evalDate) : undefined;
-          const ret = evalBar ? +pct(evalBar.close, entry).toFixed(2) : null;
-          predictions.push({
-            prediction_date: day, predicted_at: `${day}T13:35:00Z`, lane: "lead", researcher_name: "Lead Researcher", strategy_id: STRATEGY_IDS["lead"],
-            ticker: best.row.ticker, entry_price: entry, score: +bestScore.toFixed(1), horizon, evaluate_on: evalDate ?? day,
-            evaluated_at: evalBar ? `${evalDate}T20:00:00Z` : null, exit_price: evalBar?.close ?? null, return_pct: ret,
-            successful: ret === null ? null : ret > 0, outcome: ret === null ? "pending" : ret > 0 ? "won" : "lost",
-          });
-        }
+      for (const [horizon, n] of [["1M", 21], ["3M", 63], ["9M", 189]] as const) {
+        const evalDate = days[dayIdx + n];
+        const evalBar = evalDate ? best.bars.find((b) => b.date === evalDate) : undefined;
+        const ret = evalBar ? +pct(evalBar.close, entry).toFixed(2) : null;
+        predictions.push({
+          prediction_date: day, predicted_at: `${day}T13:35:00Z`, lane, researcher_name: laneName, strategy_id: STRATEGY_IDS[lane],
+          ticker: best.row.ticker, entry_price: entry, score: +bestScore.toFixed(1), factors: best.row.pct,
+          horizon, evaluate_on: evalDate ?? day, evaluated_at: evalBar ? `${evalDate}T20:00:00Z` : null,
+          exit_price: evalBar?.close ?? null, return_pct: ret,
+          successful: ret === null ? null : ret > 0, outcome: ret === null ? "pending" : ret > 0 ? "won" : "lost",
+          note: "historical rebuild",
+        });
       }
     }
+
   }
 
   // Never duplicate a trade that already exists for the same researcher/day/ticker.
