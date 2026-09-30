@@ -264,7 +264,7 @@ export async function runHistoryRebuildStep() {
   const total = state.trades + fresh.length;
   await supabaseAdmin.from("research_runs").insert({
     kind: KIND, config: { step_days: STEP_DAYS },
-    summary: { next, holds, done, trades: total, through: stepDays[stepDays.length - 1] },
+    summary: { next, holds, done, trades: total, through: stepDays[stepDays.length - 1], version: VERSION },
     warnings: [],
   } as never);
   return { done, processed: stepDays.length, total: days.length, position: next, through: stepDays[stepDays.length - 1], trades: total, firstDate: days[LOOKBACK] };
