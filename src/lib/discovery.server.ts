@@ -39,7 +39,7 @@ const NAMES: Record<string, string> = {
 function bin(f: string, v: number) {
   const e = BINS[f]!.edges;
   let i = 0;
-  while (i < e.length && v > e[i]) i++;
+  while (i < e.length && v > e[i]!) i++;
   return BINS[f]!.labels[i]!;
 }
 
