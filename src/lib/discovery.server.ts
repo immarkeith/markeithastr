@@ -37,10 +37,10 @@ const NAMES: Record<string, string> = {
 };
 
 function bin(f: string, v: number) {
-  const e = BINS[f].edges;
+  const e = BINS[f]!.edges;
   let i = 0;
   while (i < e.length && v > e[i]) i++;
-  return BINS[f].labels[i];
+  return BINS[f]!.labels[i]!;
 }
 
 async function loadState(): Promise<State | null> {
@@ -84,12 +84,12 @@ export async function runDiscoveryStep(opts: { restart?: boolean } = {}) {
     const b = await bars(t);
     let streak = 0;
     for (let i = 21; i < b.length; i++) {
-      const p = b[i - 1];
+      const p = b[i - 1]!;
       const w = b.slice(i - 21, i - 1);
       const sma = w.reduce((x, y) => x + y.close, 0) / w.length;
-      const qualified = p.close > sma && p.close > b[i - 6].close;
+      const qualified = p.close > sma && p.close > b[i - 6]!.close;
       streak = qualified ? streak + 1 : 0;
-      const d = b[i];
+      const d = b[i]!;
       if (!(d.open > 0) || !(p.close > 0)) continue;
       const r = ((d.close - d.open) / d.open) * 100;
       if (!Number.isFinite(r) || Math.abs(r) > 50) continue; // bad print guard
@@ -99,8 +99,8 @@ export async function runDiscoveryStep(opts: { restart?: boolean } = {}) {
       if (learn) { s.base.ln++; s.base.ls += r; } else { s.base.tn++; s.base.ts += r; }
       if (streak > 0) add(s.agg, "streak", bin("streak", streak), learn, r);
       add(s.agg, "gap", bin("gap", ((d.open - p.close) / p.close) * 100), learn, r);
-      add(s.agg, "mom5", bin("mom5", ((p.close - b[i - 6].close) / b[i - 6].close) * 100), learn, r);
-      add(s.agg, "mom20", bin("mom20", ((p.close - b[i - 21].close) / b[i - 21].close) * 100), learn, r);
+      add(s.agg, "mom5", bin("mom5", ((p.close - b[i - 6]!.close) / b[i - 6]!.close) * 100), learn, r);
+      add(s.agg, "mom20", bin("mom20", ((p.close - b[i - 21]!.close) / b[i - 21]!.close) * 100), learn, r);
       if (avgVol > 0) add(s.agg, "volratio", bin("volratio", p.volume / avgVol), learn, r);
       add(s.agg, "range", bin("range", ((p.high - p.low) / p.close) * 100), learn, r);
       add(s.agg, "offhigh", bin("offhigh", ((p.close - hi) / hi) * 100), learn, r);
@@ -118,7 +118,7 @@ export function buildReport(s: State) {
   const bt = s.base.tn ? s.base.ts / s.base.tn : 0;
   const findings: { metric: string; bucket: string; learnEdge: number; holdoutEdge: number; learnN: number; holdoutN: number; verdict: string }[] = [];
   for (const [f, buckets] of Object.entries(s.agg)) {
-    for (const label of BINS[f].labels) {
+    for (const label of BINS[f]!.labels) {
       const c = buckets[label];
       if (!c) continue;
       const le = c.ln ? c.ls / c.ln - bl : 0;
@@ -129,10 +129,10 @@ export function buildReport(s: State) {
           ? (he > 0 ? "Validated edge (positive)" : "Validated warning (negative)")
           : "Failed holdout — dropped";
       }
-      findings.push({ metric: NAMES[f], bucket: label, learnEdge: +le.toFixed(3), holdoutEdge: +he.toFixed(3), learnN: c.ln, holdoutN: c.tn, verdict });
+      findings.push({ metric: NAMES[f]!, bucket: label, learnEdge: +le.toFixed(3), holdoutEdge: +he.toFixed(3), learnN: c.ln, holdoutN: c.tn, verdict });
     }
   }
-  const streak = findings.filter((x) => x.metric === NAMES.streak);
+  const streak = findings.filter((x) => x.metric === NAMES["streak"]);
   const sv = streak.filter((x) => x.verdict.startsWith("Validated"));
   const long = sv.filter((x) => x.bucket === "8-15 days" || x.bucket === "16+ days");
   const streakConclusion = long.length === 0
@@ -146,7 +146,7 @@ export function buildReport(s: State) {
     streakConclusion,
     specialists: [
       { role: "Streak Analyst", focus: "Why stocks keep qualifying and whether streak length predicts continuation or exhaustion", findings: streak },
-      { role: "Metric Scout", focus: "Searches gap, momentum, volume, range and distance-from-high for same-day edges", findings: findings.filter((x) => x.metric !== NAMES.streak && x.verdict.startsWith("Validated")) },
+      { role: "Metric Scout", focus: "Searches gap, momentum, volume, range and distance-from-high for same-day edges", findings: findings.filter((x) => x.metric !== NAMES["streak"] && x.verdict.startsWith("Validated")) },
       { role: "Skeptic", focus: "Drops anything that fails the holdout year", findings: findings.filter((x) => x.verdict.startsWith("Failed")) },
     ],
     note: "Paper research only. Nothing here changes live trading; any change needs your manual approval.",
