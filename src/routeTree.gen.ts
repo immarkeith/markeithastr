@@ -25,6 +25,7 @@ import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
 import { Route as ApiPublicHooksDeepenHistoryRouteImport } from './routes/api/public/hooks/deepen-history'
+import { Route as ApiPublicHooksDiscoverRouteImport } from './routes/api/public/hooks/discover'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksPrecloseRouteImport } from './routes/api/public/hooks/preclose'
 import { Route as ApiPublicHooksPreopenRouteImport } from './routes/api/public/hooks/preopen'
@@ -112,6 +113,11 @@ const ApiPublicHooksDeepenHistoryRoute =
     path: '/api/public/hooks/deepen-history',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksDiscoverRoute = ApiPublicHooksDiscoverRouteImport.update({
+  id: '/api/public/hooks/discover',
+  path: '/api/public/hooks/discover',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksHealthRoute = ApiPublicHooksHealthRouteImport.update({
   id: '/api/public/hooks/health',
   path: '/api/public/hooks/health',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
+  '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
+  '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/watchlist': typeof WatchlistRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
+  '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
+    | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
+    | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
+    | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
@@ -286,6 +298,7 @@ export interface RootRouteChildren {
   WatchlistRoute: typeof WatchlistRoute
   ApiPublicHooksDailyCycleRoute: typeof ApiPublicHooksDailyCycleRoute
   ApiPublicHooksDeepenHistoryRoute: typeof ApiPublicHooksDeepenHistoryRoute
+  ApiPublicHooksDiscoverRoute: typeof ApiPublicHooksDiscoverRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
   ApiPublicHooksPrecloseRoute: typeof ApiPublicHooksPrecloseRoute
   ApiPublicHooksPreopenRoute: typeof ApiPublicHooksPreopenRoute
@@ -406,6 +419,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksDeepenHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/discover': {
+      id: '/api/public/hooks/discover'
+      path: '/api/public/hooks/discover'
+      fullPath: '/api/public/hooks/discover'
+      preLoaderRoute: typeof ApiPublicHooksDiscoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/health': {
       id: '/api/public/hooks/health'
       path: '/api/public/hooks/health'
@@ -454,6 +474,7 @@ const rootRouteChildren: RootRouteChildren = {
   WatchlistRoute: WatchlistRoute,
   ApiPublicHooksDailyCycleRoute: ApiPublicHooksDailyCycleRoute,
   ApiPublicHooksDeepenHistoryRoute: ApiPublicHooksDeepenHistoryRoute,
+  ApiPublicHooksDiscoverRoute: ApiPublicHooksDiscoverRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
   ApiPublicHooksPrecloseRoute: ApiPublicHooksPrecloseRoute,
   ApiPublicHooksPreopenRoute: ApiPublicHooksPreopenRoute,
