@@ -70,7 +70,10 @@ function HomePage() {
   const d = dash.data;
   // Open-position profit right now, so the graph keeps moving before a sell.
   const openPl = (d?.same_day_holdings ?? []).reduce((sum, h) => sum + Number(h.pl ?? 0), 0);
-  const heldDollars = (d?.same_day_holdings ?? []).reduce((sum, h) => sum + Number(h.dollars ?? 0), 0);
+  const heldDollars = [...(d?.same_day_holdings ?? []), ...(d?.long_term_holdings ?? [])].reduce(
+    (sum, holding) => sum + Number(holding.dollars ?? 0),
+    0,
+  );
   const [busy, setBusy] = useState(false);
 
   async function toggleBot(running: boolean) {
