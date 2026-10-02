@@ -18,7 +18,9 @@ export interface PnlRange {
    *   month   — the 1st of this month through today
    *   months3 — this month plus the two whole months before it
    */
-  calendar?: "week" | "month" | "months3";
+  calendar?: "week" | "month" | "months3" | "ytd";
+  /** Display resolution only — never limits research or holding periods. */
+  weekly?: boolean;
 }
 
 /**
@@ -26,11 +28,14 @@ export interface PnlRange {
  * calendar periods: this week, this month, this month plus the two before it.
  */
 export const HOME_RANGES: PnlRange[] = [
-  { key: "live", label: "1D", days: 1, live: true },
+  { key: "live", label: "Today", days: 1, live: true },
+  { key: "week", label: "1W", days: 7 },
   { key: "month", label: "1M", days: 31 },
   { key: "months3", label: "3M", days: 92 },
-  { key: "months9", label: "9M", days: 275 },
-  { key: "all", label: "All", days: 36500 },
+  { key: "ytd", label: "YTD", days: 366, calendar: "ytd" },
+  { key: "year", label: "1Y", days: 365 },
+  { key: "years5", label: "5Y", days: 1826, weekly: true },
+  { key: "all", label: "All", days: 36500, weekly: true },
 ];
 
 /** The Research Lab reads the same calendar periods as the live graph. */
@@ -43,8 +48,9 @@ const isoDaysAgo = (n: number) => {
 };
 
 /** First day of a calendar period, as an ISO date. */
-function calendarStart(kind: "week" | "month" | "months3"): string {
+function calendarStart(kind: "week" | "month" | "months3" | "ytd"): string {
   const today = isoDaysAgo(0);
+  if (kind === "ytd") return `${today.slice(0, 4)}-01-01`;
   if (kind === "week") {
     const d = new Date(`${today}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() - d.getUTCDay());
@@ -153,6 +159,13 @@ export function PnlChart({
   }, [active]);
 
   const daily = useMemo(() => {
+    // Long ranges group by week so the line stays readable on a phone.
+    const bucket = (day: string) => {
+      if (!active.weekly) return day;
+      const d = new Date(`${day}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+      return d.toISOString().slice(0, 10);
+    };
     const build = (
       source: { exit_date: string | null; profit: number }[],
       open: number,
@@ -160,9 +173,13 @@ export function PnlChart({
       const byDay = new Map<string, number>();
       for (const row of source) {
         if (!row.exit_date || row.exit_date < window.from || row.exit_date > window.until) continue;
-        byDay.set(row.exit_date, (byDay.get(row.exit_date) ?? 0) + Number(row.profit ?? 0));
+        const key = bucket(row.exit_date);
+        byDay.set(key, (byDay.get(key) ?? 0) + Number(row.profit ?? 0));
       }
-      if (open !== 0) byDay.set(window.today, (byDay.get(window.today) ?? 0) + open);
+      if (open !== 0) {
+        const key = bucket(window.today);
+        byDay.set(key, (byDay.get(key) ?? 0) + open);
+      }
       return byDay;
     };
     // Open positions still count: the whole move for LIVE (today only), the
