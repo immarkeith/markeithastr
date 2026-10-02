@@ -70,7 +70,10 @@ function HomePage() {
   const d = dash.data;
   // Open-position profit right now, so the graph keeps moving before a sell.
   const openPl = (d?.same_day_holdings ?? []).reduce((sum, h) => sum + Number(h.pl ?? 0), 0);
-  const heldDollars = (d?.same_day_holdings ?? []).reduce((sum, h) => sum + Number(h.dollars ?? 0), 0);
+  const heldDollars = [...(d?.same_day_holdings ?? []), ...(d?.long_term_holdings ?? [])].reduce(
+    (sum, holding) => sum + Number(holding.dollars ?? 0),
+    0,
+  );
   const [busy, setBusy] = useState(false);
 
   async function toggleBot(running: boolean) {
@@ -175,17 +178,15 @@ function HomePage() {
 
       {/* Live trading only — never paper results. Ranges are display-only. */}
       <PnlChart
-        rows={d?.closed ?? []}
-        unrealized={openPl}
-        unrealizedToday={openPl}
+        rows={[...(d?.closed ?? []), ...(d?.long_term_closed ?? [])]}
+        unrealized={openPl + (d?.long_term_open_pl ?? 0)}
+        unrealizedToday={openPl + (d?.long_term_open_pl ?? 0)}
         basis={heldDollars}
         title="Live profit / loss"
         compact
-        primaryLabel="Same-Day P/L"
-        secondaryRows={d?.long_term_closed ?? []}
-        secondaryOpen={d?.long_term_open_pl ?? 0}
-        secondaryLabel="Long-Term P/L"
       />
+
+      <HomeStockLookup />
 
       {dash.isLoading ? <p className="text-sm text-muted-foreground">Loading the desk…</p> : null}
 
