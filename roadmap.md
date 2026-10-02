@@ -32,6 +32,7 @@
 ## Phase D — Home tab & unified graph ranges
 - [x] Stocks currently held list at the top (who, ticker, amount, days held, P/L %)
 - [x] Four account totals; Live P/L box removed; lookup below the graph
+- [x] Home graph combines short-term and long-term profit/loss into one total line
 - [x] Ranges Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All (weekly points on 5Y/All, display only)
 
 ## Next: Phase E (researcher BUY, Assign to Researcher, Influence Researcher), F, G

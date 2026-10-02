@@ -175,17 +175,15 @@ function HomePage() {
 
       {/* Live trading only — never paper results. Ranges are display-only. */}
       <PnlChart
-        rows={d?.closed ?? []}
-        unrealized={openPl}
-        unrealizedToday={openPl}
+        rows={[...(d?.closed ?? []), ...(d?.long_term_closed ?? [])]}
+        unrealized={openPl + (d?.long_term_open_pl ?? 0)}
+        unrealizedToday={openPl + (d?.long_term_open_pl ?? 0)}
         basis={heldDollars}
         title="Live profit / loss"
         compact
-        primaryLabel="Same-Day P/L"
-        secondaryRows={d?.long_term_closed ?? []}
-        secondaryOpen={d?.long_term_open_pl ?? 0}
-        secondaryLabel="Long-Term P/L"
       />
+
+      <HomeStockLookup />
 
       {dash.isLoading ? <p className="text-sm text-muted-foreground">Loading the desk…</p> : null}
 
