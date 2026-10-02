@@ -57,6 +57,14 @@ function Figure({
   );
 }
 
+/** Days held, e.g. "17D"; same-day positions read "Today". */
+function heldFor(entry: string) {
+  const start = Date.parse(`${entry}T00:00:00Z`);
+  if (Number.isNaN(start)) return "—";
+  const days = Math.floor((Date.now() - start) / 86_400_000);
+  return days <= 0 ? "Today" : `${days}D`;
+}
+
 function HomePage() {
   const dash = useQuery(dashboardQuery);
   const d = dash.data;
@@ -76,6 +84,10 @@ function HomePage() {
   }
 
   const running = Boolean(d?.bot_running);
+  const held = [
+    ...(d?.same_day_holdings ?? []).map((h) => ({ ...h, who: "Rotation" })),
+    ...(d?.long_term_holdings ?? []).map((h) => ({ ...h, who: "Long-term" })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -107,23 +119,42 @@ function HomePage() {
         </p>
       ) : null}
 
-      {/* Six figures, no boxes: left column then right column, graph below. */}
+      {/* Stocks currently held — one compact list for every position. */}
+      <section className="space-y-2">
+        <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+          Stocks currently held
+        </h2>
+        {held.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nothing held right now.</p>
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {held.map((h) => (
+              <li
+                key={`${h.who}-${h.ticker}-${h.entry_date}-${h.dollars}`}
+                className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-x-3 py-1.5 text-sm tabular-nums"
+              >
+                <span className="truncate">
+                  <span className="font-bold">{h.ticker}</span>{" "}
+                  <span className="text-xs text-muted-foreground">{h.who}</span>
+                </span>
+                <span>{money(h.market_value)}</span>
+                <span className="text-muted-foreground">{heldFor(h.entry_date)}</span>
+                <span className={h.pl >= 0 ? "text-success" : "text-destructive"}>
+                  {h.pl_pct >= 0 ? "+" : ""}
+                  {h.pl_pct.toFixed(2)}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-        <Figure
-          label="Current stock"
-          value={(d?.same_day_holdings ?? [])[0]?.ticker ?? "None"}
-          tone="text-primary"
-        />
         <Figure
           label="Total assets"
           value={d?.account ? money(d.account.equity) : "—"}
           tone="text-primary"
           info="All cash in the account, including money still clearing, plus the current value of every stock held."
-        />
-        <Figure
-          label="Live profit / loss"
-          value={d ? money(openPl) : "—"}
-          tone={openPl >= 0 ? "text-success" : "text-destructive"}
         />
         <Figure
           label="Total profit"
@@ -142,144 +173,19 @@ function HomePage() {
         />
       </div>
 
-      {/* The only box on the page. Live trading only — never paper results. */}
-      <section className="rounded-md border border-border bg-card p-4">
-        <PnlChart
-          rows={d?.closed ?? []}
-          unrealized={openPl}
-          unrealizedToday={openPl}
-          basis={heldDollars}
-          title="Live profit / loss"
-          compact
-          primaryLabel="Same-Day P/L"
-          secondaryRows={d?.long_term_closed ?? []}
-          secondaryOpen={d?.long_term_open_pl ?? 0}
-          secondaryLabel="Long-Term P/L"
-          liveTicker={(d?.same_day_holdings ?? [])[0]?.ticker ?? null}
-        />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-          Long-term holds
-        </h2>
-        {(d?.long_term_holdings.length ?? 0) === 0 ? (
-          <p className="text-sm text-muted-foreground">No long-term holdings.</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {d?.long_term_holdings.map((h) => (
-              <div key={`${h.ticker}-${h.entry_date}-${h.dollars}`}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <Link to="/analyze" className="text-lg font-bold hover:text-primary">
-                    {h.ticker}
-                  </Link>
-                  <span
-                    className={`font-semibold tabular-nums ${
-                      h.pl >= 0 ? "text-success" : "text-destructive"
-                    }`}
-                  >
-                    {h.pl >= 0 ? "+" : ""}
-                    {money(h.pl)} ({h.pl_pct.toFixed(2)}%)
-                  </span>
-                </div>
-                <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-                  {h.qty.toFixed(4)} sh · {money(h.dollars)} in · {money(h.market_value)} now
-                </p>
-                {/* The holding period the owner chose, and the review date. */}
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {h.hold_horizon ? horizonLabel(h.hold_horizon) : "No holding period set"}
-                  {h.review_date ? ` · review ${h.review_date}` : ""}
-                </p>
-                <div className="mt-3 flex items-center gap-2">
-                  {h.trade_id ? (
-                    <>
-                      <LongTermSellDialog
-                        tradeId={h.trade_id}
-                        ticker={h.ticker}
-                        marketValue={h.market_value}
-                        shares={h.qty}
-                        price={h.price}
-                      />
-                      <LongTermReviewDialog
-                        tradeId={h.trade_id}
-                        ticker={h.ticker}
-                        holdHorizon={h.hold_horizon}
-                        reviewDate={h.review_date}
-                      />
-                    </>
-                  ) : null}
-                </div>
-                {h.note ? <p className="mt-2 text-xs text-muted-foreground">{h.note}</p> : null}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Ideas only — separate from what is actually held above. */}
-        <details>
-          <summary className="cursor-pointer text-sm font-semibold">
-            5 long-term hold suggestions
-          </summary>
-          {(d?.suggestions.length ?? 0) === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">No hold suggestions yet.</p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {d?.suggestions.slice(0, 5).map((s) => (
-                <li key={s.ticker} className="flex items-center justify-between gap-3">
-                  <div>
-                    <span className="font-bold">{s.ticker}</span>
-                    <p className="text-xs text-muted-foreground">
-                      Top-ranked {s.streak_days} session(s) in a row
-                      {s.permanent ? " — permanent hold candidate" : ""}
-                    </p>
-                  </div>
-                  <Link to="/scoreboard" className="text-xs text-primary hover:underline">
-                    Scoreboard
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </details>
-      </section>
-
-      <HomeStockLookup />
-
-      <section className="space-y-3">
-        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-          Same-day positions
-        </h2>
-        {(d?.same_day_holdings.length ?? 0) === 0 ? (
-          <p className="text-sm text-muted-foreground">No same-day position is open.</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {d?.same_day_holdings.map((h) => (
-              <div key={`${h.ticker}-${h.entry_date}`}>
-                <div className="flex items-baseline justify-between">
-                  <Link to="/analyze" className="text-lg font-bold hover:text-primary">
-                    {h.ticker}
-                  </Link>
-                  <span
-                    className={`tabular-nums font-semibold ${
-                      h.pl >= 0 ? "text-success" : "text-destructive"
-                    }`}
-                  >
-                    {h.pl >= 0 ? "+" : ""}
-                    {money(h.pl)} ({h.pl_pct.toFixed(2)}%)
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground tabular-nums">
-                  {money(h.market_value)} at ${h.price.toFixed(2)} · entry ${h.entry_price.toFixed(2)}
-                  {h.qty !== null ? ` · ${h.qty} sh` : ""}
-                </p>
-                {h.note ? (
-                  <p className="mt-2 text-xs text-destructive">{h.note}</p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Live trading only — never paper results. Ranges are display-only. */}
+      <PnlChart
+        rows={d?.closed ?? []}
+        unrealized={openPl}
+        unrealizedToday={openPl}
+        basis={heldDollars}
+        title="Live profit / loss"
+        compact
+        primaryLabel="Same-Day P/L"
+        secondaryRows={d?.long_term_closed ?? []}
+        secondaryOpen={d?.long_term_open_pl ?? 0}
+        secondaryLabel="Long-Term P/L"
+      />
 
       {dash.isLoading ? <p className="text-sm text-muted-foreground">Loading the desk…</p> : null}
 
