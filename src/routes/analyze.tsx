@@ -110,6 +110,7 @@ function AnalyzePage() {
       </div>
 
       {result ? <ResultCard result={result} request={request} /> : null}
+      <InfluenceProfile />
     </div>
   );
 }
