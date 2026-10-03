@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { StatTile } from "@/components/StatTile";
+import { InfluenceProfile } from "@/components/InfluenceProfile";
 import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
 import { AssignResearcherDialog } from "@/components/AssignResearcherDialog";
 import { Badge } from "@/components/ui/badge";
