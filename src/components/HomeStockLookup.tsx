@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
+import { AssignResearcherDialog } from "@/components/AssignResearcherDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { analyzeStock } from "@/lib/analyze.functions";
@@ -59,6 +60,7 @@ export function HomeStockLookup() {
             {result.close && result.close > 0 ? (
               <LongTermBuyDialog ticker={result.ticker} price={result.close} />
             ) : null}
+            <AssignResearcherDialog ticker={result.ticker} />
             <Link to="/analyze" className="text-xs text-primary hover:underline">
               Full analysis
             </Link>

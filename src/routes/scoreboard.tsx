@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
+import { AssignResearcherDialog } from "@/components/AssignResearcherDialog";
 import { getLongTermBoard } from "@/lib/long-term-research.functions";
 import { getScoreboard } from "@/lib/scoreboard.functions";
 
@@ -97,7 +98,7 @@ function ScoreboardPage() {
                             {watch ? `${watch.status} · ${watch.streak_days}d streak` : row.tradeable ? "qualified" : "ranked"}
                           </td>
                           <td className="p-3 text-right">
-                            <LongTermBuyDialog ticker={row.ticker} price={row.close} />
+                            <div className="flex justify-end gap-1"><LongTermBuyDialog ticker={row.ticker} price={row.close} /><AssignResearcherDialog ticker={row.ticker} /></div>
                           </td>
                         </tr>
                       );
@@ -161,7 +162,7 @@ function ScoreboardPage() {
                     <td className="p-3 text-xs text-muted-foreground">{row.evidence}</td>
                     <td className="p-3 text-right">
                       {row.current_price && row.current_price > 0 ? (
-                        <LongTermBuyDialog ticker={row.ticker} price={row.current_price} />
+                        <div className="flex justify-end gap-1"><LongTermBuyDialog ticker={row.ticker} price={row.current_price} /><AssignResearcherDialog ticker={row.ticker} /></div>
                       ) : null}
                     </td>
                   </tr>

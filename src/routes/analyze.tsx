@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { StatTile } from "@/components/StatTile";
 import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
+import { AssignResearcherDialog } from "@/components/AssignResearcherDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,7 +175,7 @@ function ResultCard({
             Approval still happens on the Watchlist page.
           </span>
         ) : null}
-        {result.close !== null ? <LongTermBuyDialog ticker={result.ticker} price={result.close} /> : null}
+        {result.close !== null ? <><LongTermBuyDialog ticker={result.ticker} price={result.close} /><AssignResearcherDialog ticker={result.ticker} /></> : null}
         <span className="ml-auto text-xs text-muted-foreground">
           {result.sessions} sessions · data {result.bars_as_of ?? "n/a"} ·{" "}
           {result.source === "cache" ? "cached history" : "fetched on demand"}
