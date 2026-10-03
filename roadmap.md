@@ -35,4 +35,9 @@
 - [x] Home graph combines short-term and long-term profit/loss into one total line
 - [x] Ranges Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All (weekly points on 5Y/All, display only)
 
-## Next: Phase E (researcher BUY, Assign to Researcher, Influence Researcher), F, G
+## Phase E
+- [x] Assign to Researcher beside every Buy Long Term (Home, Analyze, Scoreboard), paper-only
+- [x] Influence Researcher: tip date, hold, source, notes; outcome vs SPY; profile on Analyze
+- [ ] Per-researcher BUY (needs Phase F researcher hold/exit logic first)
+
+## Next: Phase F, G

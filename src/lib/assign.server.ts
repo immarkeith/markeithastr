@@ -59,7 +59,7 @@ function outcome(all: Bar[], from: string, horizon: string) {
 }
 
 export async function createAssignment(input: {
-  ticker: string; researcher: string; tip_date?: string; horizon?: string; source?: string; notes?: string;
+  ticker: string; researcher: string; tip_date?: string | undefined; horizon?: string | undefined; source?: string | undefined; notes?: string | undefined;
 }) {
   const ticker = input.ticker.toUpperCase();
   const all = await bars(ticker);
