@@ -90,14 +90,22 @@ function TradeHistoryPage() {
   const researchers = CANONICAL_SOURCES;
   const events = useMemo(() => {
     const now = Date.now();
-    const today = new Date().toLocaleDateString();
-    return all.flatMap<TradeEvent>((row) => {
+    const built = all.flatMap<TradeEvent>((row) => {
       const items: TradeEvent[] = [{ id: `${row.id}-buy`, side: "BUY", ticker: row.ticker, amount: row.dollars, at: row.entry_at ?? `${row.entry_date}T12:00:00`, source: row.source_name, live: row.mode === "live", note: [row.mode !== "live" && (row as { hold_days?: number }).hold_days ? `holds ${(row as { hold_days?: number }).hold_days} trading days` : null, row.source_description].filter(Boolean).join(" · ") }];
       if (row.exit_date && row.status === "closed") items.push({ id: `${row.id}-sell`, side: "SELL", ticker: row.ticker, amount: row.proceeds ?? row.dollars, at: row.exit_at ?? `${row.exit_date}T12:00:00`, source: row.source_name, live: row.mode === "live", note: row.status_note });
       return items;
-    }).filter((event) => {
+    });
+    // "Today" = the most recent trading session that has activity, so Friday's
+    // trades stay visible over the weekend and holidays.
+    let latest = 0;
+    for (const e of built) {
+      const t = new Date(e.at).getTime();
+      if (Number.isFinite(t) && t <= now && t > latest) latest = t;
+    }
+    const sessionDay = latest ? new Date(latest).toLocaleDateString() : new Date().toLocaleDateString();
+    return built.filter((event) => {
       const time = new Date(event.at).getTime();
-      if (view === "today") return new Date(event.at).toLocaleDateString() === today;
+      if (view === "today") return new Date(event.at).toLocaleDateString() === sessionDay;
       if (view === "72h") return Number.isFinite(time) && time >= now - 72 * 60 * 60 * 1000;
       return event.source === researcher && Number.isFinite(time) && time >= now - 90 * 86400000;
     }).sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
@@ -109,7 +117,7 @@ function TradeHistoryPage() {
 
       <div className="flex flex-wrap gap-2">
         <select value={view} onChange={(event) => setView(event.target.value as ViewFilter)} className="rounded-md border border-border bg-card px-3 py-2 text-sm">
-          <option value="today">Today</option>
+          <option value="today">Latest session</option>
           <option value="72h">72 Hours</option>
           <option value="researcher">Individual Researcher</option>
         </select>
