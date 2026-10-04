@@ -65,6 +65,12 @@
 - [ ] Consolidate redundant modules into canonical sources after all features are verified
 - [ ] Zero database schema changes, zero behavior modifications, full clean typecheck
 
+### Phase I — Comprehensive System Manual & Feature Catalog (`FEATURES.md`)
+*Target: 1 credit*
+- [ ] Create `FEATURES.md`: complete, exhaustive reference manual of all active ASTR systems, tabs, safeguards, and algorithms
+- [ ] Document every researcher formula, holding horizon logic, and ranking methodology
+- [ ] Detail all risk controls, live order firewalls, and T+1 cash management rules
+
 ---
 
 ## Completed & Verified Foundations
