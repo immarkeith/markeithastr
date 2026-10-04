@@ -38,6 +38,11 @@
 ## Phase E
 - [x] Assign to Researcher beside every Buy Long Term (Home, Analyze, Scoreboard), paper-only
 - [x] Influence Researcher: tip date, hold, source, notes; outcome vs SPY; profile on Analyze
-- [ ] Per-researcher BUY (needs Phase F researcher hold/exit logic first)
+- [ ] Per-researcher BUY (next part of Phase F)
+
+## Phase F
+- [x] Researchers track up to 5 qualifying stocks at once (was 1)
+- [x] Each researcher uses its own hold length (hold_days in its formula, default 3)
+- [ ] Trade Log / Scoreboard show hold length; per-researcher BUY button
 
 ## Next: Phase F, G
