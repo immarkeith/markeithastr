@@ -59,13 +59,23 @@
 - [ ] Strict non-cannibalization rule: unspent capital remains reserved as cash for that researcher rather than drifting to whoever is hot
 - [ ] Daily Confidence Matrix UI on Home and Research Lab
 
-### Phase H — Grand Codebase Cleanup & Dead-Code Purge
+### Phase H — Autonomous Entertainment & Events Relationship Researcher
+*Target: 3–4 credits*
+- [ ] Strict Research-Only Isolation: Findings are stored as hypotheses and discovery graphs only; zero authority to modify live trading, SAME_DAY, LONG_TERM, Alpaca orders, balances, or production formulas without explicit future approval
+- [ ] Source Registry ($0 Rule & Failover): Adapters for sports (ESPN/iCal), concerts/tours (MusicBrainz/venue calendars), film/streaming (The Numbers/press feeds), corporate/sponsorships (SEC EDGAR/Wikidata); automatic health pings mark paid or auth-walled sources unavailable and switch to free fallbacks; no paid subscriptions or API keys
+- [ ] Living Time-Scoped Entity Graph: Dynamic relationships (`entity_a`, `entity_b`, `relationship_type`, `ticker`, `valid_from`, `valid_to`); revalidatable cache that closes old edges and opens new ones when sponsors, venues, broadcasters, or parent companies change
+- [ ] Multi-Source Corroboration: Graph stitches independent facts across multiple public sources; does not require one source to contain the entire chain and does not assume every relationship produces an SEC 8-K
+- [ ] Unbiased Discovery vs. Learned Prioritization: Discovers real-world events without pre-filtering for assumed economic impact; learns prioritization over time (deprioritizes weak categories without permanently blacklisting)
+- [ ] Automated Pre-Scheduled Testing Pipeline: Autonomous lifecycle ($T-5$ to $T-1$ baseline & historical comparables, $T0$ to $T+1$ immediate reaction, $T+1$ to $T+5$ follow-through); reuses ASTR's shared historical market data pool
+- [ ] Entertainment Hypothesis Ledger UI: Dedicated research-only desk showing discovered events, active relationship paths, historical comparable outcomes, and win-rate/edge tracking
+
+### Phase I — Grand Codebase Cleanup & Dead-Code Purge
 *Target: 2–3 credits*
 - [ ] Comprehensive 4-category inventory (KEEP, MERGE, REVIEW, DELETE)
 - [ ] Consolidate redundant modules into canonical sources after all features are verified
 - [ ] Zero database schema changes, zero behavior modifications, full clean typecheck
 
-### Phase I — Comprehensive System Manual & Feature Catalog (`FEATURES.md`)
+### Phase J — Comprehensive System Manual & Feature Catalog (`FEATURES.md`)
 *Target: 1 credit*
 - [ ] Create `FEATURES.md`: complete, exhaustive reference manual of all active ASTR systems, tabs, safeguards, and algorithms
 - [ ] Document every researcher formula, holding horizon logic, and ranking methodology
