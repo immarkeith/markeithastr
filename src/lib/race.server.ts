@@ -75,6 +75,18 @@ export const RACE_MIN_DAYS = 28;
  */
 export const HOLD_TRADING_DAYS = 3;
 
+/** Phase F: most paper positions one researcher may hold at once. */
+const MAX_OPEN_PER_RESEARCHER = 5;
+
+/**
+ * Each researcher's own hold length: its formula's `hold_days` parameter when
+ * it has one (e.g. 7, 19, 47), otherwise the default 3 trading days.
+ */
+export function researcherHoldDays(slot: { params: Record<string, number> }): number {
+  const n = Math.floor(Number(slot.params?.['hold_days']));
+  return Number.isFinite(n) && n >= 1 && n <= 252 ? n : HOLD_TRADING_DAYS;
+}
+
 
 /** Today's New York trading date — the calendar the market actually keeps. */
 function today(): string {
@@ -438,7 +450,8 @@ async function openSlotTrade(
       strategy_id: slot.strategy_id,
       // The 3-trading-day research hold: entry day counts as day 1, so the
       // exit lands two further trading days later (weekends/holidays skipped).
-      hold_target_date: settlementDate(day, HOLD_TRADING_DAYS - 1),
+      hold_days: researcherHoldDays(slot),
+      hold_target_date: settlementDate(day, researcherHoldDays(slot) - 1),
     })
     .select("id")
     .single();
@@ -668,7 +681,7 @@ export async function runRacePass(
             continue;
           }
 
-          const why = "paper 3-trading-day hold complete";
+          const why = `paper ${Number(row['hold_days'] ?? HOLD_TRADING_DAYS)}-trading-day hold complete`;
           const profit = await closeSlotTrade(
             slot,
             row,
@@ -698,7 +711,9 @@ export async function runRacePass(
         );
         // One stock at a time, always: if the researcher is still holding
         // something, it buys nothing until that position closes.
-        const free = stillOpen.size > 0 ? 0 : STOCKS_PER_RESEARCHER;
+        // Phase F: every qualifying stock is tracked, up to a safety cap of
+        // open paper positions per researcher (paper money only).
+        const free = Math.max(0, MAX_OPEN_PER_RESEARCHER - stillOpen.size);
         const stake = Number(slot.position_dollars);
         // Research capital is imaginary, so a shortfall must never stop the
         // testing. Top the slot up to whatever today's plan needs (saved paper
