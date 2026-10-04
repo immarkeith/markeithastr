@@ -92,7 +92,7 @@ function TradeHistoryPage() {
     const now = Date.now();
     const today = new Date().toLocaleDateString();
     return all.flatMap<TradeEvent>((row) => {
-      const items: TradeEvent[] = [{ id: `${row.id}-buy`, side: "BUY", ticker: row.ticker, amount: row.dollars, at: row.entry_at ?? `${row.entry_date}T12:00:00`, source: row.source_name, live: row.mode === "live", note: row.source_description }];
+      const items: TradeEvent[] = [{ id: `${row.id}-buy`, side: "BUY", ticker: row.ticker, amount: row.dollars, at: row.entry_at ?? `${row.entry_date}T12:00:00`, source: row.source_name, live: row.mode === "live", note: [row.mode !== "live" && (row as { hold_days?: number }).hold_days ? `holds ${(row as { hold_days?: number }).hold_days} trading days` : null, row.source_description].filter(Boolean).join(" · ") }];
       if (row.exit_date && row.status === "closed") items.push({ id: `${row.id}-sell`, side: "SELL", ticker: row.ticker, amount: row.proceeds ?? row.dollars, at: row.exit_at ?? `${row.exit_date}T12:00:00`, source: row.source_name, live: row.mode === "live", note: row.status_note });
       return items;
     }).filter((event) => {

@@ -1361,3 +1361,22 @@ export async function runPaperTesting(
   };
 
 }
+
+/**
+ * Phase F per-researcher BUY: opens a PAPER position in that researcher's own
+ * book, held for its own hold length. Never touches Alpaca or live money.
+ */
+export async function researcherPaperBuy(ticker: string, researcher: string) {
+  const lane = researcher.split(" ")[0]!.toLowerCase();
+  const slot = (await loadSlots()).find((s) => s.lane === lane);
+  if (!slot) throw new Error(`${researcher} has no paper book yet.`);
+  const sym = ticker.toUpperCase();
+  const open = await slotOpenTrades(slot.strategy_id);
+  if (open.some((t) => String(t.ticker) === sym)) throw new Error(`${researcher} already holds ${sym}.`);
+  const price = (await latestCloses([sym])).get(sym);
+  if (!price) throw new Error(`No recorded price for ${sym} yet.`);
+  const stake = Number(slot.position_dollars);
+  await ensureTestCash(slot, stake);
+  await openSlotTrade(slot, sym, price, stake);
+  return { ticker: sym, price, researcher, hold_days: researcherHoldDays(slot) };
+}
