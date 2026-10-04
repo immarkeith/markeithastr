@@ -1,94 +1,80 @@
-# Roadmap
+# ASTR Master Roadmap
 
-- [x] Calculate capital-analysis readiness and observed strategy statistics from existing completed research
-- [x] Add the configurable advisory capital analysis to the Research Lab
-- [x] Validate data counts, projection safeguards, and desktop/mobile presentation
+## Active Phases (Credit-Budgeted Sequence)
 
-## Researcher learning & progression
-- [x] Per-example starting characteristics + outcomes stored per researcher (researcher_examples)
-- [x] Per-researcher learned beliefs with hold-out testing and confidence decay (researcher_beliefs)
-- [x] Learning pass runs after each daily research pass; failures are warnings only
-- [x] "What I've learned" + dropped assumptions shown in each researcher card
-- [x] Supported characteristics bias experiment ORDER only; skeptic/validation unchanged
-- [x] SQL for the self-hosted copy: migration/fresh/12-researcher-learning.sql
+### Phase A — Key-Check Activation & Analyze Tab Researcher-Specific Buy
+*Target: 1–2 credits*
+- [ ] Run migration 14 in Supabase to activate 8:00 AM ET Alpaca key check pg_cron schedule
+- [ ] Analyze Tab: when searching a ticker (e.g. DIS), display an inline table of all 7 active researchers with each researcher's specific score and research-derived hold period (e.g. 17D, 3M)
+- [ ] Per-researcher direct BUY button on each row; highest-ranked researcher clearly highlighted as top fit, but any researcher is selectable
+- [ ] Position assignment: buying under a researcher locks that position to that researcher's rules and hold duration
+- [ ] Remove the legacy standalone "Buy Long Term" button from Analyze flow
+- [ ] Home Tab: update "Stocks Currently Held" to display owning researcher and target holding horizon (e.g. `Trend — DIS — $50 — 17D — +8.4%`)
 
-## Phase A — historical paper rebuild
-- [x] Trading calendar read from the whole market, not a single proxy ticker
-- [x] Stale "complete with 0 trades" checkpoints restart instead of staying stuck
-- [x] Every researcher (not just the Lead) logs 1M / 3M / 9M horizon predictions
-- [x] Runner-up qualifying candidates tracked as background horizon watches
-- [x] Home/Lab graph ranges: 1D | 1M | 3M | 9M | All Time
-- [x] All rebuilt records keep their true historical timestamps
+### Phase B — Research Lab Curves & Parameter Stability Testing
+*Target: 3–4 credits*
+- [ ] Normalized researcher percentage curves (percentage-based return, not distorted by dollar amounts)
+- [ ] Full time-range selectors for researcher curves: Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All
+- [ ] Uncapped multi-candidate tracking (researchers simulate all qualifying setups under their formula across history)
+- [ ] Parameter stability & sensitivity engine (test numerical variations like ±2 days lookback or ±5% threshold to identify brittle vs. robust formulas)
+- [ ] "Show Me Why" diagnostic drawer on research cards showing raw metrics, formula parameters, and stability scores
 
-## Phase B — deeper free history
-- [x] Pull several years of free daily bars into the shared history in resumable chunks (7,480 historical paper trades completed)
+### Phase C — Historical Market Regimes & Event Intelligence
+*Target: 3–4 credits*
+- [ ] Historical market condition classifier (direction, volatility, momentum, stress, sector environment)
+- [ ] Market regime tagging (Bull, Bear, Choppy, Stress/High-Volatility) using SPY/QQQ historical bars
+- [ ] SEC EDGAR catalyst testing: test formulas with vs. without historical filings/news context at simulated point-in-time
+- [ ] Performance-by-regime evidence ledger: evaluate which factors and formulas remain reliable across different conditions (no hardcoded rules)
 
-## Phase C — autonomous metric discovery
-- [x] Specialist roles: Risk (recovery vs deterioration), Profit Potential, Trend, Smart Money, Consistency, Lead
-- [x] Each specialist discovers how to measure its own objective instead of fixed weights
-- [x] Streak backtesting: long qualification streaks flag a stock for deeper study, and researchers test whether streak length predicts continuation or exhaustion
-
-## Phase D — Home tab & unified graph ranges
-- [x] Stocks currently held list at the top (who, ticker, amount, days held, P/L %)
-- [x] Four account totals; Live P/L box removed; lookup below the graph
-- [x] Home graph combines short-term and long-term profit/loss into one total line
-- [x] Ranges Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All (weekly points on 5Y/All, display only)
-
-## Phase E — Assign to Researcher & Influence Desk
-- [x] Assign to Researcher beside every Buy Long Term (Home, Analyze, Scoreboard), paper-only
-- [x] Influence Researcher: tip date, hold, source, notes; outcome vs SPY; profile on Analyze
-- [x] Dedicated Paper BUY in Assign dialog
-
-## Phase F — Multi-Candidate & Empirical Holds
-- [x] Researchers track up to 5 qualifying stocks at once (was 1)
-- [x] Each researcher uses its own hold length (hold_days in its formula, default 3)
-- [x] Trade Log shows each practice buy's hold length
-- [x] Paper BUY per researcher in the Assign dialog (practice only, own hold length)
-
-## Phase H — 8:00 AM Daily API Key Check & Push Alert
-- [x] Automated 365-day morning credential verification against Alpaca
-- [x] Push notification alert to iPhone if keys are revoked or invalid
-- [x] Rate-limited to at most 1 alert per day
-- [x] Trade Log "Latest session" weekend filter fix
-- [ ] Run migration 14 in Supabase to activate pg_cron schedule
-
-## Phase G — Research Lab Deepening
-- [ ] Historical backtest curves using each researcher's active formula
-- [ ] Parameter stability & sensitivity testing (brittle vs. robust formulas)
-- [ ] Market regime classification (Bull, Bear, Choppy, Stress) via SPY/QQQ volatility
-- [ ] SEC EDGAR filing catalyst intelligence integration
-- [ ] "Show Me Why" diagnostic drawer displaying raw metrics and chart triggers
-
-## Phase I — Eliminate Alpaca Paper API & Hard Live Firewall
-- [ ] Standardize exclusively on the single Live credential pair for data and live execution
-- [ ] Purge all Alpaca Paper API endpoints and keys from backend
+### Phase D — Eliminate Alpaca Paper API & Hard Live Firewall
+*Target: 2–3 credits*
+- [ ] Standardize exclusively on the single Live credential pair for market data and authorized execution
+- [ ] Purge all Alpaca Paper API endpoints and secondary keys from backend
 - [ ] Isolate all paper research strictly as internal database simulations
-- [ ] Hard code-level firewall blocking any live order without explicit human confirmation
+- [ ] Hard code-level firewall blocking any automated or unconfirmed live order placement
 
-## Phase J — Lead Researcher Quantitative Self-Audit Engine
+### Phase E — Lead Researcher Quantitative Self-Audit Engine
+*Target: 3–4 credits*
 - [ ] Daily 6:00 PM ET raw-bar trade reconstruction (verifying fills, prices, same-day calendar precision)
 - [ ] Independent recalculation of all graph points and scoreboard stats directly from immutable trade rows
-- [ ] Saturday 10:00 AM ET weekly balance reconciliation (Starting Capital + Net Realized P&L = Current Value)
+- [ ] Saturday 10:00 AM ET weekly closed-loop balance reconciliation (Starting Capital + Net Realized P&L = Current Value)
 - [ ] Randomized historical look-ahead bias validation
 - [ ] Audit Desk UI with PASS / WARNING / FAIL verdicts and discrepancy ledgers
 
-## Phase L — T+1 Settlement & Cash Account Realism
-- [ ] Strict T+1 cash gating on exits (available_on = exit_date + 1 trading session)
-- [ ] Remove simulated cash top-ups; record "Skipped: waiting on T+1 settlement" when cash is pending
-- [ ] Capital tranching (Tranche A / B) for 1-day hold specialists to trade daily without Good Faith Violations
+### Phase F — T+1 Settlement & Cash Account Realism
+*Target: 2–3 credits*
+- [ ] Strict T+1 cash gating on exits (available_on = exit_date + 1 trading session in paper ledgers)
+- [ ] Turn off simulated auto top-ups; record "Skipped: waiting on T+1 settlement ($X pending until tomorrow)"
+- [ ] Capital tranching (Tranche A / B) for 1-day hold specialists to trade daily legally without Good Faith Violations
 - [ ] Turnaround-adjusted capital efficiency ranking (Return % / [Hold Days + 1])
 
-## Phase M — Central Calibration Layer & Adaptive Capital Allocation
-- [ ] Independent signal discovery: 7 formulas submit candidate setups with learned hold periods
+### Phase G — Central Calibration Layer & Adaptive Capital Allocation
+*Target: 4–5 credits*
+- [ ] Independent signal discovery: 7 formulas submit candidate setups with learned hold periods (zero submissions allowed)
 - [ ] 6-pillar calibration engine: grades (Stock + Formula) pairs by historical hit rate, regime fit, setup quality, reward/drawdown asymmetry, whipsaw penalty, and turnaround efficiency
-- [ ] Minimum calibrated confidence threshold: "Protect 100% Cash" ($0 spend) if a setup does not clear the cutoff
+- [ ] Minimum calibrated confidence threshold: "Protect 100% Cash" ($0 spend) if no setup clears the cutoff
 - [ ] Adaptive earned capital access ceilings based on out-of-sample performance (ceiling on maximum allowed exposure, not automatic spend)
 - [ ] Opportunity-driven duration pool routing: researcher's percentage belongs to the researcher, but the pool is chosen by the opportunity's hold length (1–3 days to Short-Term, 4+ days to Long-Term)
 - [ ] Calibrated spend sizing: actual dollars deployed scale with today's calibrated confidence, up to the researcher's ceiling
 - [ ] Strict non-cannibalization rule: unspent capital remains reserved as cash for that researcher rather than drifting to whoever is hot
 - [ ] Daily Confidence Matrix UI on Home and Research Lab
 
-## Phase K — Grand Codebase Cleanup & Dead-Code Purge
+### Phase H — Grand Codebase Cleanup & Dead-Code Purge
+*Target: 2–3 credits*
 - [ ] Comprehensive 4-category inventory (KEEP, MERGE, REVIEW, DELETE)
 - [ ] Consolidate redundant modules into canonical sources after all features are verified
 - [ ] Zero database schema changes, zero behavior modifications, full clean typecheck
+
+---
+
+## Completed & Verified Foundations
+
+- [x] Advisory Capital Requirement Analysis in Research Lab
+- [x] Researcher learning & progression (per-example characteristics, beliefs, hold-out testing, confidence decay)
+- [x] Historical Paper Rebuild (whole-market calendar, true historical timestamps, multi-horizon predictions)
+- [x] Deeper Free History (7,480 historical paper trades completed from multi-year IEX data)
+- [x] Autonomous Metric Discovery (specialist roles, dynamic factor discovery, qualification streak backtesting)
+- [x] Home tab 4-box account totals & unified Robinhood graph (Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All)
+- [x] Assign to Researcher & Influence Desk (custom tips, outcome vs SPY tracking)
+- [x] Multi-Candidate & Empirical Holds (up to 5 concurrent positions, formula-derived hold lengths 1–252 days)
+- [x] 8:00 AM Daily API Key Check & Push Alert Engine (code-complete, pending migration 14 schedule run)
