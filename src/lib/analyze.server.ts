@@ -191,8 +191,32 @@ export async function analyzeTicker(rawTicker: string): Promise<AnalyzeResult> {
   const barsAsOf = bars.length ? (bars[bars.length - 1]!.date ?? null) : null;
   const score = result ? result.score : null;
 
+  // Phase A: score this ticker under each researcher's own formula (read-only).
+  const researchers: AnalyzeResult["researchers"] = [];
+  try {
+    const { loadSlots, settingsFor, researcherHoldDays } = await import("./race.server");
+    const LABEL: Record<string, string> = {
+      lead: "Lead Researcher", trend: "Trend Researcher", contrarian: "Contrarian Researcher",
+      consistency: "Consistency Researcher", growth: "Growth Researcher", risk: "Risk Researcher",
+    };
+    for (const slot of await loadSlots()) {
+      if (!slot.lane || !LABEL[slot.lane]) continue;
+      const rs = settingsFor(s, slot.params);
+      const r = bars.length ? scoreSecurity(bars, proxyRoc, scoreConfig(rs, share)) : null;
+      researchers.push({
+        researcher: LABEL[slot.lane]!,
+        score: r ? Number(r.score.toFixed(1)) : null,
+        min_score: Number(rs.min_score_to_trade),
+        hold_days: researcherHoldDays(slot),
+      });
+    }
+  } catch {
+    // researcher table is optional; the main analysis still returns
+  }
+
   return {
     ticker,
+    researchers,
     sessions: bars.length,
     score,
     band: score === null ? "Ineligible" : bandFor(score, minScore),

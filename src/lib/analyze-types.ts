@@ -10,6 +10,7 @@ export interface AnalyzeFactor {
 
 export interface AnalyzeResult {
   ticker: string;
+  researchers: { researcher: string; score: number | null; min_score: number; hold_days: number }[];
   sessions: number;
   score: number | null;
   band: "Strong" | "Good" | "Neutral" | "Weak" | "Avoid" | "Ineligible";
