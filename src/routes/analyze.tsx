@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { StatTile } from "@/components/StatTile";
 import { InfluenceProfile } from "@/components/InfluenceProfile";
-import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
+import { ResearcherBuyTable } from "@/components/ResearcherBuyTable";
 import { AssignResearcherDialog } from "@/components/AssignResearcherDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -177,12 +177,14 @@ function ResultCard({
             Approval still happens on the Watchlist page.
           </span>
         ) : null}
-        {result.close !== null ? <><LongTermBuyDialog ticker={result.ticker} price={result.close} /><AssignResearcherDialog ticker={result.ticker} /></> : null}
+        {result.close !== null ? <AssignResearcherDialog ticker={result.ticker} /> : null}
         <span className="ml-auto text-xs text-muted-foreground">
           {result.sessions} sessions · data {result.bars_as_of ?? "n/a"} ·{" "}
           {result.source === "cache" ? "cached history" : "fetched on demand"}
         </span>
       </div>
+
+      <ResearcherBuyTable result={result} />
 
       {result.failed.length ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4">
