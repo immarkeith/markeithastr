@@ -359,6 +359,8 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         note: "Held at the broker without a matching ASTR trade record.",
         hold_horizon: null,
         review_date: null,
+        hold_days: 0,
+        hold_target_date: null,
       });
     }
 
