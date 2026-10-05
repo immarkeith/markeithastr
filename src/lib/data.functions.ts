@@ -332,6 +332,8 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         // The owner's intended holding period, and when they will be asked.
         hold_horizon: (t as { hold_horizon?: string | null }).hold_horizon ?? null,
         review_date: (t as { review_date?: string | null }).review_date ?? null,
+        hold_days: Number((t as { hold_days?: number | null }).hold_days ?? 0),
+        hold_target_date: (t as { hold_target_date?: string | null }).hold_target_date ?? null,
       };
     });
 
@@ -357,6 +359,8 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         note: "Held at the broker without a matching ASTR trade record.",
         hold_horizon: null,
         review_date: null,
+        hold_days: 0,
+        hold_target_date: null,
       });
     }
 

@@ -65,6 +65,17 @@ function heldFor(entry: string) {
   return days <= 0 ? "Today" : `${days}D`;
 }
 
+/** The owner's planned holding period, e.g. "17D target" or "3 Months". */
+function holdTarget(h: {
+  who: string;
+  hold_days?: number | null;
+  hold_horizon?: string | null;
+}) {
+  if (h.who === "Long-term") return horizonLabel(h.hold_horizon);
+  const days = Number(h.hold_days ?? 0);
+  return days > 0 ? `${days}D target` : "Same day";
+}
+
 function HomePage() {
   const dash = useQuery(dashboardQuery);
   const d = dash.data;
@@ -138,7 +149,9 @@ function HomePage() {
               >
                 <span className="truncate">
                   <span className="font-bold">{h.ticker}</span>{" "}
-                  <span className="text-xs text-muted-foreground">{h.who}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {h.who} · {holdTarget(h)}
+                  </span>
                 </span>
                 <span>{money(h.market_value)}</span>
                 <span className="text-muted-foreground">{heldFor(h.entry_date)}</span>
