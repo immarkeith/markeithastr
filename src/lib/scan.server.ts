@@ -499,6 +499,9 @@ export async function openTrade(input: {
   position_type?: "SAME_DAY" | "LONG_TERM";
   /** Intended holding period for a LONG_TERM position: 1M, 3M, 9M, INDEFINITE. */
   hold_horizon?: string | null;
+  /** Researcher-recommended hold in trading days (Analyze tab live buys). */
+  hold_days?: number | null;
+  status_note?: string | null;
 }) {
   const mode = input.mode === "live" ? "live" : "paper";
   const ticker = input.ticker.toUpperCase();
@@ -557,6 +560,8 @@ export async function openTrade(input: {
       broker_order_id: brokerOrderId,
       hold_horizon: holdHorizon,
       review_date: holdHorizon ? reviewDateFor(holdHorizon, entryDate) : null,
+      ...(input.hold_days ? { hold_days: input.hold_days } : {}),
+      ...(input.status_note ? { status_note: input.status_note } : {}),
     })
     .select("id")
     .single();
