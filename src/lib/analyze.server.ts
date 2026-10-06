@@ -191,27 +191,12 @@ export async function analyzeTicker(rawTicker: string): Promise<AnalyzeResult> {
   const barsAsOf = bars.length ? (bars[bars.length - 1]!.date ?? null) : null;
   const score = result ? result.score : null;
 
-  // Phase A: score this ticker under each researcher's own formula (read-only).
-  const researchers: AnalyzeResult["researchers"] = [];
+  // Phase A: each specialist evaluates THIS stock with its own formula (read-only).
+  let researchers: AnalyzeResult["researchers"] = [];
   try {
-    const { loadSlots, settingsFor, researcherHoldDays } = await import("./race.server");
-    const LABEL: Record<string, string> = {
-      lead: "Lead Researcher", trend: "Trend Researcher", contrarian: "Contrarian Researcher",
-      consistency: "Consistency Researcher", growth: "Growth Researcher", risk: "Risk Researcher",
-    };
-    for (const slot of await loadSlots()) {
-      if (!slot.lane || !LABEL[slot.lane]) continue;
-      const rs = settingsFor(s, slot.params);
-      const r = bars.length ? scoreSecurity(bars, proxyRoc, scoreConfig(rs, share)) : null;
-      researchers.push({
-        researcher: LABEL[slot.lane]!,
-        score: r ? Number(r.score.toFixed(1)) : null,
-        min_score: Number(rs.min_score_to_trade),
-        hold_days: researcherHoldDays(slot),
-      });
-    }
-  } catch {
-    // researcher table is optional; the main analysis still returns
+    researchers = await researcherFits(bars, s.market_proxy);
+  } catch (e) {
+    console.error("researcher fit failed:", e);
   }
 
   return {
@@ -284,4 +269,80 @@ export async function requestMonitoredTicker(rawTicker: string) {
     if (error) throw new Error(error.message);
   }
   return { ok: true, status: "requested" as const, ticker };
+}
+
+// ---------------------------------------------------------------- researcher fit
+// Each specialist scores THIS stock with its own formula, then tests that formula
+// against THIS stock's own history to discover its own best hold. No default holds.
+const FIT_HORIZONS = [0, 1, 3, 5, 10, 21, 63] as const; // 0 = same day (next open -> close)
+const UNIT = { trend: 100, momentum: 100, volume: 100, relative_strength: 100, volatility_quality: 100 };
+
+async function researcherFits(bars: Bar[], proxy: string): Promise<AnalyzeResult["researchers"]> {
+  if (bars.length < 80) return [];
+  const { LANES, laneSeedParams, normalize, scoreWith } = await import("./department.server");
+  const { extraFactors, marketContext } = await import("./factors");
+  const s = await loadSettings();
+  const { data: pRows } = await supabaseAdmin
+    .from("daily_bars").select("bar_date, open, high, low, close, volume")
+    .eq("ticker", proxy.toUpperCase()).order("bar_date", { ascending: true });
+  const pBars: Bar[] = (pRows ?? []).map((r) => ({ date: r.bar_date as string, open: +r.open, high: +r.high, low: +r.low, close: +r.close, volume: +r.volume }));
+  const pIdx = new Map(pBars.map((b, i) => [b.date, i]));
+  const { data: learned } = await supabaseAdmin.from("researchers").select("lane, params");
+  const learnedBy = new Map((learned ?? []).map((r) => [r.lane as string, r.params as { weights?: Record<string, number> } | null]));
+
+  const pcts: (Record<string, number> | null)[] = bars.map(() => null);
+  for (let i = 60; i < bars.length; i++) {
+    const w = bars.slice(0, i + 1);
+    const pi = pIdx.get(bars[i]!.date);
+    let roc5 = 0, mkt = { roc20: 0, roc60: 0 };
+    if (pi !== undefined && pi >= 5) {
+      roc5 = ((pBars[pi]!.close - pBars[pi - 5]!.close) / pBars[pi - 5]!.close) * 100;
+      mkt = marketContext(pBars, pi);
+    }
+    const sc = scoreSecurity(w, roc5, { weights: UNIT, minPrice: 0, minAvgDollarVolume: 0 });
+    if (!sc) continue;
+    const base: Record<string, number> = {};
+    for (const [k, f] of Object.entries(sc.factors)) base[k] = f.weighted_points;
+    pcts[i] = { ...base, ...extraFactors(w, mkt) };
+  }
+  const last = bars.length - 1;
+  const out: AnalyzeResult["researchers"] = [];
+  for (const lane of LANES) {
+    const lw = learnedBy.get(lane.lane)?.weights;
+    const weights = lw && Object.keys(lw).length ? normalize(lw as never) : laneSeedParams(lane, s).weights;
+    const scores = pcts.map((p) => (p ? scoreWith({ pct: p } as never, weights) : null));
+    const now = scores[last];
+    const hist = scores.slice(0, last).filter((x): x is number => x !== null).sort((a, b) => a - b);
+    if (now == null || hist.length < 20) continue;
+    const cut = hist[Math.floor(hist.length * 0.7)]!; // this lane's own strong-signal level on THIS stock
+    const rank = (hist.filter((x) => x <= now).length / hist.length) * 100;
+    let best = { h: -1, t: -Infinity, avg: 0, n: 0, win: 0 };
+    for (const h of FIT_HORIZONS) {
+      const rets: number[] = [];
+      for (let i = 60; i < last; i++) {
+        const sc = scores[i];
+        if (sc == null || sc < cut) continue;
+        if (h === 0) { const b = bars[i + 1]; if (b && b.open) rets.push(((b.close - b.open) / b.open) * 100); }
+        else { const b = bars[i + h]; if (b) rets.push(((b.close - bars[i]!.close) / bars[i]!.close) * 100); }
+      }
+      if (rets.length < 5) continue;
+      const avg = rets.reduce((a, b) => a + b, 0) / rets.length;
+      const sd = Math.sqrt(rets.reduce((a, b) => a + (b - avg) ** 2, 0) / (rets.length - 1)) || 1e-9;
+      const t = (avg / sd) * Math.sqrt(rets.length);
+      if (t > best.t) best = { h, t, avg, n: rets.length, win: (rets.filter((r) => r > 0).length / rets.length) * 100 };
+    }
+    if (best.h < 0) continue;
+    const edge = Math.max(0, Math.min(100, 50 + best.t * 15));
+    out.push({
+      researcher: lane.name,
+      score: Number(now.toFixed(1)),
+      min_score: Number(cut.toFixed(1)),
+      hold_days: best.h,
+      fit: Number((rank * 0.5 + edge * 0.5).toFixed(1)),
+      samples: best.n,
+      avg_return_pct: Number(best.avg.toFixed(2)),
+      win_rate: Number(best.win.toFixed(0)),
+    });
+  }
+  return out.sort((a, b) => (b.fit ?? 0) - (a.fit ?? 0));
 }

@@ -55,7 +55,7 @@ export const researcherLiveBuy = createServerFn({ method: "POST" })
     z.object({
       ticker: z.string().trim().min(1).max(10).regex(/^[A-Za-z.\-]+$/),
       researcher: z.enum(RESEARCHERS).refine((r) => r !== "Influence Researcher"),
-      hold_days: z.number().int().min(1).max(252),
+      hold_days: z.number().int().min(0).max(252),
       dollars: z.number().min(1).max(1_000_000),
       estimated_price: z.number().positive(),
     }).parse(input),
@@ -72,15 +72,16 @@ export const researcherLiveBuy = createServerFn({ method: "POST" })
     const { openTrade } = await import("./scan.server");
     const r = await openTrade({
       ticker: data.ticker,
-      kind: "long_term",
+      kind: d === 0 ? "day" : "long_term",
       entry_price: data.estimated_price,
       dollars: data.dollars,
       mode: "live",
       // Protected from automated sells; the hold is a recommendation, never auto-sell permission.
-      position_type: "LONG_TERM",
-      hold_horizon: horizon,
+      // Same-day picks exit before the close like every SAME_DAY trade; longer holds are protected.
+      position_type: d === 0 ? "SAME_DAY" : "LONG_TERM",
+      hold_horizon: d === 0 ? null : horizon,
       hold_days: d,
-      status_note: `Chosen researcher: ${data.researcher} (${d} trading-day recommended hold)`,
+      status_note: `Chosen researcher: ${data.researcher} (${d === 0 ? "same day" : `${d} trading-day`} recommended hold)`,
     });
     return { ...r, ticker: data.ticker.toUpperCase(), researcher: data.researcher, hold_days: d };
   });

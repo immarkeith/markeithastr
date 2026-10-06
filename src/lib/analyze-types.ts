@@ -10,7 +10,8 @@ export interface AnalyzeFactor {
 
 export interface AnalyzeResult {
   ticker: string;
-  researchers: { researcher: string; score: number | null; min_score: number; hold_days: number }[];
+  /** Specialists ranked by fit for THIS stock. hold_days 0 = same day; discovered from this stock's history. */
+  researchers: { researcher: string; score: number | null; min_score: number; hold_days: number; fit?: number; samples?: number; avg_return_pct?: number; win_rate?: number }[];
   sessions: number;
   score: number | null;
   band: "Strong" | "Good" | "Neutral" | "Weak" | "Avoid" | "Ineligible";
