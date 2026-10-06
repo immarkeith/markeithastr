@@ -47,3 +47,40 @@ export const researcherBuy = createServerFn({ method: "POST" })
     const { researcherPaperBuy } = await import("./race.server");
     return researcherPaperBuy(data.ticker, data.researcher);
   });
+
+/** Phase A: REAL live buy chosen by the owner from the Analyze researcher list. */
+export const researcherLiveBuy = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .inputValidator((input) =>
+    z.object({
+      ticker: z.string().trim().min(1).max(10).regex(/^[A-Za-z.\-]+$/),
+      researcher: z.enum(RESEARCHERS).refine((r) => r !== "Influence Researcher"),
+      hold_days: z.number().int().min(1).max(252),
+      dollars: z.number().min(1).max(1_000_000),
+      estimated_price: z.number().positive(),
+    }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { brokerAccount } = await import("./broker.server");
+    const account = await brokerAccount("live");
+    if (account.trading_blocked) throw new Error("The live brokerage account is not accepting trades.");
+    if (account.buying_power + 0.001 < data.dollars) {
+      throw new Error(`Only $${account.buying_power.toFixed(2)} is currently available to buy.`);
+    }
+    const d = data.hold_days;
+    const horizon = d >= 189 ? "9M" : d >= 63 ? "3M" : d >= 21 ? "1M" : "INDEFINITE";
+    const { openTrade } = await import("./scan.server");
+    const r = await openTrade({
+      ticker: data.ticker,
+      kind: "long_term",
+      entry_price: data.estimated_price,
+      dollars: data.dollars,
+      mode: "live",
+      // Protected from automated sells; the hold is a recommendation, never auto-sell permission.
+      position_type: "LONG_TERM",
+      hold_horizon: horizon,
+      hold_days: d,
+      status_note: `Chosen researcher: ${data.researcher} (${d} trading-day recommended hold)`,
+    });
+    return { ...r, ticker: data.ticker.toUpperCase(), researcher: data.researcher, hold_days: d };
+  });
