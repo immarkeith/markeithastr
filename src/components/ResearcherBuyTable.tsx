@@ -9,6 +9,7 @@ import { researcherLiveBuy } from "@/lib/assign.functions";
 import type { AnalyzeResult } from "@/lib/analyze-types";
 
 function fmtHold(d: number) {
+  if (d === 0) return "same day";
   if (d >= 252) return "1 year";
   if (d >= 21 && d % 21 === 0) return `${d / 21} month${d === 21 ? "" : "s"}`;
   return `${d} day${d === 1 ? "" : "s"}`;
@@ -40,20 +41,21 @@ export function ResearcherBuyTable({ result }: { result: AnalyzeResult }) {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-  const rows = [...(result.researchers ?? [])].sort(
-    (a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity),
-  );
+  const rows = [...(result.researchers ?? [])].sort((a, b) => (b.fit ?? -Infinity) - (a.fit ?? -Infinity));
   if (!rows.length) return null;
   const amt = Number(dollars);
 
   return (
     <div className="overflow-hidden rounded-md border border-border">
       <div className="flex items-center justify-between gap-3 bg-secondary/60 px-3 py-2">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Best fit first · real money</p>
+        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Specialists · best fit first · real money</p>
         <div className="flex items-center gap-1 text-sm">
           $<Input className="h-8 w-20" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value)} />
         </div>
       </div>
+      <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+        Lead Researcher is the overall synthesis (the main score above), not ranked here. Each hold below was found by testing that specialist's formula on {result.ticker}'s own history.
+      </p>
       <table className="w-full text-sm">
         <tbody>
           {rows.map((r, i) => (
@@ -61,11 +63,15 @@ export function ResearcherBuyTable({ result }: { result: AnalyzeResult }) {
               <td className="px-3 py-2 font-medium">
                 {r.researcher.replace(" Researcher", "")} ({fmtHold(r.hold_days)})
                 {i === 0 ? <span className="ml-2 text-xs text-primary">Best fit</span> : null}
+                <div className="text-[11px] font-normal text-muted-foreground">
+                  {r.samples} past signals · avg {r.avg_return_pct}% · {r.win_rate}% up
+                </div>
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 <span className={r.score !== null && r.score >= r.min_score ? "text-success" : "text-muted-foreground"}>
-                  {r.score === null ? "—" : r.score.toFixed(1)}
+                  {r.fit === undefined ? "—" : r.fit.toFixed(0)}
                 </span>
+                <div className="text-[10px] text-muted-foreground">fit</div>
               </td>
               <td className="px-3 py-2 text-right">
                 <Button size="sm" variant={i === 0 ? "default" : "outline"}

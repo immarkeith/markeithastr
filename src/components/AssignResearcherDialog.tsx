@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RESEARCHERS, assignToResearcher, researcherBuy } from "@/lib/assign.functions";
+import { RESEARCHERS, assignToResearcher } from "@/lib/assign.functions";
 
 /** Paper-only: records a research assignment. Never places a trade. */
 export function AssignResearcherDialog({ ticker }: { ticker: string }) {
@@ -29,16 +29,6 @@ export function AssignResearcherDialog({ ticker }: { ticker: string }) {
       toast.success(`${ticker} assigned to ${researcher} for research.`);
       setOpen(false);
       await qc.invalidateQueries({ queryKey: ["assignments"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const buyFn = useServerFn(researcherBuy);
-  const buy = useMutation({
-    mutationFn: () => buyFn({ data: { ticker, researcher } }),
-    onSuccess: async (r) => {
-      toast.success(`${researcher} paper-bought ${r.ticker} at $${r.price.toFixed(2)}, holding ${r.hold_days} trading days.`);
-      setOpen(false);
-      await qc.invalidateQueries();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -87,9 +77,6 @@ export function AssignResearcherDialog({ ticker }: { ticker: string }) {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            {!influence ? (
-              <Button variant="secondary" onClick={() => buy.mutate()} disabled={buy.isPending}>{buy.isPending ? "Buying…" : "Paper BUY"}</Button>
-            ) : null}
             <Button onClick={() => m.mutate()} disabled={m.isPending}>{m.isPending ? "Saving…" : "Assign"}</Button>
           </DialogFooter>
         </DialogContent>
