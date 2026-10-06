@@ -35,20 +35,6 @@ export const getAssignments = createServerFn({ method: "GET" }).handler(async ()
   return listAssignments();
 });
 
-export const researcherBuy = createServerFn({ method: "POST" })
-  .middleware([requireGate])
-  .inputValidator((input) =>
-    z.object({
-      ticker: z.string().trim().min(1).max(10).regex(/^[A-Za-z.\-]+$/),
-      researcher: z.enum(RESEARCHERS).refine((r) => r !== "Influence Researcher"),
-    }).parse(input),
-  )
-  .handler(async ({ data }) => {
-    const { researcherPaperBuy } = await import("./race.server");
-    return researcherPaperBuy(data.ticker, data.researcher);
-  });
-
-/** Phase A: REAL live buy chosen by the owner from the Analyze researcher list. */
 export const researcherLiveBuy = createServerFn({ method: "POST" })
   .middleware([requireGate])
   .inputValidator((input) =>

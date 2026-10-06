@@ -53,6 +53,9 @@ export function ResearcherBuyTable({ result }: { result: AnalyzeResult }) {
           $<Input className="h-8 w-20" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value)} />
         </div>
       </div>
+      <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+        Lead Researcher is the overall synthesis (the main score above), not ranked here. Each hold below was found by testing that specialist's formula on {result.ticker}'s own history.
+      </p>
       <table className="w-full text-sm">
         <tbody>
           {rows.map((r, i) => (
