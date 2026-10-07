@@ -279,7 +279,8 @@ const UNIT = { trend: 100, momentum: 100, volume: 100, relative_strength: 100, v
 
 async function researcherFits(bars: Bar[], proxy: string): Promise<AnalyzeResult["researchers"]> {
   if (bars.length < 80) return [];
-  const { LANES, laneSeedParams, normalize, scoreWith, type Lane } = await import("./department.server");
+  const { LANES, laneSeedParams, normalize, scoreWith } = await import("./department.server");
+  type Lane = import("./department.server").Lane;
   // The six buyable specialists: the five research lanes plus a dedicated
   // Momentum formula. The Skeptic is a challenger, never a stock picker, so it
   // is excluded from the ranked BUY list.
