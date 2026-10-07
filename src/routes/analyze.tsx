@@ -80,7 +80,7 @@ function AnalyzePage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analyze a stock</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Score any ticker with the live strategy weights, then optionally buy it as a protected long-term holding.
+          Search any ticker — each specialist tests its own formula against that stock's history, ranks itself by fit, and suggests a hold. You pick the formula; BUY is a real live order.
         </p>
       </div>
 
