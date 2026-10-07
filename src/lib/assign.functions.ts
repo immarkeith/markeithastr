@@ -6,6 +6,7 @@ import { requireGate } from "./gate-middleware";
 export const RESEARCHERS = [
   "Lead Researcher",
   "Trend Researcher",
+  "Momentum Researcher",
   "Contrarian Researcher",
   "Consistency Researcher",
   "Growth Researcher",

@@ -280,6 +280,19 @@ const UNIT = { trend: 100, momentum: 100, volume: 100, relative_strength: 100, v
 async function researcherFits(bars: Bar[], proxy: string): Promise<AnalyzeResult["researchers"]> {
   if (bars.length < 80) return [];
   const { LANES, laneSeedParams, normalize, scoreWith } = await import("./department.server");
+  type Lane = import("./department.server").Lane;
+  // The six buyable specialists: the five research lanes plus a dedicated
+  // Momentum formula. The Skeptic is a challenger, never a stock picker, so it
+  // is excluded from the ranked BUY list.
+  const MOMENTUM_LANE: Lane = {
+    lane: "momentum",
+    name: "Momentum Researcher",
+    own: ["momentum", "relative_strength", "trend", "volume"],
+    seed: () => ({ momentum: 40, relative_strength: 25, trend: 20, volume: 15 }),
+    gates: [],
+    objective: (l) => l.avg_return_pct,
+  };
+  const SPECIALISTS: Lane[] = [...LANES.filter((l) => l.lane !== "skeptic"), MOMENTUM_LANE];
   const { extraFactors, marketContext } = await import("./factors");
   const s = await loadSettings();
   const { data: pRows } = await supabaseAdmin
@@ -307,7 +320,7 @@ async function researcherFits(bars: Bar[], proxy: string): Promise<AnalyzeResult
   }
   const last = bars.length - 1;
   const out: AnalyzeResult["researchers"] = [];
-  for (const lane of LANES) {
+  for (const lane of SPECIALISTS) {
     const lw = learnedBy.get(lane.lane)?.weights;
     const weights = lw && Object.keys(lw).length ? normalize(lw as never) : laneSeedParams(lane, s).weights;
     const scores = pcts.map((p) => (p ? scoreWith({ pct: p } as never, weights) : null));

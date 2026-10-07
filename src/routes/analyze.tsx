@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { StatTile } from "@/components/StatTile";
 import { InfluenceProfile } from "@/components/InfluenceProfile";
 import { ResearcherBuyTable } from "@/components/ResearcherBuyTable";
-import { AssignResearcherDialog } from "@/components/AssignResearcherDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +80,7 @@ function AnalyzePage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analyze a stock</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Score any ticker with the live strategy weights, then optionally buy it as a protected long-term holding.
+          Search any ticker — each specialist tests its own formula against that stock's history, ranks itself by fit, and suggests a hold. You pick the formula; BUY is a real live order.
         </p>
       </div>
 
@@ -177,7 +176,6 @@ function ResultCard({
             Approval still happens on the Watchlist page.
           </span>
         ) : null}
-        {result.close !== null ? <AssignResearcherDialog ticker={result.ticker} /> : null}
         <span className="ml-auto text-xs text-muted-foreground">
           {result.sessions} sessions · data {result.bars_as_of ?? "n/a"} ·{" "}
           {result.source === "cache" ? "cached history" : "fetched on demand"}
