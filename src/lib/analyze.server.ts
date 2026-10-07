@@ -319,7 +319,7 @@ async function researcherFits(bars: Bar[], proxy: string): Promise<AnalyzeResult
   }
   const last = bars.length - 1;
   const out: AnalyzeResult["researchers"] = [];
-  for (const lane of LANES) {
+  for (const lane of SPECIALISTS) {
     const lw = learnedBy.get(lane.lane)?.weights;
     const weights = lw && Object.keys(lw).length ? normalize(lw as never) : laneSeedParams(lane, s).weights;
     const scores = pcts.map((p) => (p ? scoreWith({ pct: p } as never, weights) : null));

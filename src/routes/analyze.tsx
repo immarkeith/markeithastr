@@ -177,7 +177,6 @@ function ResultCard({
             Approval still happens on the Watchlist page.
           </span>
         ) : null}
-        {result.close !== null ? <AssignResearcherDialog ticker={result.ticker} /> : null}
         <span className="ml-auto text-xs text-muted-foreground">
           {result.sessions} sessions · data {result.bars_as_of ?? "n/a"} ·{" "}
           {result.source === "cache" ? "cached history" : "fetched on demand"}
