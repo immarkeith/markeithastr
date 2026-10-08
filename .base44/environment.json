@@ -1,0 +1,37 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/unlock",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d --build",
+  "secrets": [
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "description": "Supabase secret (service_role) API key — Supabase dashboard → Project Settings → API Keys for project nzayozxwyasvcroshddy. Every data page reads through the server-side service-role client, so without it the dashboard/scoreboard/trade log render error pages.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "MARKET_DATA_API_KEY",
+      "description": "Optional. Polygon.io API key for whole-market daily bars. Without it the app falls back to free Alpaca IEX data, or fails scanning if no Alpaca keys are set either.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_PAPER_KEY_ID",
+      "description": "Optional. Alpaca paper (simulated) account key id — alpaca.markets dashboard. Enables the free IEX market-data fallback and simulated trading.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_PAPER_SECRET_KEY",
+      "description": "Optional. Alpaca paper account secret key (paired with ALPACA_PAPER_KEY_ID).",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_LIVE_KEY_ID",
+      "description": "Optional. Alpaca live (real money) account key id. Only needed if you want the app to place real orders.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_LIVE_SECRET_KEY",
+      "description": "Optional. Alpaca live account secret key (paired with ALPACA_LIVE_KEY_ID).",
+      "requiredAtBoot": false
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+# Base44 sandbox environment. Development only — never a production setup.
+#
+# ASTR is a TanStack Start app: one Node process (Vite dev server) serves both
+# the UI and the server functions, so a single service is enough. There is no
+# local database to run — all data lives in the owner's hosted Supabase project,
+# which the repo's own `.env` already points at.
+#
+# Everything the app reads/writes goes through server functions that use the
+# Supabase *service role* client, so the service role key is required for the
+# data pages to work (see AGENTS.md). It is a real credential owned by the user
+# and arrives through /run/base44/app.env, never from this file.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.base44
+    working_dir: /app
+    # Repo's own public Supabase config first (URL + publishable key, already
+    # committed in .env); platform-managed secrets LAST so the user's real
+    # values always win. /run/base44/app.env lives outside the repo.
+    env_file:
+      - ./.env
+      - /run/base44/app.env
+    environment:
+      # Platform-provided passthroughs.
+      - BASE44_PREVIEW_MODE
+      # Vite >= 6.1 appends this to server.allowedHosts, so the preview's
+      # external hostname is accepted without touching vite.config.ts.
+      - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS
+      # Bind mounts do not always deliver inotify events reliably; polling keeps
+      # hot reload firing on every edit.
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+      # The dev server listens on 8080 inside the container (the project's own
+      # Vite config forces that port); host port 3000 is what the preview serves.
+      - "3000:8080"
+    volumes:
+      - .:/app
+    # Install from the pinned lockfile on start (cheap no-op once node_modules
+    # exists), then run the live-reloading dev server on all interfaces.
+    command:
+      - sh
+      - -ec
+      - >-
+        bun install --frozen-lockfile &&
+        exec node_modules/.bin/vite dev --host 0.0.0.0 --port 8080 --strictPort
+    # /unlock is the one route that renders without any credential: a 200 with
+    # the app shell proves SSR and routing are actually alive.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          node -e 'fetch("http://127.0.0.1:8080/unlock")
+          .then(async (r) => { const t = await r.text();
+          process.exit(r.ok && t.includes("Unlock") ? 0 : 1); })
+          .catch(() => process.exit(1))'
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: on-failure

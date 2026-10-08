@@ -1,0 +1,13 @@
+# Base44 sandbox image — runtime only.
+#
+# It deliberately does NOT copy the application source: the repo is bind-mounted
+# at /app by docker-compose.base44.yml and started with Vite's dev server, so
+# edits on the host show up live. Only the toolchain lives here.
+#
+# bun is the project's package manager (bun.lock + bunfig.toml). The dev server
+# itself runs on Node, which is what the generated TanStack Start files expect.
+FROM node:22
+
+RUN npm install -g bun@1.4.2
+
+WORKDIR /app
