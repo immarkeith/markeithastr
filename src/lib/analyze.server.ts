@@ -354,15 +354,36 @@ async function researcherFits(bars: Bar[], proxy: string): Promise<AnalyzeResult
     }
     if (best.h < 0) continue;
     const edge = Math.max(0, Math.min(100, 50 + best.t * 15));
+    const fit = Number((rank * 0.5 + edge * 0.5).toFixed(1));
+    // Each specialist is judged against its OWN calibrated bar (learned by the
+    // stability engine from its own evidence), never a universal cutoff.
+    const threshold = learnedBy.get(lane.lane)?.qualified_min_score ?? null;
+    let qualified: boolean | undefined;
+    let qualifyReason: string | null = null;
+    if (threshold === null) {
+      qualified = undefined;
+      qualifyReason = "No calibrated bar yet — not enough of this formula's own evidence.";
+    } else if (best.n < 5) {
+      qualified = false;
+      qualifyReason = `Too few past signals on this stock (${best.n}).`;
+    } else if (fit >= threshold) {
+      qualified = true;
+    } else {
+      qualified = false;
+      qualifyReason = `Fit ${fit} is below this specialist's calibrated ${threshold} bar.`;
+    }
     out.push({
       researcher: lane.name,
       score: Number(now.toFixed(1)),
       min_score: Number(cut.toFixed(1)),
       hold_days: best.h,
-      fit: Number((rank * 0.5 + edge * 0.5).toFixed(1)),
+      fit,
       samples: best.n,
       avg_return_pct: Number(best.avg.toFixed(2)),
       win_rate: Number(best.win.toFixed(0)),
+      threshold,
+      qualified,
+      qualify_reason: qualifyReason,
     });
   }
   return out.sort((a, b) => (b.fit ?? 0) - (a.fit ?? 0));
