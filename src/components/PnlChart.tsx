@@ -180,7 +180,9 @@ export function PnlChart({
       for (const row of source) {
         if (!row.exit_date || row.exit_date < window.from || row.exit_date > window.until) continue;
         const key = bucket(row.exit_date);
-        byDay.set(key, (byDay.get(key) ?? 0) + Number(row.profit ?? 0));
+        const value =
+          percent && basis > 0 ? (Number(row.profit ?? 0) / basis) * 100 : Number(row.profit ?? 0);
+        byDay.set(key, (byDay.get(key) ?? 0) + value);
       }
       if (open !== 0) {
         const key = bucket(window.today);
