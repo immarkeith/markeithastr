@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { getDepartment } from "@/lib/department.functions";
+import { getStability } from "@/lib/stability.functions";
 
 type Overview = NonNullable<Awaited<ReturnType<typeof getDepartment>>>;
 type Notebook = Overview["notebook"][number];
@@ -210,6 +211,103 @@ function LearnedProfile({ lane, data }: { lane: string; data: Overview | undefin
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+type Stability = NonNullable<Awaited<ReturnType<typeof getStability>>>;
+type LaneStabilityRow = Stability["lanes"][number];
+
+const VERDICT_TONE: Record<string, string> = {
+  robust: "text-success",
+  watch: "text-warning",
+  brittle: "text-destructive",
+};
+
+/**
+ * "Show me why" diagnostics for one researcher: its exact formula parameters,
+ * its own calibrated qualification bar with the evidence behind it, and how
+ * the formula held up when every parameter was nudged slightly.
+ */
+function FormulaDiagnostics({ lane }: { lane: string }) {
+  const load = useServerFn(getStability);
+  const query = useQuery({ queryKey: ["stability"], queryFn: () => load() });
+  const report = query.data;
+  const row: LaneStabilityRow | undefined = report?.lanes.find((l) => l.lane === lane);
+
+  if (query.isLoading) {
+    return <p className="text-xs text-muted-foreground">Loading formula diagnostics…</p>;
+  }
+  if (!row) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        No stability pass has run for this researcher yet — diagnostics appear after the first
+        parameter-stability check.
+      </p>
+    );
+  }
+
+  const p = row.params;
+  const weights = Object.entries(p.weights).filter(([, v]) => Number(v) > 0);
+  const gates: string[] = [`score ≥ ${p.min_score_to_trade}`];
+  if (p.rsi_min !== null) gates.push(`RSI ≥ ${p.rsi_min}`);
+  if (p.rsi_max !== null) gates.push(`RSI ≤ ${p.rsi_max}`);
+  if (p.atr_pct_min !== null) gates.push(`ATR ≥ ${p.atr_pct_min}%`);
+  if (p.atr_pct_max !== null) gates.push(`ATR ≤ ${p.atr_pct_max}%`);
+  if (p.rel_volume_min !== null) gates.push(`volume ≥ ${p.rel_volume_min}x avg`);
+  const ev = row.threshold_evidence;
+  const worst = [...row.perturbations].sort((a, b) => a.objective_delta - b.objective_delta)[0];
+
+  return (
+    <div className="space-y-3 text-xs">
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Formula</p>
+        <p className="mt-1 tabular-nums text-muted-foreground">
+          {weights.map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`).join(" · ") || "No weights"}
+        </p>
+        <p className="mt-0.5 text-muted-foreground">Gates: {gates.join(" · ")}</p>
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+          Its own qualification bar
+        </p>
+        {row.qualified_min_score !== null && ev ? (
+          <p className="mt-1 text-muted-foreground">
+            Qualifies at score ≥{" "}
+            <span className="font-semibold text-foreground">{row.qualified_min_score}</span> —
+            calibrated from {ev.picks} of its own past setups (avg{" "}
+            <Signed value={ev.avg_return_pct} />, {ev.win_rate}% up, {ev.sessions} sessions). This
+            bar is re-learned on every stability pass, never hardcoded.
+          </p>
+        ) : (
+          <p className="mt-1 text-muted-foreground">
+            No calibrated bar yet — not enough of this formula&apos;s own historical evidence.
+          </p>
+        )}
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+          Parameter stability
+        </p>
+        <p className="mt-1">
+          <span className={`font-semibold ${VERDICT_TONE[row.verdict] ?? ""}`}>
+            {row.verdict}
+          </span>{" "}
+          <span className="text-muted-foreground">
+            — {row.stability}% of small nudges (weights ±5, gates ±5, RSI/ATR/volume bounds) kept a
+            positive out-of-sample edge over {row.baseline.picks} uncapped setups.
+          </span>
+        </p>
+        {worst ? (
+          <p className="mt-0.5 text-muted-foreground">
+            Weakest nudge: {worst.label} (<Signed value={worst.avg_return_pct} /> avg over{" "}
+            {worst.picks} setups).
+          </p>
+        ) : null}
+        {report?.as_of ? (
+          <p className="mt-0.5 text-muted-foreground">Tested on history through {report.as_of}.</p>
+        ) : null}
+      </div>
     </div>
   );
 }
