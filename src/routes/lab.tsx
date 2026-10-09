@@ -296,6 +296,7 @@ function SlotCard({
         initialRange="month"
         title="Today's Active"
         compact
+        percent
         basis={slot.basis}
         activeTicker={slot.holdings[0]?.ticker ?? null}
       />

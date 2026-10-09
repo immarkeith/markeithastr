@@ -44,6 +44,9 @@ export function ResearcherBuyTable({ result }: { result: AnalyzeResult }) {
   const rows = [...(result.researchers ?? [])].sort((a, b) => (b.fit ?? -Infinity) - (a.fit ?? -Infinity));
   if (!rows.length) return null;
   const amt = Number(dollars);
+  // If even the best-fit specialist fails its own bar, the honest signal is to
+  // consider passing — the table never cascades to #2 on its own.
+  const topFails = rows[0]!.qualified === false;
 
   return (
     <div className="overflow-hidden rounded-md border border-border">
@@ -56,6 +59,11 @@ export function ResearcherBuyTable({ result }: { result: AnalyzeResult }) {
       <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
         Lead Researcher is the overall synthesis (the main score above), not ranked here. Each hold below was found by testing that specialist's formula on {result.ticker}'s own history.
       </p>
+      {topFails ? (
+        <p className="border-t border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] font-medium text-warning">
+          Top specialist does not qualify against its own bar — consider passing on {result.ticker}.
+        </p>
+      ) : null}
       <table className="w-full text-sm">
         <tbody>
           {rows.map((r, i) => (
@@ -63,9 +71,15 @@ export function ResearcherBuyTable({ result }: { result: AnalyzeResult }) {
               <td className="px-3 py-2 font-medium">
                 {r.researcher.replace(" Researcher", "")} ({fmtHold(r.hold_days)})
                 {i === 0 ? <span className="ml-2 text-xs text-primary">Best fit</span> : null}
+                {r.qualified === true ? (
+                  <span className="ml-2 text-xs font-semibold text-success">Qualified</span>
+                ) : null}
                 <div className="text-[11px] font-normal text-muted-foreground">
                   {r.samples} past signals · avg {r.avg_return_pct}% · {r.win_rate}% up
                 </div>
+                {r.qualified === false && r.qualify_reason ? (
+                  <div className="text-[11px] font-normal text-warning">{r.qualify_reason}</div>
+                ) : null}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 <span className={r.score !== null && r.score >= r.min_score ? "text-success" : "text-muted-foreground"}>

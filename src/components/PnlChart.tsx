@@ -80,6 +80,7 @@ export function PnlChart({
   unrealized = 0,
   unrealizedToday = 0,
   basis = 0,
+  percent = false,
   compareRows,
   primaryLabel,
   compareLabel,
@@ -100,6 +101,11 @@ export function PnlChart({
   unrealizedToday?: number;
   /** Cash + money at work, used as the percent denominator. */
   basis?: number;
+  /**
+   * Draw the line in pure percentage terms instead of dollars, so researcher
+   * curves are never distorted by stake size or cash balance.
+   */
+  percent?: boolean;
   /** Optional second line, e.g. the hypothetical same-day results. */
   compareRows?: { exit_date: string | null; profit: number }[];
   primaryLabel?: string;
@@ -174,11 +180,14 @@ export function PnlChart({
       for (const row of source) {
         if (!row.exit_date || row.exit_date < window.from || row.exit_date > window.until) continue;
         const key = bucket(row.exit_date);
-        byDay.set(key, (byDay.get(key) ?? 0) + Number(row.profit ?? 0));
+        const value =
+          percent && basis > 0 ? (Number(row.profit ?? 0) / basis) * 100 : Number(row.profit ?? 0);
+        byDay.set(key, (byDay.get(key) ?? 0) + value);
       }
       if (open !== 0) {
         const key = bucket(window.today);
-        byDay.set(key, (byDay.get(key) ?? 0) + open);
+        const openValue = percent && basis > 0 ? (open / basis) * 100 : open;
+        byDay.set(key, (byDay.get(key) ?? 0) + openValue);
       }
       return byDay;
     };
@@ -204,6 +213,8 @@ export function PnlChart({
     active,
     unrealized,
     unrealizedToday,
+    percent,
+    basis,
   ]);
 
   const days = useMemo(() => {
@@ -238,6 +249,9 @@ export function PnlChart({
       ? secondarySeries[secondarySeries.length - 1]!.cumulative
       : null;
   const pct = basis > 0 ? (total / basis) * 100 : null;
+  /** Percent mode: totals are already percentages, so format them directly. */
+  const fmtTotal = (n: number) =>
+    percent ? `${n >= 0 ? "+" : ""}${n.toFixed(2)}%` : `${n >= 0 ? "+" : ""}${money(n)}`;
   const up = total >= 0;
   const tone = up ? "text-success" : "text-destructive";
   const width = 100;
@@ -340,13 +354,12 @@ export function PnlChart({
           </p>
         ) : (
           <p className={`font-bold tabular-nums ${compact ? "text-xl" : "text-3xl"}`}>
-            {up ? "+" : ""}
-            {money(total)}
+            {fmtTotal(total)}
           </p>
         )}
         <p className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : toneOf(total)}`}>
           {twoLine || total === 0 ? "" : up ? "▲ " : "▼ "}
-          {pct === null ? "" : `${Math.abs(pct).toFixed(2)}% · `}
+          {pct === null || percent ? "" : `${Math.abs(pct).toFixed(2)}% · `}
           {active.label === "LIVE" ? "today, live" : active.label}
         </p>
       </div>
@@ -359,7 +372,7 @@ export function PnlChart({
           </span>
         ) : null}
         <span className="flex w-6 shrink-0 items-center justify-center text-[9px] uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180">
-          P/L ($)
+          {percent ? "P/L (%)" : "P/L ($)"}
         </span>
         <div className="flex-1 space-y-1">
           <svg
@@ -496,8 +509,9 @@ export function PnlChart({
               <li key={point.day} className="flex justify-between tabular-nums">
                 <span>{point.day}</span>
                 <span className={point.daily >= 0 ? "text-success" : "text-destructive"}>
-                  {point.daily >= 0 ? "+" : ""}
-                  {money(point.daily)}
+                  {percent
+                    ? `${point.daily >= 0 ? "+" : ""}${point.daily.toFixed(2)}%`
+                    : `${point.daily >= 0 ? "+" : ""}${money(point.daily)}`}
                 </span>
               </li>
             ))}
