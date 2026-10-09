@@ -11,7 +11,7 @@ export interface AnalyzeFactor {
 export interface AnalyzeResult {
   ticker: string;
   /** Specialists ranked by fit for THIS stock. hold_days 0 = same day; discovered from this stock's history. */
-  researchers: { researcher: string; score: number | null; min_score: number; hold_days: number; fit?: number; samples?: number; avg_return_pct?: number; win_rate?: number; threshold?: number | null; qualified?: boolean; qualify_reason?: string | null }[];
+  researchers: { researcher: string; score: number | null; min_score: number; hold_days: number; fit?: number; samples?: number; avg_return_pct?: number; win_rate?: number; threshold?: number | null; qualified?: boolean | undefined; qualify_reason?: string | null }[];
   sessions: number;
   score: number | null;
   band: "Strong" | "Good" | "Neutral" | "Weak" | "Avoid" | "Ineligible";
