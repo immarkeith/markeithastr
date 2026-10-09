@@ -301,7 +301,15 @@ async function researcherFits(bars: Bar[], proxy: string): Promise<AnalyzeResult
   const pBars: Bar[] = (pRows ?? []).map((r) => ({ date: r.bar_date as string, open: +r.open, high: +r.high, low: +r.low, close: +r.close, volume: +r.volume }));
   const pIdx = new Map(pBars.map((b, i) => [b.date, i]));
   const { data: learned } = await supabaseAdmin.from("researchers").select("lane, params");
-  const learnedBy = new Map((learned ?? []).map((r) => [r.lane as string, r.params as { weights?: Record<string, number> } | null]));
+  const learnedBy = new Map(
+    (learned ?? []).map((r) => [
+      r.lane as string,
+      r.params as {
+        weights?: Record<string, number>;
+        qualified_min_score?: number | null;
+      } | null,
+    ]),
+  );
 
   const pcts: (Record<string, number> | null)[] = bars.map(() => null);
   for (let i = 60; i < bars.length; i++) {
