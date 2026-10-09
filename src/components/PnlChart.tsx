@@ -186,7 +186,8 @@ export function PnlChart({
       }
       if (open !== 0) {
         const key = bucket(window.today);
-        byDay.set(key, (byDay.get(key) ?? 0) + open);
+        const openValue = percent && basis > 0 ? (open / basis) * 100 : open;
+        byDay.set(key, (byDay.get(key) ?? 0) + openValue);
       }
       return byDay;
     };
@@ -212,6 +213,8 @@ export function PnlChart({
     active,
     unrealized,
     unrealizedToday,
+    percent,
+    basis,
   ]);
 
   const days = useMemo(() => {
