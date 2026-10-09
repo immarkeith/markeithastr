@@ -249,6 +249,9 @@ export function PnlChart({
       ? secondarySeries[secondarySeries.length - 1]!.cumulative
       : null;
   const pct = basis > 0 ? (total / basis) * 100 : null;
+  /** Percent mode: totals are already percentages, so format them directly. */
+  const fmtTotal = (n: number) =>
+    percent ? `${n >= 0 ? "+" : ""}${n.toFixed(2)}%` : `${n >= 0 ? "+" : ""}${money(n)}`;
   const up = total >= 0;
   const tone = up ? "text-success" : "text-destructive";
   const width = 100;
@@ -351,13 +354,12 @@ export function PnlChart({
           </p>
         ) : (
           <p className={`font-bold tabular-nums ${compact ? "text-xl" : "text-3xl"}`}>
-            {up ? "+" : ""}
-            {money(total)}
+            {fmtTotal(total)}
           </p>
         )}
         <p className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : toneOf(total)}`}>
           {twoLine || total === 0 ? "" : up ? "▲ " : "▼ "}
-          {pct === null ? "" : `${Math.abs(pct).toFixed(2)}% · `}
+          {pct === null || percent ? "" : `${Math.abs(pct).toFixed(2)}% · `}
           {active.label === "LIVE" ? "today, live" : active.label}
         </p>
       </div>
@@ -370,7 +372,7 @@ export function PnlChart({
           </span>
         ) : null}
         <span className="flex w-6 shrink-0 items-center justify-center text-[9px] uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180">
-          P/L ($)
+          {percent ? "P/L (%)" : "P/L ($)"}
         </span>
         <div className="flex-1 space-y-1">
           <svg
