@@ -509,8 +509,9 @@ export function PnlChart({
               <li key={point.day} className="flex justify-between tabular-nums">
                 <span>{point.day}</span>
                 <span className={point.daily >= 0 ? "text-success" : "text-destructive"}>
-                  {point.daily >= 0 ? "+" : ""}
-                  {money(point.daily)}
+                  {percent
+                    ? `${point.daily >= 0 ? "+" : ""}${point.daily.toFixed(2)}%`
+                    : `${point.daily >= 0 ? "+" : ""}${money(point.daily)}`}
                 </span>
               </li>
             ))}
