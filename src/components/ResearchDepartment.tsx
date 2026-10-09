@@ -359,6 +359,11 @@ export function ResearcherTabs({ name }: { name: string }) {
           <p className="text-xs text-muted-foreground">No record yet.</p>
         )}
       </Drop>
+      {!isLead && lane ? (
+        <Drop label="Formula &amp; stability — show me why">
+          <FormulaDiagnostics lane={lane} />
+        </Drop>
+      ) : null}
       <Drop label="Notebook">
         <NotebookTable entries={notebook.slice(0, 30)} />
       </Drop>
