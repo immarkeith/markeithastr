@@ -80,6 +80,7 @@ export function PnlChart({
   unrealized = 0,
   unrealizedToday = 0,
   basis = 0,
+  percent = false,
   compareRows,
   primaryLabel,
   compareLabel,
@@ -100,6 +101,11 @@ export function PnlChart({
   unrealizedToday?: number;
   /** Cash + money at work, used as the percent denominator. */
   basis?: number;
+  /**
+   * Draw the line in pure percentage terms instead of dollars, so researcher
+   * curves are never distorted by stake size or cash balance.
+   */
+  percent?: boolean;
   /** Optional second line, e.g. the hypothetical same-day results. */
   compareRows?: { exit_date: string | null; profit: number }[];
   primaryLabel?: string;
