@@ -249,12 +249,6 @@ function pValue(t: number, n: number): number {
   const t4 = -1.453152027, t5 = 1.061405429, p = 0.3275911;
   const sign = z < 0 ? -1 : 1;
   const u = Math.abs(z) / Math.SQRT2;
-  const poly =
-    1 -
-    (t1 * Math.exp(-u * u) * 1 +
-      0) /
-      1; // placeholder replaced below
-  void poly;
   const w = 1 / (1 + p * u);
   const erf =
     sign *
@@ -446,7 +440,3 @@ export async function latestRegime(): Promise<RegimeReport | null> {
   if (!data) return null;
   return { ...(data.summary as unknown as RegimeReport), created_at: data.created_at as string };
 }
-
-// Re-export for the UI layer's typing convenience.
-export type { Leg } from "./department.server";
-void legFrom;
