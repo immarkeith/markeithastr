@@ -345,7 +345,7 @@ export async function runRegimeAnalysis(
     const learnedParams = learned?.params as LaneParams | undefined;
     const params: LaneParams =
       learnedParams && learnedParams.weights && Object.keys(learnedParams.weights).length
-        ? { ...laneSeedParams(lane, s), ...learnedParams, weights: learnedParams.weights }
+        ? { ...laneSeedParams(lane, s), ...learnedParams, weights: normalize(learnedParams.weights) }
         : laneSeedParams(lane, s);
 
     // Uncapped qualifying setups per session, grouped by that session's cell.
