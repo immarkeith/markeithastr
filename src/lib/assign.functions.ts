@@ -2,6 +2,35 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireGate } from "./gate-middleware";
+import {
+  createLiveOrderApproval,
+  type LiveOrderApproval,
+} from "./broker.server";
+
+export const requestLiveOrderApproval = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .inputValidator((input) =>
+    z
+      .object({
+        ticker: z.string().trim().min(1).max(10).regex(/^[A-Za-z.\-]+$/),
+        researcher: z.string().trim().min(1).max(80).optional(),
+        hold_days: z.number().int().min(0).max(252).optional(),
+        dollars: z.number().min(1).max(1_000_000),
+        source: z.string().trim().min(1).max(120).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const approval: LiveOrderApproval = createLiveOrderApproval({
+      ticker: data.ticker,
+      side: "buy",
+      dollars: data.dollars,
+      source: data.source ?? "manual-live-order",
+      researcher: data.researcher,
+      hold_days: data.hold_days,
+    });
+    return approval;
+  });
 
 export const RESEARCHERS = [
   "Lead Researcher",
@@ -45,6 +74,7 @@ export const researcherLiveBuy = createServerFn({ method: "POST" })
       hold_days: z.number().int().min(0).max(252),
       dollars: z.number().min(1).max(1_000_000),
       estimated_price: z.number().positive(),
+      approval_token: z.string().trim().min(1).optional(),
     }).parse(input),
   )
   .handler(async ({ data }) => {
@@ -63,8 +93,8 @@ export const researcherLiveBuy = createServerFn({ method: "POST" })
       entry_price: data.estimated_price,
       dollars: data.dollars,
       mode: "live",
-      // Protected from automated sells; the hold is a recommendation, never auto-sell permission.
-      // Same-day picks exit before the close like every SAME_DAY trade; longer holds are protected.
+      approval_token: data.approval_token,
+      approved_by_owner: Boolean(data.approval_token),
       position_type: d === 0 ? "SAME_DAY" : "LONG_TERM",
       hold_horizon: d === 0 ? null : horizon,
       hold_days: d,
