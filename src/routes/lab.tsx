@@ -65,6 +65,18 @@ function LabPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const stabilityFn = useServerFn(runStabilityNow);
+  const stability = useMutation({
+    mutationFn: () => stabilityFn({}),
+    onSuccess: async (res) => {
+      toast.success(
+        `Stability audit done — ${res.lanes.length} lanes scored over ${res.sessions} sessions.`,
+      );
+      await qc.invalidateQueries();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const d = race.data;
   const slots = (d?.entrants ?? []).filter((e) => !e.live);
 
@@ -90,9 +102,18 @@ function LabPage() {
     <div className="space-y-8">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Research Lab</h1>
-        <Button onClick={() => run.mutate()} disabled={run.isPending}>
-          {run.isPending ? "Running…" : "Run test pass"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => stability.mutate()}
+            disabled={stability.isPending}
+          >
+            {stability.isPending ? "Auditing…" : "Run stability audit"}
+          </Button>
+          <Button onClick={() => run.mutate()} disabled={run.isPending}>
+            {run.isPending ? "Running…" : "Run test pass"}
+          </Button>
+        </div>
       </header>
 
       {/* Researchers only — this never starts or stops live trading. */}
