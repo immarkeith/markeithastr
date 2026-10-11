@@ -286,14 +286,15 @@ export async function runRegimeAnalysis(
   // SPY bars straight from the shared cache — same pool everything else uses.
   const { data: spyRows, error: spyError } = await supabaseAdmin
     .from("daily_bars")
-    .select("bars")
+    .select("bar_date, close")
     .eq("ticker", proxyTicker)
-    .maybeSingle();
+    .order("bar_date", { ascending: true })
+    .limit(750);
   if (spyError) throw new Error(spyError.message);
-  const spyBars = (((spyRows?.bars ?? []) as { d: string; c: number }[]).map((b) => ({
-    date: b.d,
-    close: b.c,
-  })) as SpyBar[]).sort((a, b) => a.date.localeCompare(b.date));
+  const spyBars: SpyBar[] = (spyRows ?? []).map((r) => ({
+    date: r.bar_date as string,
+    close: Number(r.close),
+  }));
 
   const warnings: string[] = [];
   const { regimes, skipped } = classifySessions(spyBars);
