@@ -181,6 +181,24 @@ function LabPage() {
       {d?.capital_analysis ? <FutureCapitalAnalysis analysis={d.capital_analysis} /> : null}
       <EventIntelligence />
 
+      {/* Phase C — how each formula behaves across the 9 market regimes. */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+            Market regime matrix
+          </h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => regime.mutate()}
+            disabled={regime.isPending}
+          >
+            {regime.isPending ? "Analyzing…" : "Run regime analysis"}
+          </Button>
+        </div>
+        <RegimeMatrix />
+      </section>
+
       <section>
         <p className="flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
           Best formula
