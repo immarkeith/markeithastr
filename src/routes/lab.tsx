@@ -15,7 +15,9 @@ import {
 } from "@/components/ResearchDepartment";
 import { Button } from "@/components/ui/button";
 import { fetchRace, runRaceNow, setResearchRunning } from "@/lib/race.functions";
+import { runRegimeNow } from "@/lib/regime.functions";
 import { runStabilityNow } from "@/lib/stability.functions";
+import { RegimeMatrix } from "@/components/RegimeMatrix";
 import { money } from "@/lib/queries";
 
 export const Route = createFileRoute("/lab")({
