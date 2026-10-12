@@ -79,6 +79,18 @@ function LabPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const regimeFn = useServerFn(runRegimeNow);
+  const regime = useMutation({
+    mutationFn: () => regimeFn({}),
+    onSuccess: async (res) => {
+      toast.success(
+        `Regime analysis done — ${res.lanes.length} researchers across ${res.spy_sessions} market sessions.`,
+      );
+      await qc.invalidateQueries({ queryKey: ["regime"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const d = race.data;
   const slots = (d?.entrants ?? []).filter((e) => !e.live);
 
