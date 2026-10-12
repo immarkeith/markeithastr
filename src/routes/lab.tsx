@@ -15,7 +15,9 @@ import {
 } from "@/components/ResearchDepartment";
 import { Button } from "@/components/ui/button";
 import { fetchRace, runRaceNow, setResearchRunning } from "@/lib/race.functions";
+import { runRegimeNow } from "@/lib/regime.functions";
 import { runStabilityNow } from "@/lib/stability.functions";
+import { RegimeMatrix } from "@/components/RegimeMatrix";
 import { money } from "@/lib/queries";
 
 export const Route = createFileRoute("/lab")({
@@ -73,6 +75,18 @@ function LabPage() {
         `Stability audit done — ${res.lanes.length} lanes scored over ${res.sessions} sessions.`,
       );
       await qc.invalidateQueries();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const regimeFn = useServerFn(runRegimeNow);
+  const regime = useMutation({
+    mutationFn: () => regimeFn({}),
+    onSuccess: async (res) => {
+      toast.success(
+        `Regime analysis done — ${res.lanes.length} researchers across ${res.spy_sessions} market sessions.`,
+      );
+      await qc.invalidateQueries({ queryKey: ["regime"] });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -166,6 +180,24 @@ function LabPage() {
 
       {d?.capital_analysis ? <FutureCapitalAnalysis analysis={d.capital_analysis} /> : null}
       <EventIntelligence />
+
+      {/* Phase C — how each formula behaves across the 9 market regimes. */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+            Market regime matrix
+          </h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => regime.mutate()}
+            disabled={regime.isPending}
+          >
+            {regime.isPending ? "Analyzing…" : "Run regime analysis"}
+          </Button>
+        </div>
+        <RegimeMatrix />
+      </section>
 
       <section>
         <p className="flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
