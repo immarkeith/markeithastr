@@ -177,20 +177,20 @@ export function PnlChart({
       open: number,
     ): Map<string, number> => {
       const byDay = new Map<string, number>();
-      let priorAccumulated = 0;
       for (const row of source) {
-        if (!row.exit_date) continue;
+        if (!row.exit_date || row.exit_date < window.from || row.exit_date > window.until) continue;
+        const key = bucket(row.exit_date);
         const value =
           percent && basis > 0 ? (Number(row.profit ?? 0) / basis) * 100 : Number(row.profit ?? 0);
-        if (row.exit_date < window.from) {
-          priorAccumulated += value;
-          continue;
-        }
-        if (row.exit_date > window.until) continue;
-        const key = bucket(row.exit_date);
         byDay.set(key, (byDay.get(key) ?? 0) + value);
       }
-      // Anchor the start of the window with the prior equity mark
+      if (open !== 0) {
+        const key = bucket(window.today);
+        const openValue = percent && basis > 0 ? (open / basis) * 100 : open;
+        byDay.set(key, (byDay.get(key) ?? 0) + openValue);
+      }
+      return byDay;
+    };
       if (priorAccumulated !== 0 && !byDay.has(bucket(window.from))) {
         byDay.set(bucket(window.from), priorAccumulated);
       }
