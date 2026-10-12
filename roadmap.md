@@ -21,10 +21,10 @@
 
 ### Phase C — Historical Market Regimes & Event Intelligence
 *Target: 3–4 credits*
-- [ ] Historical market condition classifier (direction, volatility, momentum, stress, sector environment)
-- [ ] Market regime tagging (Bull, Bear, Choppy, Stress/High-Volatility) using SPY/QQQ historical bars
-- [ ] SEC EDGAR catalyst testing: test formulas with vs. without historical filings/news context at simulated point-in-time
-- [ ] Performance-by-regime evidence ledger: evaluate which factors and formulas remain reliable across different conditions (no hardcoded rules)
+- [x] Historical market condition classifier (SPY SMA20/50/200 direction + 20-day SMA50 slope; RV20 volatility vs trailing 252 sessions)
+- [x] Market regime tagging — exactly 9 composite states (Bull/Bear/Sideways × Low/Normal/High vol), high-vol precedence, 758 real SPY sessions loaded
+- [ ] SEC EDGAR catalyst testing — deferred to Phase H per user decision
+- [x] Performance-by-regime evidence ledger: per-cell evidence tiers, Benjamini-Hochberg correction, explicit 0.1% cost assumption, provisional per-specialist drawdown limits — Regime Matrix live in Research Lab
 
 ### Phase D — Eliminate Alpaca Paper API & Hard Live Firewall
 *Target: 2–3 credits*
