@@ -191,16 +191,7 @@ export function PnlChart({
       }
       return byDay;
     };
-      if (priorAccumulated !== 0 && !byDay.has(bucket(window.from))) {
-        byDay.set(bucket(window.from), priorAccumulated);
-      }
-      if (open !== 0) {
-        const key = bucket(window.today);
-        const openValue = percent && basis > 0 ? (open / basis) * 100 : open;
-        byDay.set(key, (byDay.get(key) ?? 0) + openValue);
-      }
-      return byDay;
-    };
+
     // Open positions still count: the whole move for LIVE (today only), the
     // full open profit for any window that runs up to right now.
     const open = active.endYesterday ? 0 : active.live ? unrealizedToday : unrealized;
