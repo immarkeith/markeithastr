@@ -344,8 +344,10 @@ function SlotCard({
 
 
       <PnlChart
-        rows={slot.same_day.rows}
-        primaryLabel="Same-Day"
+        rows={slot.closed}
+        unrealized={slot.unrealized}
+        unrealizedToday={slot.unrealized_today}
+        primaryLabel="Actual"
         ranges={LAB_RANGES}
         initialRange="month"
         title="Today's Active"
@@ -354,6 +356,7 @@ function SlotCard({
         basis={slot.basis}
         activeTicker={slot.holdings[0]?.ticker ?? null}
       />
+
 
       {/* Everything secondary lives under this researcher's own dropdown. */}
       <details className="rounded border border-border/70 p-3">
