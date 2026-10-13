@@ -26,12 +26,12 @@
 - [ ] SEC EDGAR catalyst testing — deferred to Phase H per user decision
 - [x] Performance-by-regime evidence ledger: per-cell evidence tiers, Benjamini-Hochberg correction, explicit 0.1% cost assumption, provisional per-specialist drawdown limits — Regime Matrix live in Research Lab
 
-### Phase D — Eliminate Alpaca Paper API & Hard Live Firewall
+### Phase D — Eliminate Alpaca Paper API & Hard Live Firewall ✅
 *Target: 2–3 credits*
-- [ ] Standardize exclusively on the single Live credential pair for market data and authorized execution
-- [ ] Purge all Alpaca Paper API endpoints and secondary keys from backend
-- [ ] Isolate all paper research strictly as internal database simulations
-- [ ] Hard code-level firewall blocking any automated or unconfirmed live order placement
+- [x] Standardize exclusively on the single Live credential pair for market data and authorized execution
+- [x] Purge all Alpaca Paper API endpoints and secondary keys from backend
+- [x] Isolate all paper research strictly as internal database simulations
+- [x] Hard code-level firewall blocking any automated or unconfirmed live order placement (live buys require `confirmed: true` from a user-confirmed UI flow; automated cycles notify you to confirm manually instead)
 
 ### Phase E — Lead Researcher Quantitative Self-Audit Engine
 *Target: 3–4 credits*
@@ -68,6 +68,7 @@
 - [ ] Unbiased Discovery vs. Learned Prioritization: Discovers real-world events without pre-filtering for assumed economic impact; learns prioritization over time (deprioritizes weak categories without permanently blacklisting)
 - [ ] Automated Pre-Scheduled Testing Pipeline: Autonomous lifecycle ($T-5$ to $T-1$ baseline & historical comparables, $T0$ to $T+1$ immediate reaction, $T+1$ to $T+5$ follow-through); reuses ASTR's shared historical market data pool
 - [ ] Entertainment Hypothesis Ledger UI: Dedicated research-only desk showing discovered events, active relationship paths, historical comparable outcomes, and win-rate/edge tracking
+- [ ] Move Event Intelligence display from Research tab into Analyze: show only the searched ticker's filings (date, sentiment, score, all items, clickable SEC link) above the existing analysis; hide the section when the ticker has no filings; the underlying Event Intelligence system keeps running unchanged behind the scenes
 
 ### Phase I — Grand Codebase Cleanup & Dead-Code Purge
 *Target: 2–3 credits*

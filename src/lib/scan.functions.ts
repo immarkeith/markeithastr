@@ -102,7 +102,8 @@ export const createTrade = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { openTrade } = await import("./scan.server");
-    return openTrade(data);
+    // User-initiated from the trade UI: counts as manual confirmation.
+    return openTrade({ ...data, confirmed: true });
   });
 
 export const exitTrade = createServerFn({ method: "POST" })

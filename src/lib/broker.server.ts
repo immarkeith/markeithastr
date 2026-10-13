@@ -1,25 +1,35 @@
 /**
- * Alpaca trading (order placement).
+ * Alpaca trading (order placement) — LIVE ACCOUNT ONLY.
  *
- * Strictly separated from market data. Live orders use the real-money keys and
- * the live endpoint; simulated orders use the paper keys and the paper
- * endpoint. There is no fallback between the two — a missing key is an error,
- * never a silent switch to the other account.
+ * Phase D: the Alpaca paper API has been removed from the codebase. There is
+ * exactly one credential pair (ALPACA_LIVE_*) and exactly one endpoint
+ * (api.alpaca.markets). All simulated research is internal database ledgering
+ * and never touches this module.
+ *
+ * HARD FIREWALL: order placement that increases exposure (buyNotional)
+ * requires the literal origin token "manual_confirmed", which is only passed
+ * from user-confirmed UI flows. Automated cycles cannot supply it.
  */
 
 const LIVE_BASE = "https://api.alpaca.markets";
-const PAPER_BASE = "https://paper-api.alpaca.markets";
 
-export type BrokerMode = "live" | "paper";
+export type BrokerMode = "live";
+
+/** Origin token proving a human confirmed this order in the UI. */
+export type OrderOrigin = "manual_confirmed";
+
+function assertLive(mode: BrokerMode): void {
+  if (mode !== "live") {
+    throw new Error("Firewall: only the live Alpaca account exists. Paper broker access was removed.");
+  }
+}
 
 function creds(mode: BrokerMode): { id: string; secret: string } {
-  const prefix = mode === "live" ? "ALPACA_LIVE" : "ALPACA_PAPER";
-  const id = process.env[`${prefix}_KEY_ID`]?.trim();
-  const secret = process.env[`${prefix}_SECRET_KEY`]?.trim();
+  assertLive(mode);
+  const id = process.env["ALPACA_LIVE_KEY_ID"]?.trim();
+  const secret = process.env["ALPACA_LIVE_SECRET_KEY"]?.trim();
   if (!id || !secret) {
-    throw new Error(
-      `Alpaca ${mode} keys are not configured (${prefix}_KEY_ID / ${prefix}_SECRET_KEY).`,
-    );
+    throw new Error("Alpaca live keys are not configured (ALPACA_LIVE_KEY_ID / ALPACA_LIVE_SECRET_KEY).");
   }
   return { id, secret };
 }
@@ -34,7 +44,8 @@ function headers(mode: BrokerMode): Record<string, string> {
 }
 
 function base(mode: BrokerMode): string {
-  return mode === "live" ? LIVE_BASE : PAPER_BASE;
+  assertLive(mode);
+  return LIVE_BASE;
 }
 
 async function call(
@@ -118,12 +129,20 @@ async function waitForFill(mode: BrokerMode, orderId: string): Promise<BrokerFil
   };
 }
 
-/** Buy a dollar amount of a symbol at market (fractional shares). */
+/**
+ * Buy a dollar amount of a symbol at market (fractional shares).
+ * FIREWALL: `origin` must be the literal "manual_confirmed" token, which only
+ * user-confirmed UI flows pass. Automated cycles cannot call this.
+ */
 export async function buyNotional(
   mode: BrokerMode,
   ticker: string,
   dollars: number,
+  origin: OrderOrigin,
 ): Promise<BrokerFill> {
+  if (origin !== "manual_confirmed") {
+    throw new Error("Firewall: live buy orders require manual user confirmation.");
+  }
   const order = await call(mode, "/v2/orders", {
     method: "POST",
     body: {

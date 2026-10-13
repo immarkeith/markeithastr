@@ -34,12 +34,6 @@ function alpacaLiveCreds(): { id: string; secret: string } | null {
   return id && secret ? { id, secret } : null;
 }
 
-/** Paper (simulated) Alpaca credentials — never used for real orders. */
-function alpacaPaperCreds(): { id: string; secret: string } | null {
-  const id = process.env["ALPACA_PAPER_KEY_ID"]?.trim();
-  const secret = process.env["ALPACA_PAPER_SECRET_KEY"]?.trim();
-  return id && secret ? { id, secret } : null;
-}
 
 
 function isoDate(d: Date): string {
@@ -108,9 +102,8 @@ export async function polygonGroupedDay(date: string): Promise<BarRow[]> {
 const ALPACA_DATA = "https://data.alpaca.markets";
 
 function alpacaHeaders(): Record<string, string> {
-  // Market data is the same feed for live and paper accounts, so live keys are
-  // preferred, then paper, then a combined "KEY_ID:SECRET" fallback value.
-  const creds = alpacaLiveCreds() ?? alpacaPaperCreds();
+  // Phase D: the single live credential pair is the only Alpaca key set.
+  const creds = alpacaLiveCreds();
   if (creds) return { "APCA-API-KEY-ID": creds.id, "APCA-API-SECRET-KEY": creds.secret };
   const raw = apiKey();
   if (raw.includes(":")) {
@@ -138,10 +131,7 @@ export async function verifyProviderKey(
       `${ALPACA_DATA}/v2/stocks/AAPL/bars?timeframe=1Day&limit=1&feed=iex`,
       alpacaHeaders(),
     );
-    return {
-      ok: true,
-      detail: alpacaLiveCreds() ? "Alpaca live key accepted." : "Alpaca paper key accepted.",
-    };
+    return { ok: true, detail: "Alpaca live key accepted." };
   } catch (error) {
     const raw = error instanceof Error ? error.message : String(error);
     if (raw.includes("401") || raw.includes("403") || /unknown api key/i.test(raw)) {

@@ -71,9 +71,9 @@ export async function loadSettings(): Promise<Settings> {
   // key is absent but Alpaca credentials exist, use Alpaca's free IEX feed
   // instead of failing every request with "Invalid API key".
   if (settings.provider === "polygon" && !process.env["MARKET_DATA_API_KEY"]?.trim()) {
+    // Phase D: the single live credential pair is the only Alpaca key set.
     const hasAlpaca = Boolean(
-      (process.env["ALPACA_LIVE_KEY_ID"] && process.env["ALPACA_LIVE_SECRET_KEY"]) ||
-        (process.env["ALPACA_PAPER_KEY_ID"] && process.env["ALPACA_PAPER_SECRET_KEY"]),
+      process.env["ALPACA_LIVE_KEY_ID"] && process.env["ALPACA_LIVE_SECRET_KEY"],
     );
     if (hasAlpaca) settings.provider = "alpaca";
   }
@@ -491,17 +491,10 @@ export async function addFunds(amount: number, note: string) {
 }
 
 export async function openTrade(input: {
-  ticker: string;
-  kind: string;
-  entry_price: number;
-  dollars: number;
-  mode?: string;
-  position_type?: "SAME_DAY" | "LONG_TERM";
-  /** Intended holding period for a LONG_TERM position: 1M, 3M, 9M, INDEFINITE. */
-  hold_horizon?: string | null;
-  /** Researcher-recommended hold in trading days (Analyze tab live buys). */
-  hold_days?: number | null;
+...
   status_note?: string | null;
+  /** HARD FIREWALL: live orders are only placed when a human confirmed in the UI. */
+  confirmed?: boolean;
 }) {
   const mode = input.mode === "live" ? "live" : "paper";
   const ticker = input.ticker.toUpperCase();
@@ -514,6 +507,13 @@ export async function openTrade(input: {
   // Live mode sends a real market order to the broker and records the actual
   // fill, not the price we guessed from cached bars.
   if (mode === "live") {
+    // Phase D hard firewall: no automated or unconfirmed live order placement.
+    // Only user-confirmed UI flows pass confirmed: true.
+    if (input.confirmed !== true) {
+      throw new Error(
+        `Firewall: live entry for ${ticker} blocked — live buys require your manual confirmation in the app.`,
+      );
+    }
     const { buyNotional } = await import("./broker.server");
     if (positionType === "SAME_DAY") {
       const { data: duplicate } = await supabaseAdmin
@@ -526,7 +526,7 @@ export async function openTrade(input: {
         .maybeSingle();
       if (duplicate) throw new Error(`${ticker} already has an open same-day allocation.`);
     }
-    const fill = await buyNotional("live", ticker, input.dollars);
+    const fill = await buyNotional("live", ticker, input.dollars, "manual_confirmed");
     if (fill.status !== "filled" || !fill.filled_price) {
       throw new Error(
         `Broker did not fill ${ticker} (status ${fill.status}). Nothing was recorded.`,
@@ -1226,6 +1226,21 @@ export async function managePaperTrades(
   async function tryOpen(ticker: string, kind: "day" | "swing", price: number, want: number) {
     if (!price) return;
     const dollars = want;
+    // Phase D hard firewall: automated cycles never place live buy orders.
+    // The pick is reported so you can confirm it manually in the app.
+    if (activeMode === "live") {
+      const { notify } = await import("./notify.server");
+      await notify({
+        kind: "trade",
+        title: `Live pick needs your confirmation`,
+        body: `${ticker} qualified today, but automated live buying is disabled. Confirm it manually in the app to place the order.`,
+        ticker,
+        severity: "info",
+        action: "No trade",
+        dedupe_key: `manual-confirm-${ticker}-${today()}`,
+      });
+      return;
+    }
     // Never stack a second stake on a name the account already holds — that is
     // exactly how the doubled-up position happened.
     if (activeMode === "live" && stillOpen.has(ticker)) return;
