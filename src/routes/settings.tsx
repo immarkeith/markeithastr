@@ -240,7 +240,7 @@ function SettingsPage() {
             className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
           >
             <option value="polygon">Polygon (whole-market, cheapest)</option>
-            <option value="alpaca">Alpaca (live/paper keys)</option>
+            <option value="alpaca">Alpaca (live keys)</option>
           </select>
         </div>
         <div className="space-y-1">
