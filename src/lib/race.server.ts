@@ -1099,23 +1099,11 @@ export async function raceStandings(): Promise<{
       slotOpenTrades(slot.strategy_id),
       supabaseAdmin
         .from("trades")
-        .select("exit_date, profit")
+        .select("ticker, entry_date, exit_date, dollars, profit, status")
         .eq("strategy_id", slot.strategy_id)
-        .eq("status", "closed")
-        .order("exit_date", { ascending: true })
-        .limit(400),
-      supabaseAdmin
-        .from("trades")
-        .select("entry_date, same_day_profit")
-        .eq("strategy_id", slot.strategy_id)
-        .not("same_day_profit", "is", null)
         .order("entry_date", { ascending: true })
         .limit(400),
-    ]);
-    const closed = (closedRows.data ?? []).map((r) => ({
-      exit_date: String(r.exit_date),
-      profit: Number(r.profit ?? 0),
-    }));
+
     const ranked = rankings.get(slot.id) ?? [];
     const closes = await latestCloses(open.map((t) => String(t.ticker)));
     const wins = closed.filter((c) => c.profit > 0).length;
