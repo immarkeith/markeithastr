@@ -161,7 +161,7 @@ function HomePage() {
                 <span className="truncate">
                   <span className="font-bold">{h.ticker}</span>{" "}
                   <span className="text-xs text-muted-foreground">
-                    {h} · {holdTarget(h)}
+                    {owningResearcher(h)} · {holdTarget(h)}
                   </span>
                 </span>
                 <span>{money(h.market_value)}</span>
