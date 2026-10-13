@@ -143,11 +143,13 @@ const NAV = [
   { to: "/", label: "Home" },
   { to: "/lab", label: "Research Lab" },
   { to: "/analyze", label: "Analyze Strategy" },
+  { to: "/audit", label: "Audit Desk" },
   { to: "/scoreboard", label: "Scoreboard" },
   { to: "/trade-history", label: "Trade Log" },
   { to: "/notifications", label: "Alerts" },
   { to: "/settings", label: "Settings" },
 ] as const;
+
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
