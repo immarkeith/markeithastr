@@ -172,8 +172,8 @@ export function PnlChart({
       d.setUTCDate(d.getUTCDate() - d.getUTCDay());
       return d.toISOString().slice(0, 10);
     };
-    const build = (
-      source: { exit_date: string | null; profit: number }[],
+        const build = (
+      source: { exit_date: string | null; entry_date?: string | null; profit: number }[],
       open: number,
     ): Map<string, number> => {
       const byDay = new Map<string, number>();
@@ -192,15 +192,10 @@ export function PnlChart({
       return byDay;
     };
 
-    // Open positions still count: the whole move for LIVE (today only), the
-    // full open profit for any window that runs up to right now.
     const open = active.endYesterday ? 0 : active.live ? unrealizedToday : unrealized;
     return {
       primary: build(rows, open),
-      // The same-day line is fully hypothetical and already booked per day, so
-      // it never adds an open-position move.
       compare: compareRows ? build(compareRows, 0) : null,
-      // Long-term holds: realised sales plus their current open move.
       secondary: secondaryRows
         ? build(secondaryRows, active.endYesterday ? 0 : secondaryOpen)
         : null,
@@ -218,19 +213,38 @@ export function PnlChart({
     basis,
   ]);
 
+  // Generate a continuous date timeline so windows with few closed trades
+  // still render a continuous mark-to-market curve instead of a flat 1-point collapse.
   const days = useMemo(() => {
+    const list: string[] = [];
+    const cur = new Date(`${window.from}T00:00:00Z`);
+    const end = new Date(`${window.until}T00:00:00Z`);
+    const stepDays = active.weekly ? 7 : active.days > 90 ? 2 : 1;
+
+    while (cur <= end) {
+      const iso = cur.toISOString().slice(0, 10);
+      list.push(iso);
+      cur.setUTCDate(cur.getUTCDate() + stepDays);
+    }
+    if (list[list.length - 1] !== window.until) {
+      list.push(window.until);
+    }
+
+    // Merge any trade exit dates outside or within the stepped grid
     const all = new Set<string>([
+      ...list,
       ...daily.primary.keys(),
       ...(daily.compare?.keys() ?? []),
       ...(daily.secondary?.keys() ?? []),
     ]);
     return [...all].sort();
-  }, [daily]);
+  }, [window, active, daily]);
 
   const cumulate = (byDay: Map<string, number> | null) => {
     if (!byDay) return null;
     let running = 0;
     return days.map((day) => {
+      // Add realized profit on dates when it closed; otherwise carry prior equity forward
       running += byDay.get(day) ?? 0;
       return { day, daily: byDay.get(day) ?? 0, cumulative: Number(running.toFixed(2)) };
     });
