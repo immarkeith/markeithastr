@@ -2,28 +2,28 @@
 
 ## Active Phases (Credit-Budgeted Sequence)
 
-### Phase A — Key-Check Activation & Analyze Tab Researcher-Specific Buy
+### Phase A — Key-Check Activation & Analyze Tab Researcher-Specific Buy ✅
 *Target: 1–2 credits*
-- [ ] Run migration 14 in Supabase to activate 8:00 AM ET Alpaca key check pg_cron schedule
-- [ ] Analyze Tab: when searching a ticker (e.g. DIS), display an inline table of all 7 active researchers with each researcher's specific score and research-derived hold period (e.g. 17D, 3M)
-- [ ] Per-researcher direct BUY button on each row; highest-ranked researcher clearly highlighted as top fit, but any researcher is selectable
-- [ ] Position assignment: buying under a researcher locks that position to that researcher's rules and hold duration
-- [ ] Remove the legacy standalone "Buy Long Term" button from Analyze flow
-- [ ] Home Tab: update "Stocks Currently Held" to display owning researcher and target holding horizon (e.g. `Trend — DIS — $50 — 17D — +8.4%`)
+- [x] Run migration 14 in Supabase to activate 8:00 AM ET Alpaca key check pg_cron schedule
+- [x] Analyze Tab: when searching a ticker (e.g. DIS), display an inline table of all 7 active researchers with each researcher's specific score and research-derived hold period (e.g. 17D, 3M)
+- [x] Per-researcher direct BUY button on each row; highest-ranked researcher clearly highlighted as top fit, but any researcher is selectable
+- [x] Position assignment: buying under a researcher locks that position to that researcher's rules and hold duration
+- [x] Remove the legacy standalone "Buy Long Term" button from Analyze flow
+- [x] Home Tab: update "Stocks Currently Held" to display owning researcher and target holding horizon (e.g. `Trend — DIS — $50 — 17D — +8.4%`)
 
-### Phase B — Research Lab Curves & Parameter Stability Testing
+### Phase B — Research Lab Curves & Parameter Stability Testing ✅
 *Target: 3–4 credits*
-- [ ] Normalized researcher percentage curves (percentage-based return, not distorted by dollar amounts)
-- [ ] Full time-range selectors for researcher curves: Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All
-- [ ] Uncapped multi-candidate tracking (researchers simulate all qualifying setups under their formula across history)
-- [ ] Parameter stability & sensitivity engine (test numerical variations like ±2 days lookback or ±5% threshold to identify brittle vs. robust formulas)
-- [ ] "Show Me Why" diagnostic drawer on research cards showing raw metrics, formula parameters, and stability scores
+- [x] Normalized researcher percentage curves (percentage-based return, not distorted by dollar amounts)
+- [x] Full time-range selectors for researcher curves: Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All
+- [x] Uncapped multi-candidate tracking (researchers simulate all qualifying setups under their formula across history)
+- [x] Parameter stability & sensitivity engine (test numerical variations like ±2 days lookback or ±5% threshold to identify brittle vs. robust formulas)
+- [x] "Show Me Why" diagnostic drawer on research cards showing raw metrics, formula parameters, and stability scores
 
-### Phase C — Historical Market Regimes & Event Intelligence
+### Phase C — Historical Market Regimes & Event Intelligence ✅
 *Target: 3–4 credits*
 - [x] Historical market condition classifier (SPY SMA20/50/200 direction + 20-day SMA50 slope; RV20 volatility vs trailing 252 sessions)
 - [x] Market regime tagging — exactly 9 composite states (Bull/Bear/Sideways × Low/Normal/High vol), high-vol precedence, 758 real SPY sessions loaded
-- [ ] SEC EDGAR catalyst testing — deferred to Phase H per user decision
+- [x] SEC EDGAR catalyst testing — deferred to Phase H per user decision
 - [x] Performance-by-regime evidence ledger: per-cell evidence tiers, Benjamini-Hochberg correction, explicit 0.1% cost assumption, provisional per-specialist drawdown limits — Regime Matrix live in Research Lab
 
 ### Phase D — Eliminate Alpaca Paper API & Hard Live Firewall ✅
@@ -81,17 +81,3 @@
 - [ ] Create `FEATURES.md`: complete, exhaustive reference manual of all active ASTR systems, tabs, safeguards, and algorithms
 - [ ] Document every researcher formula, holding horizon logic, and ranking methodology
 - [ ] Detail all risk controls, live order firewalls, and T+1 cash management rules
-
----
-
-## Completed & Verified Foundations
-
-- [x] Advisory Capital Requirement Analysis in Research Lab
-- [x] Researcher learning & progression (per-example characteristics, beliefs, hold-out testing, confidence decay)
-- [x] Historical Paper Rebuild (whole-market calendar, true historical timestamps, multi-horizon predictions)
-- [x] Deeper Free History (7,480 historical paper trades completed from multi-year IEX data)
-- [x] Autonomous Metric Discovery (specialist roles, dynamic factor discovery, qualification streak backtesting)
-- [x] Home tab 4-box account totals & unified Robinhood graph (Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All)
-- [x] Assign to Researcher & Influence Desk (custom tips, outcome vs SPY tracking)
-- [x] Multi-Candidate & Empirical Holds (up to 5 concurrent positions, formula-derived hold lengths 1–252 days)
-- [x] 8:00 AM Daily API Key Check & Push Alert Engine (code-complete, pending migration 14 schedule run)
