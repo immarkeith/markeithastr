@@ -491,11 +491,21 @@ export async function addFunds(amount: number, note: string) {
 }
 
 export async function openTrade(input: {
-...
+  ticker: string;
+  kind: string;
+  entry_price: number;
+  dollars: number;
+  mode?: string;
+  position_type?: "SAME_DAY" | "LONG_TERM";
+  /** Intended holding period for a LONG_TERM position: 1M, 3M, 9M, INDEFINITE. */
+  hold_horizon?: string | null;
+  /** Researcher-recommended hold in trading days (Analyze tab live buys). */
+  hold_days?: number | null;
   status_note?: string | null;
   /** HARD FIREWALL: live orders are only placed when a human confirmed in the UI. */
   confirmed?: boolean;
 }) {
+
   const mode = input.mode === "live" ? "live" : "paper";
   const ticker = input.ticker.toUpperCase();
   let entryPrice = input.entry_price;
