@@ -1120,8 +1120,6 @@ export async function raceStandings(): Promise<{
       }));
 
     const ranked = rankings.get(slot.id) ?? [];
-
-    const ranked = rankings.get(slot.id) ?? [];
     const closes = await latestCloses(open.map((t) => String(t.ticker)));
     const wins = closed.filter((c) => c.profit > 0).length;
     const heldTickers = new Set(open.map((t) => String(t.ticker)));
