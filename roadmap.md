@@ -68,6 +68,7 @@
 - [ ] Unbiased Discovery vs. Learned Prioritization: Discovers real-world events without pre-filtering for assumed economic impact; learns prioritization over time (deprioritizes weak categories without permanently blacklisting)
 - [ ] Automated Pre-Scheduled Testing Pipeline: Autonomous lifecycle ($T-5$ to $T-1$ baseline & historical comparables, $T0$ to $T+1$ immediate reaction, $T+1$ to $T+5$ follow-through); reuses ASTR's shared historical market data pool
 - [ ] Entertainment Hypothesis Ledger UI: Dedicated research-only desk showing discovered events, active relationship paths, historical comparable outcomes, and win-rate/edge tracking
+- [ ] Move Event Intelligence display from Research tab into Analyze: show only the searched ticker's filings (date, sentiment, score, all items, clickable SEC link) above the existing analysis; hide the section when the ticker has no filings; the underlying Event Intelligence system keeps running unchanged behind the scenes
 
 ### Phase I — Grand Codebase Cleanup & Dead-Code Purge
 *Target: 2–3 credits*
