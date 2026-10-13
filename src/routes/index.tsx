@@ -65,16 +65,27 @@ function heldFor(entry: string) {
   return days <= 0 ? "Today" : `${days}D`;
 }
 
+/** Extracts the owning researcher (e.g. "Trend"), or falls back to "Rotation" / "Long-term". */
+function owningResearcher(h: { who: string; note?: string | null }) {
+  if (h.note) {
+    const m = h.note.match(/Chosen researcher:\s*([A-Za-z]+)(?:\s+Researcher)?/i);
+    if (m?.[1]) return m[1];
+  }
+  return h.who;
+}
+
 /** The owner's planned holding period, e.g. "17D target" or "3 Months". */
 function holdTarget(h: {
   who: string;
   hold_days?: number | null;
   hold_horizon?: string | null;
 }) {
-  if (h.who === "Long-term") return horizonLabel(h.hold_horizon);
   const days = Number(h.hold_days ?? 0);
-  return days > 0 ? `${days}D target` : "Same day";
+  if (days > 0) return `${days}D target`;
+  if (h.who === "Long-term" && h.hold_horizon) return horizonLabel(h.hold_horizon);
+  return "Same day";
 }
+
 
 function HomePage() {
   const dash = useQuery(dashboardQuery);
