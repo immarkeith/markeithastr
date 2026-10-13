@@ -1227,9 +1227,7 @@ export async function managePaperTrades(
 
   // Open today's plan. In live mode every entry is limited by the settled cash
   // actually sitting in the account, so it can never overspend.
-  let cashLeft = activeMode === "live" ? await availableCash() : Number.POSITIVE_INFINITY;
-
-  const stillOpen = new Set(
+    const stillOpen = new Set(
     openTrades.filter((t) => !closed.some((c) => c.ticker === t.ticker)).map((t) => t.ticker as string),
   );
 
@@ -1251,24 +1249,6 @@ export async function managePaperTrades(
       });
       return;
     }
-    // Never stack a second stake on a name the account already holds — that is
-    // exactly how the doubled-up position happened.
-    if (activeMode === "live" && stillOpen.has(ticker)) return;
-    if (activeMode === "live" && cashLeft < want) {
-      // Full stake or nothing: if yesterday's sale has not settled yet, sit out
-      // today rather than buying a smaller partial position.
-      const { notify } = await import("./notify.server");
-      await notify({
-        kind: "trade",
-        title: `Sat out — waiting on settled cash`,
-        body: `${ticker} was today's pick, but only ${cashLeft.toFixed(2)} of the ${want.toFixed(2)} stake has cleared. It will buy once the money settles.`,
-        ticker,
-        severity: "info",
-        action: "No trade",
-        dedupe_key: `cash-wait-${today()}`,
-      });
-      return;
-    }
     const res = await openTrade({
       ticker,
       kind,
@@ -1276,9 +1256,9 @@ export async function managePaperTrades(
       dollars: Number(dollars.toFixed(2)),
       mode: activeMode,
     });
-    if (activeMode === "live") cashLeft = Number((cashLeft - dollars).toFixed(2));
     opened.push({ ticker, kind, price: res.entry_price ?? price });
   }
+
 
   // Position count and stake come from the capital ladder, which scales with the
   // account instead of using the fixed settings values.
