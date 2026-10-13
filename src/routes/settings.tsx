@@ -139,9 +139,11 @@ function SettingsPage() {
           <span>
             <span className="font-semibold">Simulation (paper) mode</span>
             <span className="block text-xs text-muted-foreground">
-              ON: scoring, entries and exits run on paper — no broker orders, no real cash. OFF:
-              the same rules place real market orders in your funded Alpaca account, sized by your
-              settled cash, buying after the open re-check and selling before the close.
+              ON: scoring, entries and exits run as internal simulations — no broker orders, no
+              real cash. OFF: the desk manages real positions in your funded Alpaca account.
+              Automated cycles never buy live — every live purchase requires your manual
+              confirmation in the app; open positions are still sold automatically before the
+              close to protect you.
             </span>
           </span>
         </label>

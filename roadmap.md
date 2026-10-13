@@ -26,12 +26,12 @@
 - [ ] SEC EDGAR catalyst testing — deferred to Phase H per user decision
 - [x] Performance-by-regime evidence ledger: per-cell evidence tiers, Benjamini-Hochberg correction, explicit 0.1% cost assumption, provisional per-specialist drawdown limits — Regime Matrix live in Research Lab
 
-### Phase D — Eliminate Alpaca Paper API & Hard Live Firewall
+### Phase D — Eliminate Alpaca Paper API & Hard Live Firewall ✅
 *Target: 2–3 credits*
-- [ ] Standardize exclusively on the single Live credential pair for market data and authorized execution
-- [ ] Purge all Alpaca Paper API endpoints and secondary keys from backend
-- [ ] Isolate all paper research strictly as internal database simulations
-- [ ] Hard code-level firewall blocking any automated or unconfirmed live order placement
+- [x] Standardize exclusively on the single Live credential pair for market data and authorized execution
+- [x] Purge all Alpaca Paper API endpoints and secondary keys from backend
+- [x] Isolate all paper research strictly as internal database simulations
+- [x] Hard code-level firewall blocking any automated or unconfirmed live order placement (live buys require `confirmed: true` from a user-confirmed UI flow; automated cycles notify you to confirm manually instead)
 
 ### Phase E — Lead Researcher Quantitative Self-Audit Engine
 *Target: 3–4 credits*

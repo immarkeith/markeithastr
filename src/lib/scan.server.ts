@@ -1226,6 +1226,21 @@ export async function managePaperTrades(
   async function tryOpen(ticker: string, kind: "day" | "swing", price: number, want: number) {
     if (!price) return;
     const dollars = want;
+    // Phase D hard firewall: automated cycles never place live buy orders.
+    // The pick is reported so you can confirm it manually in the app.
+    if (activeMode === "live") {
+      const { notify } = await import("./notify.server");
+      await notify({
+        kind: "trade",
+        title: `Live pick needs your confirmation`,
+        body: `${ticker} qualified today, but automated live buying is disabled. Confirm it manually in the app to place the order.`,
+        ticker,
+        severity: "info",
+        action: "No trade",
+        dedupe_key: `manual-confirm-${ticker}-${today()}`,
+      });
+      return;
+    }
     // Never stack a second stake on a name the account already holds — that is
     // exactly how the doubled-up position happened.
     if (activeMode === "live" && stillOpen.has(ticker)) return;
