@@ -202,7 +202,8 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         }`,
       );
     }
-    const mode = settings.paper_mode === false ? "live" : "paper";
+    // Phase D: the broker is the live account only; paper research is internal.
+    const mode = "live" as const;
 
 
     // Live broker snapshot. A broker outage must not blank the page.

@@ -23,6 +23,8 @@ export const buyLongTerm = createServerFn({ method: "POST" })
     }
     const { openTrade } = await import("./scan.server");
     return openTrade({
+      // User confirmed the purchase in the long-term buy dialog.
+      confirmed: true,
       ticker: data.ticker,
       kind: "long_term",
       entry_price: data.estimated_price,

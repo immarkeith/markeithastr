@@ -71,9 +71,9 @@ export async function loadSettings(): Promise<Settings> {
   // key is absent but Alpaca credentials exist, use Alpaca's free IEX feed
   // instead of failing every request with "Invalid API key".
   if (settings.provider === "polygon" && !process.env["MARKET_DATA_API_KEY"]?.trim()) {
+    // Phase D: the single live credential pair is the only Alpaca key set.
     const hasAlpaca = Boolean(
-      (process.env["ALPACA_LIVE_KEY_ID"] && process.env["ALPACA_LIVE_SECRET_KEY"]) ||
-        (process.env["ALPACA_PAPER_KEY_ID"] && process.env["ALPACA_PAPER_SECRET_KEY"]),
+      process.env["ALPACA_LIVE_KEY_ID"] && process.env["ALPACA_LIVE_SECRET_KEY"],
     );
     if (hasAlpaca) settings.provider = "alpaca";
   }

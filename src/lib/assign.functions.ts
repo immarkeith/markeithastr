@@ -58,6 +58,8 @@ export const researcherLiveBuy = createServerFn({ method: "POST" })
     const horizon = d >= 189 ? "9M" : d >= 63 ? "3M" : d >= 21 ? "1M" : "INDEFINITE";
     const { openTrade } = await import("./scan.server");
     const r = await openTrade({
+      // User clicked BUY and confirmed the dollar amount in the dialog.
+      confirmed: true,
       ticker: data.ticker,
       kind: d === 0 ? "day" : "long_term",
       entry_price: data.estimated_price,
