@@ -129,12 +129,20 @@ async function waitForFill(mode: BrokerMode, orderId: string): Promise<BrokerFil
   };
 }
 
-/** Buy a dollar amount of a symbol at market (fractional shares). */
+/**
+ * Buy a dollar amount of a symbol at market (fractional shares).
+ * FIREWALL: `origin` must be the literal "manual_confirmed" token, which only
+ * user-confirmed UI flows pass. Automated cycles cannot call this.
+ */
 export async function buyNotional(
   mode: BrokerMode,
   ticker: string,
   dollars: number,
+  origin: OrderOrigin,
 ): Promise<BrokerFill> {
+  if (origin !== "manual_confirmed") {
+    throw new Error("Firewall: live buy orders require manual user confirmation.");
+  }
   const order = await call(mode, "/v2/orders", {
     method: "POST",
     body: {
