@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Vercel build output
+.vercel/output
+
 # Environment variables — never commit credentials
 .env
 .env.local
