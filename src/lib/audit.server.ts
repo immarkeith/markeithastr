@@ -77,7 +77,11 @@ async function auditTradeReconstruction(lookbackDays = 60): Promise<{
 
   // Fetch bars matching these tickers and dates
   const tickers = [...new Set(trades.map((t) => t.ticker))];
-  const dates = [...new Set(trades.flatMap((t) => [t.entry_date, t.exit_date].filter(Boolean)))];
+    const dates = [
+    ...new Set(
+      trades.flatMap((t) => [t.entry_date, t.exit_date].filter((d): d is string => Boolean(d))),
+    ),
+  ];
 
   const { data: bars } = await supabaseAdmin
     .from("daily_bars")
