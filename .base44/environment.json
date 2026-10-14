@@ -1,0 +1,47 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "description": "Supabase service role key for server-side admin access. Find in Supabase dashboard → Project Settings → API.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "ALPACA_LIVE_KEY_ID",
+      "description": "Alpaca live account API key ID for market data and live trading. Find in Alpaca dashboard → API Keys (Live account).",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_LIVE_SECRET_KEY",
+      "description": "Alpaca live account API secret key. Find in Alpaca dashboard → API Keys (Live account).",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "SESSION_SECRET",
+      "description": "Cookie encryption secret for the passcode gate (≥32 characters). Generate with: openssl rand -base64 48. Required only if SITE_PASSWORD is set.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "SITE_PASSWORD",
+      "description": "Passcode required to open the app. If unset, the app is open to anyone. Set in Vercel environment variables.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "MARKET_DATA_API_KEY",
+      "description": "Polygon.io API key for whole-market daily bars. Only needed if app_settings.provider is 'polygon'. If absent, falls back to Alpaca's free IEX feed.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "VAPID_PUBLIC_KEY",
+      "description": "VAPID public key for web push notifications. Generate with: bun run vapid. Optional — push notifications are skipped if not set.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "VAPID_PRIVATE_KEY",
+      "description": "VAPID private key for web push notifications. Generate with: bun run vapid. Optional.",
+      "requiredAtBoot": false
+    }
+  ]
+}

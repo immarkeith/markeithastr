@@ -7,6 +7,9 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
     return await next();
   } catch (error) {
+    // Re-throw Response objects (used by the gate middleware for 401 "Locked")
+    // and HTTP errors that carry a statusCode property.
+    if (error instanceof Response) throw error;
     if (error != null && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

@@ -220,18 +220,40 @@ async function auditBalanceReconciliation(): Promise<{
 }> {
   const discrepancies: Discrepancy[] = [];
 
-  // Get all ledger entries and group by strategy_id
+  // Get all ledger entries and group by strategy_id.
+  // Include available_on so we can distinguish settled vs pending cash.
   const { data: ledgers } = await supabaseAdmin
     .from("ledger_entries")
-    .select("strategy_id, kind, amount");
+    .select("strategy_id, kind, amount, available_on");
 
-  const ledgerBySlot = new Map<string, { deposits: number; withdrawals: number }>();
+  const ledgerBySlot = new Map<
+    string,
+    {
+      deposits: number;
+      withdrawals: number;
+      deploys: number;
+      settles: number;
+      adjusts: number;
+      reserves: number;
+      cancels: number;
+    }
+  >();
   for (const l of ledgers ?? []) {
     const key = l.strategy_id || "live";
-    const cur = ledgerBySlot.get(key) ?? { deposits: 0, withdrawals: 0 };
+    const cur = ledgerBySlot.get(key) ?? {
+      deposits: 0, withdrawals: 0, deploys: 0, settles: 0, adjusts: 0, reserves: 0, cancels: 0,
+    };
     const amt = Number(l.amount);
-    if (l.kind === "deposit") cur.deposits += amt;
-    else if (l.kind === "withdrawal") cur.withdrawals += amt;
+    switch (String(l.kind)) {
+      case "deposit": cur.deposits += amt; break;
+      case "withdrawal": cur.withdrawals += amt; break;
+      case "deploy": cur.deploys += amt; break;
+      case "settle": cur.settles += amt; break;
+      case "adjust": cur.adjusts += amt; break;
+      case "reserve": cur.reserves += amt; break;
+      case "cancel": cur.cancels += amt; break;
+      default: break;
+    }
     ledgerBySlot.set(key, cur);
   }
 
@@ -252,19 +274,39 @@ async function auditBalanceReconciliation(): Promise<{
 
   for (const [strategyId, ledger] of ledgerBySlot.entries()) {
     auditedCount++;
-    const netDeposits = ledger.deposits - ledger.withdrawals;
     const realized = profitBySlot.get(strategyId) ?? 0;
-    const expectedEquity = netDeposits + realized;
 
-    // Verify equation holds without unexpected negative baseline
-    if (netDeposits <= 0 && realized === 0) {
+    // Starting capital = deposits + cancels (cancels return deployed cash)
+    const startingCapital = ledger.deposits - ledger.withdrawals + ledger.cancels;
+
+    // Verify the closed-loop equation:
+    //   Starting Capital + Net Realized P&L = Current Settled Value
+    // Current settled value = settles + adjusts + reserves + startingCapital + deploys
+    // (deploys are negative — cash moved into positions; settles bring it back)
+    const ledgerSum =
+      ledger.deposits + ledger.withdrawals + ledger.deploys + ledger.settles +
+      ledger.adjusts + ledger.reserves + ledger.cancels;
+    const expectedEquity = startingCapital + realized;
+    const leak = Math.abs(ledgerSum - expectedEquity);
+
+    // $0.01 tolerance for floating-point rounding
+    if (leak > 0.01) {
       violationCount++;
+      discrepancies.push({
+        category: "balance_leak",
+        severity: "error",
+        identifier: `Strategy ${strategyId}`,
+        expected: `$${expectedEquity.toFixed(2)}`,
+        actual: `$${ledgerSum.toFixed(2)}`,
+        reason: `Balance leak detected: ledger entries sum to $${ledgerSum.toFixed(2)} but Starting Capital ($${startingCapital.toFixed(2)}) + Net Realized P&L ($${realized.toFixed(2)}) = $${expectedEquity.toFixed(2)}. Discrepancy: $${leak.toFixed(2)}.`,
+      });
+    } else if (startingCapital <= 0 && realized === 0) {
       discrepancies.push({
         category: "balance_leak",
         severity: "warning",
         identifier: `Strategy ${strategyId}`,
         expected: "Positive starting allocation",
-        actual: `$${netDeposits.toFixed(2)}`,
+        actual: `$${startingCapital.toFixed(2)}`,
         reason: "Strategy ledger has zero or negative allocated capital.",
       });
     }
@@ -279,7 +321,7 @@ async function auditBalanceReconciliation(): Promise<{
       verdict: errors > 0 ? "FAIL" : warnings > 0 ? "WARNING" : "PASS",
       auditedCount,
       violationCount: errors,
-      summary: `Verified capital equation (Deposits + Net P&L) across ${auditedCount} paper books ($0.00 leak tolerance).`,
+      summary: `Verified capital equation (Starting Capital + Net P&L = Ledger Sum) across ${auditedCount} paper books ($0.01 leak tolerance).`,
     },
     discrepancies,
   };
