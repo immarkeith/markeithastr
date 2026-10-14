@@ -13,6 +13,9 @@
  * Server-only.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { positionDayPnl } from "./pnl";
+import { readAllPages } from "./db-pages.server";
+import { saleCash } from "./ledger-accounting";
 
 import { evaluateLadder, STANDARD_DOLLARS, type LadderState } from "./capital.server";
 import {
@@ -354,7 +357,7 @@ async function ensureTestCash(slot: RaceSlot, needed: number): Promise<void> {
   if (cash.saved > 0.01) {
     await supabaseAdmin.from("ledger_entries").insert({
       strategy_id: slot.strategy_id,
-      kind: "deposit",
+      kind: "settle",
       amount: Number(cash.saved.toFixed(2)),
       available_on: today(),
       note: "Released saved paper profit back into the test",
@@ -544,38 +547,18 @@ async function closeSlotTrade(
   // This affects when the money is spendable — never whether the stock closed.
   const availableOn = settlementDate(today(), settlementDays);
 
-  const rows: Record<string, unknown>[] = [
-    {
-      kind: "settle",
-      amount: Number((dollars + Math.min(profit, 0)).toFixed(2)),
-      available_on: availableOn,
-      trade_id: trade['id'],
-      strategy_id: slot.strategy_id,
-      note: `[${slot.name}] paper sell ${trade['ticker']} @ ${price.toFixed(2)} (P&L ${profit.toFixed(2)})`,
-    },
-  ];
-  if (profit > 0) {
-    rows.push({
-      kind: "reserve",
-      amount: Number(kept.toFixed(2)),
-      available_on: availableOn,
-      trade_id: trade['id'],
-      strategy_id: slot.strategy_id,
-      note: `[${slot.name}] saved profit`,
-    });
-    const rest = profit - kept;
-    if (rest > 0.004) {
-      rows.push({
-        kind: "settle",
-        amount: Number(rest.toFixed(2)),
-        available_on: availableOn,
-        trade_id: trade['id'],
-        strategy_id: slot.strategy_id,
-        note: `[${slot.name}] profit returned to the stake pool`,
-      });
-    }
-  }
-  await supabaseAdmin.from("ledger_entries").insert(rows as never);
+  const cash = saleCash(dollars, profit, kept);
+  const rows: Record<string, unknown>[] = [{
+    kind: "settle", amount: cash.settle, available_on: availableOn,
+    trade_id: trade['id'], strategy_id: slot.strategy_id,
+    note: `[${slot.name}] paper sell ${trade['ticker']} @ ${price.toFixed(2)} (P&L ${profit.toFixed(2)})`,
+  }];
+  if (cash.reserve > 0) rows.push({
+    kind: "reserve", amount: cash.reserve, available_on: availableOn,
+    trade_id: trade['id'], strategy_id: slot.strategy_id, note: `[${slot.name}] saved profit`,
+  });
+  const { error: ledgerError } = await supabaseAdmin.from("ledger_entries").insert(rows as never);
+  if (ledgerError) throw new Error(ledgerError.message);
   return Number(profit.toFixed(2));
 }
 
@@ -971,7 +954,7 @@ async function markToMarket(entrants: RaceEntrant[]): Promise<void> {
       // Bought today? The whole move is today's. Carried overnight? Only the
       // move since yesterday's close counts as today.
       const from = h.entry_date === day ? h.entry_price : h.prev_close;
-      h.today_pl = Number((h.dollars * (price / from - 1)).toFixed(2));
+      h.today_pl = positionDayPnl(h.dollars / h.entry_price, price, from);
       unrealized += h.pl;
       todays += h.today_pl;
       atWork += h.dollars;
@@ -1097,27 +1080,10 @@ export async function raceStandings(): Promise<{
     const [ledger, open, closedRows, sameDayRows] = await Promise.all([
       slotLedger(slot.strategy_id),
       slotOpenTrades(slot.strategy_id),
-      supabaseAdmin
-        .from("trades")
-        .select("ticker, entry_date, exit_date, dollars, profit, status")
-        .eq("strategy_id", slot.strategy_id)
-        .order("entry_date", { ascending: true })
-        .limit(400),
-      supabaseAdmin
-        .from("trades")
-        .select("entry_date, same_day_profit")
-        .eq("strategy_id", slot.strategy_id)
-        .not("same_day_profit", "is", null)
-        .order("entry_date", { ascending: true })
-        .limit(400),
+      readAllPages((from, to) => supabaseAdmin.from("trades").select("ticker, entry_date, exit_date, dollars, profit, status").eq("mode", "paper").eq("strategy_id", slot.strategy_id).eq("status", "closed").order("entry_date").order("id").range(from, to)),
+      readAllPages((from, to) => supabaseAdmin.from("trades").select("entry_date, same_day_profit").eq("mode", "paper").eq("strategy_id", slot.strategy_id).not("same_day_profit", "is", null).order("entry_date").order("id").range(from, to)),
     ]);
-    const closed = (closedRows.data ?? [])
-      .filter((r) => r.status === "closed" && r.exit_date)
-      .map((r) => ({
-        exit_date: String(r.exit_date),
-        entry_date: String(r.entry_date ?? r.exit_date),
-        profit: Number(r.profit ?? 0),
-      }));
+    const closed = closedRows.filter((r) => r.exit_date).map((r) => ({ exit_date: String(r.exit_date), entry_date: r.entry_date, profit: Number(r.profit ?? 0) }));
 
     const ranked = rankings.get(slot.id) ?? [];
     const closes = await latestCloses(open.map((t) => String(t.ticker)));
@@ -1126,7 +1092,7 @@ export async function raceStandings(): Promise<{
     const next = ranked.find((r) => r.tradeable && !heldTickers.has(r.ticker)) ?? null;
     const deposits = depositsOf(ledger);
     const sameDay = horizonStats(
-      ((sameDayRows.data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      (sameDayRows as unknown as Record<string, unknown>[]).map((r) => ({
         date: String(r['entry_date']),
         profit: Number(r['same_day_profit'] ?? 0),
       })),
@@ -1178,21 +1144,13 @@ export async function raceStandings(): Promise<{
         .eq("id", base.active_strategy_id)
         .maybeSingle()
     : { data: null };
-  const { data: liveClosedRows } = await supabaseAdmin
-    .from("trades")
-    .select("exit_date, profit")
-    .is("strategy_id", null)
-    .eq("status", "closed")
-    .order("exit_date", { ascending: true })
-    .limit(400);
-  const liveClosed = (liveClosedRows ?? []).map((r) => ({
-    exit_date: String(r.exit_date),
-    profit: Number(r.profit ?? 0),
-  }));
+  const liveClosedRows = await readAllPages((from, to) => supabaseAdmin.from("trades").select("exit_date, profit").eq("mode", "live").is("strategy_id", null).eq("status", "closed").order("exit_date").order("id").range(from, to));
+  const liveClosed = liveClosedRows.map((r) => ({ exit_date: String(r.exit_date), profit: Number(r.profit ?? 0) }));
   const liveWins = liveClosed.filter((c) => c.profit > 0).length;
   const { data: liveOpen } = await supabaseAdmin
     .from("trades")
     .select("ticker, entry_price, dollars, entry_date")
+    .eq("mode", "live")
     .is("strategy_id", null)
     .eq("status", "open");
   const liveCloses = await latestCloses((liveOpen ?? []).map((t) => String(t.ticker)));
@@ -1295,6 +1253,7 @@ export async function maybeSuggestSwitch(): Promise<string | null> {
   )}`;
   await notify({
     kind: "theme",
+    meta: { source: "research" },
     title: `${standings.suggestion.name} is beating the live strategy`,
     body: `Over ${standings.days_running} days of paper testing it is ahead by $${standings.suggestion.edge.toFixed(
       2,

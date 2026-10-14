@@ -5,6 +5,7 @@ import { buildPushPayload } from "@block65/webcrypto-web-push";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { THEMES, THEME_TICKERS } from "./themes";
+import { shouldNotify } from "./notification-policy";
 
 export interface NewNotification {
   kind: string;
@@ -106,7 +107,7 @@ export const NOTIFY_CATEGORIES = [
     column: "notify_swing",
     label: "Longer-term hold ideas",
     hint: "Swing candidates that keep ranking top-10 without ever being the single best pick.",
-    kinds: ["swing-hold"],
+    kinds: ["swing-hold", "long-term-review"],
   },
   {
     column: "notify_theme",
@@ -117,7 +118,7 @@ export const NOTIFY_CATEGORIES = [
   {
     column: "notify_trades",
     label: "Entries & exits",
-    hint: "Every simulated or live entry and exit the rules take.",
+    hint: "Confirmed live entries and exits only — research and paper data stay in the Lab.",
     kinds: ["entry", "exit", "paper-entry", "paper-exit", "trade"],
   },
   {
@@ -139,6 +140,7 @@ function categoryColumn(kind: string): string | null {
 
 /** Insert a feed item (deduped) and push it to the phone. */
 export async function notify(input: NewNotification): Promise<boolean> {
+  if (!shouldNotify(input)) return false;
   const column = categoryColumn(input.kind);
   if (column) {
     const { data: prefs } = await supabaseAdmin

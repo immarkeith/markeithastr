@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
+import { graphRefreshPolicy } from "./refresh-policy";
 
 import {
   fetchCapitalLadder,
@@ -182,8 +183,7 @@ export const dashboardQuery = queryOptions({
     const { fetchDashboard } = await import("@/lib/data.functions");
     return fetchDashboard();
   },
-  // Keep the LIVE graph's current-position label from lingering after a sale.
-  refetchInterval: 10_000,
+  ...graphRefreshPolicy,
 });
 
 export const tradeHistoryQuery = queryOptions({

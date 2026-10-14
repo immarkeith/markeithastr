@@ -7,13 +7,16 @@
  *  2. Immutable Scoreboard Recalculation: Independently computes win rate, P&L,
  *     and profit factor from raw immutable trade rows to prevent reporting drift.
  *  3. Closed-Loop Balance Reconciliation: Proves Starting Capital + Net Realized P&L
- *     equals Current Settled Balance to the exact penny ($0.00 leak tolerance).
+ *     equals cash (settled + pending + reserves) plus open cost basis.
+ *     Books are mode-isolated and use integer cents with a $0.01 tolerance.
  *  4. Randomized Look-Ahead Bias Validation: Audits past signals to ensure they
  *     strictly used data known on or before that date, never leaking future bars.
  *
  * Server-only.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { readAllPages } from "./db-pages.server";
+import { reconcileBooks, reconstructedProfit } from "./ledger-accounting";
 
 export type AuditVerdict = "PASS" | "WARNING" | "FAIL";
 
@@ -62,11 +65,12 @@ async function auditTradeReconstruction(lookbackDays = 60): Promise<{
     .order("entry_date", { ascending: false })
     .limit(100);
 
-  if (tradeErr || !trades || trades.length === 0) {
+  if (tradeErr) throw new Error(tradeErr.message);
+  if (!trades || trades.length === 0) {
     return {
       pillar: {
         name: "Raw-Bar Reconstruction",
-        verdict: "PASS",
+        verdict: "WARNING",
         auditedCount: 0,
         violationCount: 0,
         summary: "No recent trades within window to reconstruct.",
@@ -77,18 +81,19 @@ async function auditTradeReconstruction(lookbackDays = 60): Promise<{
 
   // Fetch bars matching these tickers and dates
   const tickers = [...new Set(trades.map((t) => t.ticker))];
-    const dates = [
+  const dates = [
     ...new Set(
       trades.flatMap((t) => [t.entry_date, t.exit_date].filter((d): d is string => Boolean(d))),
     ),
   ];
 
-  const { data: bars } = await supabaseAdmin
+  const { data: bars, error: barErr } = await supabaseAdmin
     .from("daily_bars")
     .select("ticker, bar_date, high, low, open, close")
     .in("ticker", tickers)
     .in("bar_date", dates);
 
+  if (barErr) throw new Error(barErr.message);
   const barMap = new Map<string, { high: number; low: number; open: number; close: number }>();
   for (const b of bars ?? []) {
     barMap.set(`${b.ticker}_${b.bar_date}`, {
@@ -117,6 +122,30 @@ async function auditTradeReconstruction(lookbackDays = 60): Promise<{
       continue;
     }
 
+    if (t.exit_date && t.exit_price !== null) {
+      const exitBar = barMap.get(`${t.ticker}_${t.exit_date}`);
+      if (!exitBar)
+        discrepancies.push({
+          category: "fill_reconstruction",
+          severity: "warning",
+          identifier: `Trade ${t.id} (${t.ticker})`,
+          expected: "Exit bar",
+          actual: "Missing",
+          reason: "Cannot verify exit without an authentic bar.",
+        });
+      else if (
+        Number(t.exit_price) < exitBar.low * 0.995 ||
+        Number(t.exit_price) > exitBar.high * 1.005
+      )
+        discrepancies.push({
+          category: "fill_reconstruction",
+          severity: "error",
+          identifier: `Trade ${t.id} (${t.ticker})`,
+          expected: `[${exitBar.low}, ${exitBar.high}]`,
+          actual: Number(t.exit_price),
+          reason: "Exit fill is outside authentic session bounds.",
+        });
+    }
     const entryPrice = Number(t.entry_price);
     // Allow standard 0.5% tolerance for slippage / market orders
     if (entryPrice < entryBar.low * 0.995 || entryPrice > entryBar.high * 1.005) {
@@ -131,7 +160,12 @@ async function auditTradeReconstruction(lookbackDays = 60): Promise<{
     }
 
     // Same-day calendar precision check
-    if (t.position_type === "SAME_DAY" && t.exit_date && t.exit_date !== t.entry_date) {
+    if (
+      t.position_type === "SAME_DAY" &&
+      Number(t.hold_days ?? 0) <= 1 &&
+      t.exit_date &&
+      t.exit_date !== t.entry_date
+    ) {
       discrepancies.push({
         category: "fill_reconstruction",
         severity: "error",
@@ -165,49 +199,56 @@ async function auditStatsRecalculation(): Promise<{
 }> {
   const discrepancies: Discrepancy[] = [];
 
-  // Group closed trades by strategy_id
-  const { data: closedTrades } = await supabaseAdmin
-    .from("trades")
-    .select("strategy_id, profit, dollars, status")
-    .eq("status", "closed");
-
-  const tradesBySlot = new Map<string, { totalProfit: number; wins: number; total: number }>();
-
-  for (const t of closedTrades ?? []) {
-    const key = t.strategy_id || "live";
-    const cur = tradesBySlot.get(key) ?? { totalProfit: 0, wins: 0, total: 0 };
-    const profit = Number(t.profit ?? 0);
-    cur.totalProfit += profit;
-    if (profit > 0) cur.wins += 1;
-    cur.total += 1;
-    tradesBySlot.set(key, cur);
-  }
-
-  let auditedCount = tradesBySlot.size;
-  let violationCount = 0;
-
-  for (const [strategyId, stats] of tradesBySlot.entries()) {
-    const winRate = stats.total > 0 ? (stats.wins / stats.total) * 100 : 0;
-    if (winRate < 0 || winRate > 100) {
-      violationCount++;
+  const closedTrades = await readAllPages((from, to) =>
+    supabaseAdmin
+      .from("trades")
+      .select("id, strategy_id, mode, profit, dollars, entry_price, exit_price, filled_qty")
+      .eq("status", "closed")
+      .order("id")
+      .range(from, to),
+  );
+  const books = new Set<string>();
+  let total = 0;
+  let wins = 0;
+  let grossWins = 0;
+  let grossLosses = 0;
+  for (const trade of closedTrades) {
+    books.add(`${trade.mode}:${trade.strategy_id ?? "unassigned"}`);
+    try {
+      if (trade.exit_price === null) throw new Error("Closed trade has no exit price");
+      const expected = reconstructedProfit({ ...trade, exit_price: trade.exit_price });
+      if (trade.profit === null || Math.abs(expected - Number(trade.profit)) > 0.01)
+        discrepancies.push({
+          category: "scoreboard_drift",
+          severity: "error",
+          identifier: `Trade ${trade.id}`,
+          expected,
+          actual: trade.profit ?? "Missing",
+          reason: "Stored profit disagrees with the independently reconstructed fill arithmetic.",
+        });
+      total += expected;
+      if (expected > 0) {
+        wins++;
+        grossWins += expected;
+      } else grossLosses -= expected;
+    } catch (error) {
       discrepancies.push({
         category: "scoreboard_drift",
         severity: "error",
-        identifier: `Strategy ${strategyId}`,
-        expected: "Win rate in [0, 100]",
-        actual: winRate,
-        reason: "Mathematically impossible win rate calculation.",
+        identifier: `Trade ${trade.id}`,
+        expected: "Valid fill arithmetic",
+        actual: "Incomplete",
+        reason: error instanceof Error ? error.message : "Invalid trade",
       });
     }
   }
-
   return {
     pillar: {
       name: "Immutable Stats Recalculation",
-      verdict: violationCount > 0 ? "FAIL" : "PASS",
-      auditedCount,
-      violationCount,
-      summary: `Audited ${auditedCount} strategy tracks across ${(closedTrades ?? []).length} immutable closed trade rows.`,
+      verdict: discrepancies.length ? "FAIL" : closedTrades.length ? "PASS" : "WARNING",
+      auditedCount: closedTrades.length,
+      violationCount: discrepancies.length,
+      summary: `Reconstructed ${closedTrades.length} closed trades in ${books.size} mode-isolated tracks. Aggregate P&L $${total.toFixed(2)}, win rate ${closedTrades.length ? ((wins / closedTrades.length) * 100).toFixed(2) : "N/A"}%, profit factor ${grossLosses ? (grossWins / grossLosses).toFixed(2) : "N/A (no losses)"}. Aggregates here are audit diagnostics, never live dashboard P&L.`,
     },
     discrepancies,
   };
@@ -220,108 +261,42 @@ async function auditBalanceReconciliation(): Promise<{
 }> {
   const discrepancies: Discrepancy[] = [];
 
-  // Get all ledger entries and group by strategy_id.
-  // Include available_on so we can distinguish settled vs pending cash.
-  const { data: ledgers } = await supabaseAdmin
-    .from("ledger_entries")
-    .select("strategy_id, kind, amount, available_on");
-
-  const ledgerBySlot = new Map<
-    string,
-    {
-      deposits: number;
-      withdrawals: number;
-      deploys: number;
-      settles: number;
-      adjusts: number;
-      reserves: number;
-      cancels: number;
-    }
-  >();
-  for (const l of ledgers ?? []) {
-    const key = l.strategy_id || "live";
-    const cur = ledgerBySlot.get(key) ?? {
-      deposits: 0, withdrawals: 0, deploys: 0, settles: 0, adjusts: 0, reserves: 0, cancels: 0,
-    };
-    const amt = Number(l.amount);
-    switch (String(l.kind)) {
-      case "deposit": cur.deposits += amt; break;
-      case "withdrawal": cur.withdrawals += amt; break;
-      case "deploy": cur.deploys += amt; break;
-      case "settle": cur.settles += amt; break;
-      case "adjust": cur.adjusts += amt; break;
-      case "reserve": cur.reserves += amt; break;
-      case "cancel": cur.cancels += amt; break;
-      default: break;
-    }
-    ledgerBySlot.set(key, cur);
-  }
-
-  // Get total realized profit per strategy
-  const { data: closedTrades } = await supabaseAdmin
-    .from("trades")
-    .select("strategy_id, profit")
-    .eq("status", "closed");
-
-  const profitBySlot = new Map<string, number>();
-  for (const t of closedTrades ?? []) {
-    const key = t.strategy_id || "live";
-    profitBySlot.set(key, (profitBySlot.get(key) ?? 0) + Number(t.profit ?? 0));
-  }
-
-  let auditedCount = 0;
-  let violationCount = 0;
-
-  for (const [strategyId, ledger] of ledgerBySlot.entries()) {
-    auditedCount++;
-    const realized = profitBySlot.get(strategyId) ?? 0;
-
-    // Starting capital = deposits + cancels (cancels return deployed cash)
-    const startingCapital = ledger.deposits - ledger.withdrawals + ledger.cancels;
-
-    // Verify the closed-loop equation:
-    //   Starting Capital + Net Realized P&L = Current Settled Value
-    // Current settled value = settles + adjusts + reserves + startingCapital + deploys
-    // (deploys are negative — cash moved into positions; settles bring it back)
-    const ledgerSum =
-      ledger.deposits + ledger.withdrawals + ledger.deploys + ledger.settles +
-      ledger.adjusts + ledger.reserves + ledger.cancels;
-    const expectedEquity = startingCapital + realized;
-    const leak = Math.abs(ledgerSum - expectedEquity);
-
-    // $0.01 tolerance for floating-point rounding
-    if (leak > 0.01) {
-      violationCount++;
+  const [ledgers, trades] = await Promise.all([
+    readAllPages((from, to) =>
+      supabaseAdmin
+        .from("ledger_entries")
+        .select("strategy_id, kind, amount")
+        .order("id")
+        .range(from, to),
+    ),
+    readAllPages((from, to) =>
+      supabaseAdmin
+        .from("trades")
+        .select("strategy_id, mode, status, profit, dollars, status_note")
+        .order("id")
+        .range(from, to),
+    ),
+  ]);
+  const books = reconcileBooks(ledgers, trades);
+  for (const book of books) {
+    if (Math.abs(book.difference) > 0.01) {
       discrepancies.push({
         category: "balance_leak",
         severity: "error",
-        identifier: `Strategy ${strategyId}`,
-        expected: `$${expectedEquity.toFixed(2)}`,
-        actual: `$${ledgerSum.toFixed(2)}`,
-        reason: `Balance leak detected: ledger entries sum to $${ledgerSum.toFixed(2)} but Starting Capital ($${startingCapital.toFixed(2)}) + Net Realized P&L ($${realized.toFixed(2)}) = $${expectedEquity.toFixed(2)}. Discrepancy: $${leak.toFixed(2)}.`,
-      });
-    } else if (startingCapital <= 0 && realized === 0) {
-      discrepancies.push({
-        category: "balance_leak",
-        severity: "warning",
-        identifier: `Strategy ${strategyId}`,
-        expected: "Positive starting allocation",
-        actual: `$${startingCapital.toFixed(2)}`,
-        reason: "Strategy ledger has zero or negative allocated capital.",
+        identifier: `Book ${book.key}`,
+        expected: `$${book.expected.toFixed(2)}`,
+        actual: `$${book.actual.toFixed(2)}`,
+        reason: `Signed funding and adjustments ($${book.netFunding.toFixed(2)}) + realized P&L ($${book.realized.toFixed(2)}) must equal all cash ($${book.cash.toFixed(2)}) + open cost basis ($${book.openCost.toFixed(2)}). Difference: $${book.difference.toFixed(2)}. Pending cash and reserves are included; historical research is excluded.`,
       });
     }
   }
-
-  const errors = discrepancies.filter((d) => d.severity === "error").length;
-  const warnings = discrepancies.filter((d) => d.severity === "warning").length;
-
   return {
     pillar: {
       name: "Closed-Loop Balance Reconciliation",
-      verdict: errors > 0 ? "FAIL" : warnings > 0 ? "WARNING" : "PASS",
-      auditedCount,
-      violationCount: errors,
-      summary: `Verified capital equation (Starting Capital + Net P&L = Ledger Sum) across ${auditedCount} paper books ($0.01 leak tolerance).`,
+      verdict: discrepancies.length ? "FAIL" : books.length ? "PASS" : "WARNING",
+      auditedCount: books.length,
+      violationCount: discrepancies.length,
+      summary: `Reconciled ${books.length} isolated live/paper books: signed funding + realized P&L = cash + open cost basis ($0.01 tolerance). Adjustments are explicit funding; reserves are counted once.`,
     },
     discrepancies,
   };
@@ -335,17 +310,28 @@ async function auditLookaheadBias(sampleCount = 10): Promise<{
   const discrepancies: Discrepancy[] = [];
 
   // Sample historical verification reports to audit point-in-time boundaries
-  const { data: reports } = await supabaseAdmin
+  const { data: reports, error: reportErr } = await supabaseAdmin
     .from("verification_reports")
     .select("id, ticker, signal_date, history_end")
     .order("created_at", { ascending: false })
     .limit(sampleCount);
 
+  if (reportErr) throw new Error(reportErr.message);
   let auditedCount = 0;
   let violationCount = 0;
 
   for (const r of reports ?? []) {
     auditedCount++;
+    if (!r.history_end || !r.signal_date) {
+      discrepancies.push({
+        category: "lookahead_bias",
+        severity: "warning",
+        identifier: `Report ${r.id}`,
+        expected: "Recorded point-in-time boundaries",
+        actual: "Missing",
+        reason: "This report cannot be checked for lookahead without both dates.",
+      });
+    }
     if (r.history_end && r.signal_date && r.history_end > r.signal_date) {
       violationCount++;
       discrepancies.push({
@@ -362,7 +348,8 @@ async function auditLookaheadBias(sampleCount = 10): Promise<{
   return {
     pillar: {
       name: "Look-Ahead Bias Validation",
-      verdict: violationCount > 0 ? "FAIL" : "PASS",
+      verdict:
+        violationCount > 0 ? "FAIL" : !auditedCount || discrepancies.length ? "WARNING" : "PASS",
       auditedCount,
       violationCount,
       summary: `${auditedCount} historical evaluation records checked for point-in-time calendar purity.`,
@@ -373,11 +360,41 @@ async function auditLookaheadBias(sampleCount = 10): Promise<{
 
 // ------------------------------------------------------------- Master Self-Audit Runner
 export async function runLeadSelfAudit(): Promise<LeadAuditReport> {
+  // Missing tables, credentials and failed reads must never become a PASS.
+  const checked = async (
+    name: string,
+    category: Discrepancy["category"],
+    run: () => Promise<{ pillar: PillarResult; discrepancies: Discrepancy[] }>,
+  ) => {
+    try {
+      return await run();
+    } catch (error) {
+      return {
+        pillar: {
+          name,
+          verdict: "FAIL" as const,
+          auditedCount: 0,
+          violationCount: 1,
+          summary: "Audit could not read its evidence.",
+        },
+        discrepancies: [
+          {
+            category,
+            severity: "error" as const,
+            identifier: name,
+            expected: "Readable audit evidence",
+            actual: "Unavailable",
+            reason: error instanceof Error ? error.message : "Audit failed",
+          },
+        ],
+      };
+    }
+  };
   const [reconstruction, statsRecalc, balanceReconcile, lookahead] = await Promise.all([
-    auditTradeReconstruction(60),
-    auditStatsRecalculation(),
-    auditBalanceReconciliation(),
-    auditLookaheadBias(15),
+    checked("Raw-Bar Reconstruction", "fill_reconstruction", () => auditTradeReconstruction(60)),
+    checked("Immutable Stats Recalculation", "scoreboard_drift", auditStatsRecalculation),
+    checked("Closed-Loop Balance Reconciliation", "balance_leak", auditBalanceReconciliation),
+    checked("Look-Ahead Bias Validation", "lookahead_bias", () => auditLookaheadBias(15)),
   ]);
 
   const allDiscrepancies = [

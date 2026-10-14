@@ -4,6 +4,16 @@
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
   "secrets": [
     {
+      "name": "SUPABASE_URL",
+      "description": "Plain project URL from Supabase Project Settings → API. Must match the supplied server and publishable keys.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "SUPABASE_PUBLISHABLE_KEY",
+      "description": "Publishable/anon API key from the same Supabase project as SUPABASE_URL.",
+      "requiredAtBoot": true
+    },
+    {
       "name": "SUPABASE_SERVICE_ROLE_KEY",
       "description": "Supabase service role key for server-side admin access. Find in Supabase dashboard → Project Settings → API.",
       "requiredAtBoot": true

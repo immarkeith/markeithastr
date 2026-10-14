@@ -3,65 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { money } from "@/lib/queries";
 import { marketStatus } from "@/lib/market-calendar";
 
-export interface PnlRange {
-  key: string;
-  label: string;
-  /** Window length in days, counting back from today. */
-  days: number;
-  /** Today only, and always includes today's open-position move. */
-  live?: boolean;
-  /** Ends yesterday — a finished session, so open positions are excluded. */
-  endYesterday?: boolean;
-  /**
-   * A real calendar period instead of a rolling day count:
-   *   week    — the current week, from its first day through today
-   *   month   — the 1st of this month through today
-   *   months3 — this month plus the two whole months before it
-   */
-  calendar?: "week" | "month" | "months3" | "ytd";
-  /** Display resolution only — never limits research or holding periods. */
-  weekly?: boolean;
-}
-
-/**
- * Short labels only — LIVE, 1W, 1M, 3M. The windows themselves are still real
- * calendar periods: this week, this month, this month plus the two before it.
- */
-export const HOME_RANGES: PnlRange[] = [
-  { key: "live", label: "Today", days: 1, live: true },
-  { key: "week", label: "1W", days: 7 },
-  { key: "month", label: "1M", days: 31 },
-  { key: "months3", label: "3M", days: 92 },
-  { key: "ytd", label: "YTD", days: 366, calendar: "ytd" },
-  { key: "year", label: "1Y", days: 365 },
-  { key: "years5", label: "5Y", days: 1826, weekly: true },
-  { key: "all", label: "All", days: 36500, weekly: true },
-];
-
-/** The Research Lab reads the same calendar periods as the live graph. */
-export const LAB_RANGES: PnlRange[] = HOME_RANGES;
-
-const isoDaysAgo = (n: number) => {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
-};
-
-/** First day of a calendar period, as an ISO date. */
-function calendarStart(kind: "week" | "month" | "months3" | "ytd"): string {
-  const today = isoDaysAgo(0);
-  if (kind === "ytd") return `${today.slice(0, 4)}-01-01`;
-  if (kind === "week") {
-    const d = new Date(`${today}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - d.getUTCDay());
-    return d.toISOString().slice(0, 10);
-  }
-  if (kind === "month") return `${today.slice(0, 7)}-01`;
-  // This month plus the two immediately preceding whole months.
-  const d = new Date(`${today.slice(0, 7)}-01T00:00:00Z`);
-  d.setUTCMonth(d.getUTCMonth() - 2);
-  return d.toISOString().slice(0, 10);
-}
+import { HOME_RANGES, pnlSeries, tradingDate, type PnlRange } from "@/lib/pnl";
+export { HOME_RANGES, LAB_RANGES } from "@/lib/pnl";
+export type { PnlRange } from "@/lib/pnl";
 
 /**
  * Profit/loss over a chosen window: realised profit from closed trades, plus
@@ -127,6 +71,7 @@ export function PnlChart({
    */
   activeTicker?: string | null;
 }) {
+  const [today, setToday] = useState(() => tradingDate());
   const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
   const [marketOpen, setMarketOpen] = useState(() => {
     const state = marketStatus().state;
@@ -134,6 +79,7 @@ export function PnlChart({
   });
   useEffect(() => {
     const update = () => {
+      setToday(tradingDate());
       const state = marketStatus().state;
       setMarketOpen(state === "open" || state === "closing");
     };
@@ -154,105 +100,20 @@ export function PnlChart({
   // Same-day only: never show a held ticker outside the regular session.
   const shownActiveTicker = marketOpen ? (activeTicker ?? null) : null;
 
-  const window = useMemo(() => {
-    const today = isoDaysAgo(0);
-    if (active.calendar) {
-      return { today, from: calendarStart(active.calendar), until: today };
-    }
-    const from = active.endYesterday ? isoDaysAgo(active.days) : isoDaysAgo(active.days - 1);
-    const until = active.endYesterday ? isoDaysAgo(1) : today;
-    return { today, from, until };
-  }, [active]);
-
-  const daily = useMemo(() => {
-    // Long ranges group by week so the line stays readable on a phone.
-    const bucket = (day: string) => {
-      if (!active.weekly) return day;
-      const d = new Date(`${day}T00:00:00Z`);
-      d.setUTCDate(d.getUTCDate() - d.getUTCDay());
-      return d.toISOString().slice(0, 10);
-    };
-        const build = (
-      source: { exit_date: string | null; entry_date?: string | null; profit: number }[],
-      open: number,
-    ): Map<string, number> => {
-      const byDay = new Map<string, number>();
-      for (const row of source) {
-        if (!row.exit_date || row.exit_date < window.from || row.exit_date > window.until) continue;
-        const key = bucket(row.exit_date);
-        const value =
-          percent && basis > 0 ? (Number(row.profit ?? 0) / basis) * 100 : Number(row.profit ?? 0);
-        byDay.set(key, (byDay.get(key) ?? 0) + value);
-      }
-      if (open !== 0) {
-        const key = bucket(window.today);
-        const openValue = percent && basis > 0 ? (open / basis) * 100 : open;
-        byDay.set(key, (byDay.get(key) ?? 0) + openValue);
-      }
-      return byDay;
-    };
-
-    const open = active.endYesterday ? 0 : active.live ? unrealizedToday : unrealized;
-    return {
-      primary: build(rows, open),
-      compare: compareRows ? build(compareRows, 0) : null,
-      secondary: secondaryRows
-        ? build(secondaryRows, active.endYesterday ? 0 : secondaryOpen)
-        : null,
-    };
-  }, [
-    rows,
-    compareRows,
-    secondaryRows,
-    secondaryOpen,
-    window,
-    active,
-    unrealized,
-    unrealizedToday,
-    percent,
-    basis,
-  ]);
-
-  // Generate a continuous date timeline so windows with few closed trades
-  // still render a continuous mark-to-market curve instead of a flat 1-point collapse.
-  const days = useMemo(() => {
-    const list: string[] = [];
-    const cur = new Date(`${window.from}T00:00:00Z`);
-    const end = new Date(`${window.until}T00:00:00Z`);
-    const stepDays = active.weekly ? 7 : active.days > 90 ? 2 : 1;
-
-    while (cur <= end) {
-      const iso = cur.toISOString().slice(0, 10);
-      list.push(iso);
-      cur.setUTCDate(cur.getUTCDate() + stepDays);
-    }
-    if (list[list.length - 1] !== window.until) {
-      list.push(window.until);
-    }
-
-    // Merge any trade exit dates outside or within the stepped grid
-    const all = new Set<string>([
-      ...list,
-      ...daily.primary.keys(),
-      ...(daily.compare?.keys() ?? []),
-      ...(daily.secondary?.keys() ?? []),
-    ]);
-    return [...all].sort();
-  }, [window, active, daily]);
-
-  const cumulate = (byDay: Map<string, number> | null) => {
-    if (!byDay) return null;
-    let running = 0;
-    return days.map((day) => {
-      // Add realized profit on dates when it closed; otherwise carry prior equity forward
-      running += byDay.get(day) ?? 0;
-      return { day, daily: byDay.get(day) ?? 0, cumulative: Number(running.toFixed(2)) };
-    });
-  };
-
-  const series = cumulate(daily.primary) ?? [];
-  const compareSeries = cumulate(daily.compare);
-  const secondarySeries = cumulate(daily.secondary);
+  const series = useMemo(
+    () =>
+      pnlSeries(rows, active, today, active.live ? unrealizedToday : unrealized, basis, percent),
+    [rows, active, today, unrealized, unrealizedToday, basis, percent],
+  );
+  const compareSeries = useMemo(
+    () => (compareRows ? pnlSeries(compareRows, active, today, 0, basis, percent) : null),
+    [compareRows, active, today, basis, percent],
+  );
+  const secondarySeries = useMemo(
+    () =>
+      secondaryRows ? pnlSeries(secondaryRows, active, today, secondaryOpen, basis, percent) : null,
+    [secondaryRows, active, today, secondaryOpen, basis, percent],
+  );
 
   const total = series.length > 0 ? series[series.length - 1]!.cumulative : 0;
   const compareTotal =
@@ -294,11 +155,7 @@ export function PnlChart({
   // activity is blue. It follows the overall result for the selected range, not
   // the last day's wiggle. Solid versus dotted still tells the lines apart.
   const toneOf = (value: number | null) =>
-    value === null || value === 0
-      ? "text-live"
-      : value > 0
-        ? "text-success"
-        : "text-destructive";
+    value === null || value === 0 ? "text-live" : value > 0 ? "text-success" : "text-destructive";
   const fillOf = (value: number | null) =>
     value === null || value === 0 ? "bg-live" : value > 0 ? "bg-success" : "bg-destructive";
   const primaryStroke = toneOf(total);
@@ -306,9 +163,7 @@ export function PnlChart({
 
   return (
     <section
-      className={
-        compact ? "space-y-2" : "space-y-3 rounded-md border border-border bg-card p-4"
-      }
+      className={compact ? "space-y-2" : "space-y-3 rounded-md border border-border bg-card p-4"}
     >
       <div className="space-y-0.5">
         <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground">{title}</h2>
@@ -320,7 +175,7 @@ export function PnlChart({
               </p>
               <p className={`truncate text-lg font-bold tabular-nums ${toneOf(total)}`}>
                 {total >= 0 ? "+" : ""}
-                {money(total)}
+                {fmtTotal(total).replace(/^\+/, "")}
               </p>
             </div>
             <div className="min-w-0 px-2">
@@ -337,26 +192,32 @@ export function PnlChart({
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">
                 Today’s Active
               </p>
-              <p className={`truncate text-lg font-bold ${todayActiveTicker === "—" ? "text-muted-foreground" : "text-primary"}`}>
+              <p
+                className={`truncate text-lg font-bold ${todayActiveTicker === "—" ? "text-muted-foreground" : "text-primary"}`}
+              >
                 {todayActiveTicker}
               </p>
             </div>
           </div>
         ) : twoLine ? (
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
-            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(total)}`}>
+            <p
+              className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(total)}`}
+            >
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {primaryLabel ?? "Primary"}
               </span>
               {total >= 0 ? "+" : ""}
-              {money(total)}
+              {fmtTotal(total).replace(/^\+/, "")}
             </p>
-            <p className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(compareTotal)}`}>
+            <p
+              className={`font-bold tabular-nums ${compact ? "text-lg" : "text-2xl"} ${toneOf(compareTotal)}`}
+            >
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {compareLabel ?? "Same-Day"}
               </span>
               {(compareTotal ?? 0) >= 0 ? "+" : ""}
-              {money(compareTotal ?? 0)}
+              {fmtTotal(compareTotal ?? 0).replace(/^\+/, "")}
             </p>
           </div>
         ) : activeTicker !== undefined ? (
@@ -372,7 +233,9 @@ export function PnlChart({
             {fmtTotal(total)}
           </p>
         )}
-        <p className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : toneOf(total)}`}>
+        <p
+          className={`text-xs font-medium tabular-nums ${twoLine ? "text-muted-foreground" : toneOf(total)}`}
+        >
           {twoLine || total === 0 ? "" : up ? "▲ " : "▼ "}
           {pct === null || percent ? "" : `${Math.abs(pct).toFixed(2)}% · `}
           {active.label === "LIVE" ? "today, live" : active.label}
@@ -394,6 +257,8 @@ export function PnlChart({
             viewBox={`0 0 ${width} ${height}`}
             className={compact ? "h-20 w-full" : "h-32 w-full"}
             preserveAspectRatio="none"
+            role="img"
+            aria-label={`${title}: ${active.label}, ${fmtTotal(total)}`}
           >
             {/* Dotted break-even baseline, the way Robinhood draws it. */}
             <line
@@ -493,7 +358,9 @@ export function PnlChart({
               className={`inline-block h-0 w-5 border-t-2 border-dashed border-current ${toneOf(secondaryTotal)}`}
             />
             {secondaryLabel ?? "Long-Term P/L"}{" "}
-            {secondaryTotal === null ? "—" : `${secondaryTotal >= 0 ? "+" : ""}${money(secondaryTotal)}`}
+            {secondaryTotal === null
+              ? "—"
+              : `${secondaryTotal >= 0 ? "+" : ""}${money(secondaryTotal)}`}
           </span>
         </div>
       ) : null}
@@ -504,6 +371,7 @@ export function PnlChart({
             key={r.key}
             type="button"
             onClick={() => setRange(r.key)}
+            aria-pressed={r.key === range}
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
               r.key === range
                 ? `bg-foreground/10 ${twoLine ? "text-foreground" : tone}`
@@ -514,6 +382,11 @@ export function PnlChart({
           </button>
         ))}
       </div>
+
+      <p className="text-[10px] text-muted-foreground">
+        Realized results by exit date + current open-position P/L. Today uses only today’s
+        open-position move.
+      </p>
 
       {compact || series.length === 0 ? null : (
         <ul className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
@@ -535,4 +408,3 @@ export function PnlChart({
     </section>
   );
 }
-

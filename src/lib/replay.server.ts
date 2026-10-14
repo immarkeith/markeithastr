@@ -140,7 +140,8 @@ export async function runHistoryRebuildStep() {
 
   for (const day of stepDays) {
     const dayIdx = days.indexOf(day);
-    const pIdx = proxyIdx.get(day);
+    // The market context must use yesterday too; today's close is an outcome.
+    const pIdx = proxyIdx.get(days[dayIdx - 1] ?? "");
     const market = pIdx !== undefined ? marketContext(proxyBars, pIdx) : { roc20: 0, roc60: 0 };
     const back = pIdx !== undefined ? proxyBars[pIdx - 5]?.close : undefined;
     const marketRoc5 = pIdx !== undefined && back ? pct(proxyBars[pIdx]!.close, back) : 0;
@@ -256,17 +257,24 @@ export async function runHistoryRebuildStep() {
       if (error) throw new Error("trade insert failed: " + error.message);
     }
   }
-  if (predictions.length) await supabaseAdmin.from("research_horizon_predictions").upsert(predictions as never, { onConflict: "lane,ticker,prediction_date,horizon" });
-  if (examples.length) await supabaseAdmin.from("researcher_examples").upsert(examples as never, { onConflict: "lane,source,source_id,horizon" });
+  if (predictions.length) {
+    const { error } = await supabaseAdmin.from("research_horizon_predictions").upsert(predictions as never, { onConflict: "lane,ticker,prediction_date,horizon" });
+    if (error) throw new Error(error.message);
+  }
+  if (examples.length) {
+    const { error } = await supabaseAdmin.from("researcher_examples").upsert(examples as never, { onConflict: "lane,source,source_id,horizon" });
+    if (error) throw new Error(error.message);
+  }
 
   const next = start + stepDays.length;
   const done = next >= days.length;
   const total = state.trades + fresh.length;
-  await supabaseAdmin.from("research_runs").insert({
+  const { error: checkpointError } = await supabaseAdmin.from("research_runs").insert({
     kind: KIND, config: { step_days: STEP_DAYS },
     summary: { next, holds, done, trades: total, through: stepDays[stepDays.length - 1], version: VERSION },
     warnings: [],
   } as never);
+  if (checkpointError) throw new Error(checkpointError.message);
   return { done, processed: stepDays.length, total: days.length, position: next, through: stepDays[stepDays.length - 1], trades: total, firstDate: days[LOOKBACK] };
 }
 

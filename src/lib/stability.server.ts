@@ -15,9 +15,8 @@
  * 2. QUALIFICATION THRESHOLD — each researcher gets its OWN minimum fit bar,
  *    calibrated from its own evidence: the lowest score cutoff where its
  *    out-of-sample forward expectancy is positive with enough samples. It is a
- *    learned starting point, re-calibrated on every run — never a hardcoded
- *    constant. Stored on the researcher's own params so the Analyze tab can
- *    compare a stock's fit against that researcher's own bar.
+ *    advisory cutoff, re-calibrated on every run — never a hardcoded
+ *    constant. Stored in the report, not applied to the researcher's formula.
  *
  * Results are persisted as a research_runs row (kind = "stability") so the UI
  * reads the latest pass without recompute.
@@ -25,6 +24,7 @@
  * Server-only. Research only — nothing here touches live trading.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { RESEARCH_HISTORY_SESSIONS } from "./history-quality";
 import type { Json } from "@/integrations/supabase/types";
 
 import {
@@ -207,7 +207,7 @@ export async function runStabilityCheck(
   const share = await volumeShare(s);
   const universe = options.universe ?? Math.min(300, Number(s.max_universe) || 250);
 
-  const panel = await buildPanel(universe, String(s.market_proxy));
+  const panel = await buildPanel(universe, String(s.market_proxy), RESEARCH_HISTORY_SESSIONS);
   const rowsByDate = new Map<string, PanelRow[]>();
   for (const row of panel.rows) {
     const list = rowsByDate.get(row.date) ?? [];
@@ -305,21 +305,9 @@ export async function runStabilityCheck(
       kind: "stability",
       summary: report as unknown as Json,
     });
-    // Each researcher's calibrated bar lives on its own params — a learned
-    // starting point that later runs keep updating.
-    for (const lane of lanes) {
-      const existing = learnedBy.get(lane.lane);
-      if (!existing) continue;
-      const params = {
-        ...(existing.params as Record<string, unknown>),
-        qualified_min_score: lane.qualified_min_score,
-        threshold_evidence: lane.threshold_evidence,
-      };
-      await supabaseAdmin
-        .from("researchers")
-        .update({ params: params as unknown as Json })
-        .eq("lane", lane.lane);
-    }
+    // Calibrated thresholds remain advisory in this report. Applying one
+    // changes the formula and requires a separate owner decision.
+
   }
 
   return report;

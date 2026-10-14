@@ -19,6 +19,7 @@ import { runRegimeNow } from "@/lib/regime.functions";
 import { runStabilityNow } from "@/lib/stability.functions";
 import { RegimeMatrix } from "@/components/RegimeMatrix";
 import { money } from "@/lib/queries";
+import { graphRefreshPolicy } from "@/lib/refresh-policy";
 
 export const Route = createFileRoute("/lab")({
   head: () => ({
@@ -43,7 +44,7 @@ export const Route = createFileRoute("/lab")({
 
 function LabPage() {
   const qc = useQueryClient();
-  const race = useQuery({ queryKey: ["race"], queryFn: () => fetchRace() });
+  const race = useQuery({ queryKey: ["race"], queryFn: () => fetchRace(), ...graphRefreshPolicy });
   const runFn = useServerFn(runRaceNow);
 
   const run = useMutation({
@@ -94,7 +95,7 @@ function LabPage() {
   const d = race.data;
   const slots = (d?.entrants ?? []).filter((e) => !e.live);
 
-  const researchRunning = d?.research_running !== false;
+  const researchRunning = Boolean(d && d.research_running !== false);
   // Lead first, then every assistant by rank — they all test every market day.
   const ordered = [...slots].sort((a, b) => {
     const lead = (s: Entrant) => (/lead/i.test(s.name) ? 0 : 1);
@@ -138,12 +139,12 @@ function LabPage() {
               researchRunning ? "bg-success" : "bg-destructive"
             }`}
           />
-          Researchers {researchRunning ? "running" : "stopped"}
+          {d ? `Researchers ${researchRunning ? "running" : "stopped"}` : "Researcher status unavailable"}
         </span>
         <Button
           size="sm"
           variant={researchRunning ? "outline" : "default"}
-          disabled={toggle.isPending}
+          disabled={toggle.isPending || !d}
           onClick={() => toggle.mutate(!researchRunning)}
         >
           {toggle.isPending ? "Working…" : researchRunning ? "Stop researchers" : "Start researchers"}
@@ -170,7 +171,7 @@ function LabPage() {
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
-            No formula has enough validated evidence to suggest yet — testing continues.
+            No verified formula suggestion is available yet.
           </p>
         )}
       </section>

@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/public/hooks/deepen-history")({
       GET: async () => {
         try {
           const { deepenHistory } = await import("@/lib/historical-data.server");
-          const r = await deepenHistory({ tickers: 8, years: 5 });
+          const r = await deepenHistory({ tickers: 8 });
           const done = r.deepened === 0;
           const html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
 ${done ? "" : '<meta http-equiv="refresh" content="2">'}

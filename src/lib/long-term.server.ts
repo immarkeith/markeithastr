@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { horizonLabel, reviewDateFor } from "./horizons";
+import { executionAlert } from "./execution-alerts.server";
 
 const EPS = 0.000001;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -186,7 +187,7 @@ export async function sellLongTermShares(input: {
   // Proceeds settle under the normal T+1 rule.
   const settle = new Date();
   settle.setUTCDate(settle.getUTCDate() + 1);
-  await supabaseAdmin.from("ledger_entries").insert({
+  const { error: ledgerError } = await supabaseAdmin.from("ledger_entries").insert({
     kind: "settle",
     amount: proceeds,
     available_on: settle.toISOString().slice(0, 10),
@@ -194,6 +195,8 @@ export async function sellLongTermShares(input: {
     note: `Sold ${soldQty.toFixed(4)} share(s) of long-term ${ticker} @ ${exitPrice} (P&L ${profit.toFixed(2)})`,
   });
 
+  if (ledgerError) throw new Error(ledgerError.message);
+  await executionAlert({ event: "exit", tradeId: input.trade_id, ticker, price: exitPrice, orderId: fill.order_id, profit });
   return {
     ticker,
     shares_sold: Number(soldQty.toFixed(6)),

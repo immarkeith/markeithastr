@@ -124,19 +124,19 @@ function HomePage() {
               running ? "bg-success" : "bg-destructive"
             }`}
           />
-          {running ? "Running" : "Stopped"}
+          {d ? (running ? "Running" : "Stopped") : "Status unavailable"}
         </span>
         <Button
           size="sm"
           variant={running ? "outline" : "default"}
-          disabled={busy}
+          disabled={busy || !d}
           onClick={() => toggleBot(!running)}
         >
           {busy ? "Working…" : running ? "Stop" : "Start"}
         </Button>
       </div>
 
-      <MarketStatusBar paperMode={d?.mode !== "live"} />
+      <MarketStatusBar paperMode={Boolean(d && d.mode !== "live")} />
 
       {d?.broker_error ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
@@ -150,7 +150,7 @@ function HomePage() {
           Stocks currently held
         </h2>
         {held.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing held right now.</p>
+          <p className="text-sm text-muted-foreground">{d ? "Nothing held right now." : "Holdings unavailable until account data loads."}</p>
         ) : (
           <ul className="divide-y divide-border/60">
             {held.map((h) => (
@@ -201,14 +201,14 @@ function HomePage() {
       </div>
 
       {/* Live trading only — never paper results. Ranges are display-only. */}
-      <PnlChart
+      {d ? <PnlChart
         rows={[...(d?.closed ?? []), ...(d?.long_term_closed ?? [])]}
         unrealized={openPl + (d?.long_term_open_pl ?? 0)}
-        unrealizedToday={openPl + (d?.long_term_open_pl ?? 0)}
+        unrealizedToday={d?.open_today_pl ?? 0}
         basis={heldDollars}
         title="Live profit / loss"
         compact
-      />
+      /> : <p role="status" className="text-sm text-muted-foreground">{dash.isError ? "Live P&L unavailable — account data could not be read." : "Loading live P&L…"}</p>}
 
       <HomeStockLookup />
 
@@ -217,7 +217,7 @@ function HomePage() {
       {/* Explanations last. */}
       <footer className="space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
         <p>
-          {d?.mode === "live"
+          {!d ? "Account mode unavailable until account data loads." : d.mode === "live"
             ? "Live account — real orders. Start and Stop control live trading only; the Research Lab keeps paper testing either way."
             : "Simulation mode — nothing is sent to the broker."}
           {d?.scan ? ` Last score ${d.scan.run_date} (${d.scan.scored_count} names).` : ""}

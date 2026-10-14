@@ -14,6 +14,8 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
+import { RESEARCH_HISTORY_SESSIONS } from "./history-quality";
+import { readAllPages } from "./db-pages.server";
 import { HISTORY_DAYS, loadSettings, volumeShare, type Settings } from "./scan.server";
 import { extraFactors, marketContext, FACTOR_KEYS, type FactorKey } from "./factors";
 import { scoreSecurity, snapshot, type Bar, type Weights } from "./scoring";
@@ -110,9 +112,9 @@ function toBars(raw: RawBars): Bar[] {
 
 // ---------------------------------------------------------------- the panel
 
-export async function buildPanel(universe: number, proxyTicker: string) {
+export async function buildPanel(universe: number, proxyTicker: string, historySessions = HISTORY_DAYS) {
   const { data, error } = await supabaseAdmin.rpc("scan_input", {
-    p_days: HISTORY_DAYS,
+    p_days: historySessions,
     p_limit: universe,
     p_offset: 0,
   });
@@ -126,13 +128,8 @@ export async function buildPanel(universe: number, proxyTicker: string) {
   // case fetch its bars directly so benchmark comparisons still work.
   let proxy = series.find((r) => r.ticker === proxyTicker.toUpperCase());
   if (!proxy) {
-    const { data: proxyRows } = await supabaseAdmin
-      .from("daily_bars")
-      .select("bar_date, open, high, low, close, volume")
-      .eq("ticker", proxyTicker.toUpperCase())
-      .order("bar_date", { ascending: false })
-      .limit(HISTORY_DAYS + 5);
-    proxyRows?.reverse();
+    const earliest = series.map((r) => r.bars[0]?.date).filter((d): d is string => Boolean(d)).sort()[0];
+    const proxyRows = earliest ? await readAllPages((from, to) => supabaseAdmin.from("daily_bars").select("bar_date, open, high, low, close, volume").eq("ticker", proxyTicker.toUpperCase()).gte("bar_date", earliest).order("bar_date").range(from, to)) : [];
     if (proxyRows?.length) {
       proxy = {
         ticker: proxyTicker.toUpperCase(),
@@ -158,7 +155,9 @@ export async function buildPanel(universe: number, proxyTicker: string) {
     if (bars.length < 62) continue;
     for (let i = 60; i < bars.length; i++) {
       const date = bars[i]!.date;
-      const window = bars.slice(0, i + 1);
+      // Match the live scanner's bounded indicator lookback, while
+      // evaluating signals across the entire requested historical period.
+      const window = bars.slice(Math.max(0, i + 1 - HISTORY_DAYS), i + 1);
       const snap = snapshot(window);
       if (!snap) continue;
 
@@ -914,7 +913,7 @@ export async function runDepartment(
   const share = await volumeShare(s);
   const universe = options.universe ?? Math.min(300, Number(s.max_universe) || 250);
 
-  const panel = await buildPanel(universe, String(s.market_proxy));
+  const panel = await buildPanel(universe, String(s.market_proxy), RESEARCH_HISTORY_SESSIONS);
   const rowsByDate = new Map<string, PanelRow[]>();
   for (const row of panel.rows) {
     const list = rowsByDate.get(row.date) ?? [];
@@ -1015,7 +1014,7 @@ export async function runDepartment(
   /** Individual findings escalated to the Lead Researcher this pass. */
   const masterCandidates: RuleCandidate[] = [];
   const { candidatesFrom, runMasterCycle } = await import("./master-formula.server");
-  /** Each lane's post-evolution parameters — the researcher's current mind. */
+  /** Each lane's current, unchanged formula. */
   const laneFinal: Map<string, LaneParams> = new Map();
 
   // Lanes sitting out today keep the formula they already had — their notebooks
@@ -1035,7 +1034,6 @@ export async function runDepartment(
       row && row.params && (row.params as LaneParams).weights
         ? (row.params as LaneParams)
         : laneSeedParams(lane, s);
-    const currentSignature = signature(lane.lane, current);
 
 
     const book = experiments(lane, current).filter(
@@ -1099,7 +1097,7 @@ export async function runDepartment(
     const notebookRows = trials.map((t, idx) => {
       const e = shortlistBySig.get(t.signature);
       const isBest = t === best;
-      const accepted = isBest && verdict === "validated";
+      const accepted = false; // Historical findings need separate owner approval.
       const horizons = horizonProfile(t.params);
       const weak1d = horizons["1"] !== undefined && horizons["1"] <= 0;
       const longerStrong = (horizons["5"] ?? 0) > 0.4 || (horizons["10"] ?? 0) > 0.8;
@@ -1107,8 +1105,8 @@ export async function runDepartment(
         t.edge > 0
           ? `Improved (+${t.edge}% per trade vs the current rule)`
           : `Declined (${t.edge > 0 ? "+" : ""}${t.edge}% per trade vs the current rule)`;
-      const conclusion = accepted
-        ? "Accepted as the current hypothesis."
+      const conclusion = isBest && verdict === "validated"
+        ? "Proposed for owner review; current formula unchanged."
         : isBest && verdict === "vetoed"
           ? `Rejected — the Skeptic vetoed it: ${review.objections[0] ?? "see objections"}`
           : weak1d && longerStrong
@@ -1192,19 +1190,14 @@ export async function runDepartment(
       objections: review.objections as unknown as Json,
     });
 
-    // The researcher evolves: a validated finding becomes its new starting
-    // point next generation. A vetoed or flat one leaves it where it was —
-    // and narrows the search step, closing in on the region it already knows
-    // is strong instead of wandering.
+    // Preserve the active formula. The best historical alternative is kept
+    // separately as a reviewable proposal, with its supporting evidence.
     const keeps = verdict === "validated";
-    // Progress re-opens the search; standing still closes in on the region.
-    const step = keeps ? 12 : nextStep(current, best.signature !== currentSignature);
-    const nextParams = { ...(keeps ? best.params : current), step };
+    const nextParams = current; // Keep the exact saved formula; best_params is a proposal.
     if (row) {
       await supabaseAdmin
         .from("researchers")
         .update({
-          params: nextParams as unknown as Json,
           best_params: (keeps ? best.params : (row.best_params ?? current)) as unknown as Json,
           best_evidence: (keeps
             ? { out_of_sample: best.out_of_sample, label: best.label }

@@ -12,6 +12,9 @@ import {
   type Provider,
 } from "./market-data.server";
 import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
+import { saleCash } from "./ledger-accounting";
+import { reliableBar } from "./history-quality";
+import { executionAlert } from "./execution-alerts.server";
 
 export interface Settings {
   provider: Provider;
@@ -132,10 +135,11 @@ export async function missingDates(days = HISTORY_DAYS): Promise<string[]> {
 
 
 async function replaceDay(date: string, rows: BarRow[]): Promise<number> {
-  await supabaseAdmin.from("daily_bars").delete().eq("bar_date", date);
+  rows = rows.filter(reliableBar);
+  // Never erase valid cached history before a replacement has been persisted.
   const chunk = 2000;
   for (let i = 0; i < rows.length; i += chunk) {
-    const { error } = await supabaseAdmin.from("daily_bars").insert(rows.slice(i, i + chunk));
+    const { error } = await supabaseAdmin.from("daily_bars").upsert(rows.slice(i, i + chunk), { onConflict: "ticker,bar_date" });
     if (error) throw new Error(error.message);
   }
   return rows.length;
@@ -587,6 +591,7 @@ export async function openTrade(input: {
     });
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
+  if (mode === "live") await executionAlert({ event: "entry", tradeId: data!.id, ticker, price: entryPrice, orderId: brokerOrderId });
   return { id: data!.id as string, mode, entry_price: entryPrice };
 }
 
@@ -765,10 +770,11 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
     // The stake comes back to the tradeable pool once it settles. Any profit is
     // banked separately as "saved profit" so the desk keeps risking the same
     // fixed stake instead of compounding.
+    const cash = saleCash(dollars, profit, kept);
     const rows: Array<{ kind: string; amount: number; available_on: string; trade_id: string; note: string }> = [
       {
         kind: "settle",
-        amount: Number((dollars + Math.min(profit, 0)).toFixed(2)),
+        amount: cash.settle,
         available_on: availableOn,
         trade_id: input.id,
         note: `Sold ${trade!.ticker} @ ${exitPrice}${orderNote} (P&L ${profit.toFixed(2)})`,
@@ -777,7 +783,7 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
     if (kept > 0) {
       rows.push({
         kind: "reserve",
-        amount: Number(kept.toFixed(2)),
+        amount: cash.reserve,
         available_on: availableOn,
         trade_id: input.id,
         note: `Saved profit from ${trade!.ticker} (not reinvested)`,
@@ -786,6 +792,7 @@ export async function closeTrade(input: { id: string; exit_price: number }): Pro
     const { error: ledgerErr } = await supabaseAdmin.from("ledger_entries").insert(rows);
     if (ledgerErr) throw new Error(ledgerErr.message);
   }
+  if (trade!.mode === "live") await executionAlert({ event: "exit", tradeId: input.id, ticker, price: exitPrice, profit });
   return {
     closed: true,
     profit: Number(profit.toFixed(2)),
@@ -940,7 +947,7 @@ export async function reconcileBroker(): Promise<{
   }
 
   // 2. Align the ledger with real broker cash (settled + pending), excluding
-  // banked profit which is tracked separately.
+  // banked profit (already included in broker cash).
   try {
     const { brokerAccount } = await import("./broker.server");
     const account = await brokerAccount("live");
@@ -951,7 +958,6 @@ export async function reconcileBroker(): Promise<{
       .is("strategy_id", null);
     let ledgerCash = 0;
     for (const row of rows ?? []) {
-      if (String(row.kind) === "reserve") continue;
       ledgerCash += Number(row.amount);
     }
     const diff = Number((account.cash - ledgerCash).toFixed(2));
@@ -1239,7 +1245,7 @@ export async function managePaperTrades(
     if (activeMode === "live") {
       const { notify } = await import("./notify.server");
       await notify({
-        kind: "trade",
+        kind: "day-buy",
         title: `Live pick needs your confirmation`,
         body: `${ticker} qualified today, but automated live buying is disabled. Confirm it manually in the app to place the order.`,
         ticker,
@@ -1493,17 +1499,6 @@ export async function runPreCloseExits(options: { force?: boolean } = {}): Promi
   }
 
   const sim = await managePaperTrades({ phase: "exit", keepQualifying: true, carryOver });
-  for (const exit of sim.closed) {
-    await notify({
-      kind: "exit",
-      title: `Sold ${exit.ticker} @ $${exit.exit.toFixed(2)} (${exit.profit >= 0 ? "+" : ""}$${exit.profit.toFixed(2)})`,
-      body: `Closed ${buffer} minutes before the bell — ${exit.why}. Cash clears under the T+1 rule.`,
-      ticker: exit.ticker,
-      severity: exit.profit >= 0 ? "good" : "bad",
-      action: s.paper_mode === false ? "Live exit" : "Simulated exit",
-      dedupe_key: `exit:${exit.ticker}:${status.nyDate}`,
-    });
-  }
   for (const hold of sim.held) {
     await notify({
       kind: "trade",
@@ -1612,17 +1607,6 @@ export async function runPreOpenEntries(options: { force?: boolean } = {}): Prom
   // 5. Buy the day's allocation from the fresh ranking.
   const sim = await managePaperTrades({ phase: "entry" });
 
-  for (const entry of sim.opened) {
-    await notify({
-      kind: "entry",
-      title: `Bought ${entry.ticker} @ $${entry.price.toFixed(2)} (${entry.kind})`,
-      body: `Scored ${wait} minute(s) after the open against ${scan.scored_count} names — highest-ranked eligible stock on today's fresh data.`,
-      ticker: entry.ticker,
-      severity: "good",
-      action: s.paper_mode === false ? "Live entry" : "Simulated entry",
-      dedupe_key: `entry:${entry.ticker}:${status.nyDate}`,
-    });
-  }
   const insights = await generateInsights(status.nyDate);
 
   // A blank pass is almost never "nothing scored well enough" — far more often

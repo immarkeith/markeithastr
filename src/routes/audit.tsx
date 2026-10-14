@@ -56,7 +56,7 @@ function AuditDeskPage() {
   const load = useServerFn(getLeadAudit);
   const runNow = useServerFn(runLeadAuditNow);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["lead-audit"],
     queryFn: () => load(),
   });
@@ -64,15 +64,18 @@ function AuditDeskPage() {
   const auditMutation = useMutation({
     mutationFn: () => runNow(),
     onSuccess: (res) => {
-      toast.success(`Audit completed with verdict: ${res.overallVerdict}`);
+      const message = `Audit completed with verdict: ${res.overallVerdict}`;
+      if (res.overallVerdict === "PASS") toast.success(message);
+      else toast.error(message);
       qc.invalidateQueries({ queryKey: ["lead-audit"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const report = data;
-  const verdict = report?.overallVerdict ?? "PASS";
+  const verdict = report?.overallVerdict ?? "WARNING";
   const cfg = VERDICT_CONFIG[verdict];
+  const evidenceUnavailable = Boolean(report && Object.values(report.pillars).some((pillar) => pillar.summary === "Audit could not read its evidence."));
   const Icon = cfg.icon;
 
   return (
@@ -98,7 +101,7 @@ function AuditDeskPage() {
       <div className={`flex items-center gap-4 rounded-xl border p-5 ${cfg.bg}`}>
         <Icon className={`h-10 w-10 shrink-0 ${cfg.color}`} />
         <div>
-          <div className={`text-lg font-bold tracking-wide ${cfg.color}`}>{cfg.label}</div>
+          <div className={`text-lg font-bold tracking-wide ${cfg.color}`}>{evidenceUnavailable ? "AUDIT BLOCKED — EVIDENCE UNAVAILABLE" : report ? cfg.label : isError ? "AUDIT EVIDENCE UNAVAILABLE" : "AUDIT NOT YET VERIFIED"}</div>
           <div className="text-xs text-muted-foreground">
             Last verified: {report?.timestamp ? new Date(report.timestamp).toLocaleString() : "Running check…"}
           </div>
@@ -136,7 +139,7 @@ function AuditDeskPage() {
         <h2 className="text-lg font-semibold tracking-tight">Audit Discrepancy Ledger</h2>
         {!report || report.discrepancies.length === 0 ? (
           <div className="rounded-md border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-            Zero discrepancies or mathematical violations detected across all audited tracks.
+            {report ? "Zero discrepancies detected in the evidence audited above." : "No verified report available yet."}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-md border border-border">

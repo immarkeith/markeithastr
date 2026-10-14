@@ -6,6 +6,8 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireGate } from "./gate-middleware";
+import { readAllPages } from "./db-pages.server";
+import { positionDayPnl, tradingDate } from "./pnl";
 
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -87,6 +89,7 @@ export const fetchTrades = createServerFn({ method: "GET" })
       .from("trades")
       .select("*")
       // Live book only; paper-race trades live in the Research Log.
+      .eq("mode", "live")
       .is("strategy_id", null)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -244,31 +247,15 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       .eq("status", "open")
       .is("strategy_id", null)
       .eq("mode", mode);
-    const { data: closedTrades } = await db
-      .from("trades")
-      .select("exit_date, profit, kept, ticker, mode")
-      .eq("status", "closed")
-      .is("strategy_id", null)
-      .eq("mode", mode)
-      .eq("position_type", "SAME_DAY")
-      .order("exit_date", { ascending: true })
-      .limit(400);
-    // Long-term sales are kept on their own, so the same-day line never changes.
-    const { data: closedLongTerm } = await db
-      .from("trades")
-      .select("exit_date, profit, kept, ticker, mode")
-      .eq("status", "closed")
-      .is("strategy_id", null)
-      .eq("mode", mode)
-      .eq("position_type", "LONG_TERM")
-      .order("exit_date", { ascending: true })
-      .limit(400);
-    const { data: ledger } = await db
-      .from("ledger_entries")
-      .select("amount, available_on, kind")
-      .is("strategy_id", null);
-
-    const day = new Date().toISOString().slice(0, 10);
+    const [closedTrades, closedLongTerm, ledger] = await Promise.all([
+      readAllPages((from, to) => db.from("trades").select("exit_date, profit, kept, ticker, mode").eq("status", "closed").is("strategy_id", null).eq("mode", mode).eq("position_type", "SAME_DAY").order("exit_date").order("id").range(from, to)),
+      readAllPages((from, to) => db.from("trades").select("exit_date, profit, kept, ticker, mode").eq("status", "closed").is("strategy_id", null).eq("mode", mode).eq("position_type", "LONG_TERM").order("exit_date").order("id").range(from, to)),
+      readAllPages((from, to) => db.from("ledger_entries").select("amount, available_on, kind").is("strategy_id", null).order("id").range(from, to)),
+    ]);
+    const day = tradingDate();
+    const tickers = [...new Set((openTrades ?? []).map((t) => t.ticker))];
+    const prior = tickers.length ? await readAllPages((from, to) => db.from("daily_bars").select("ticker, bar_date, close").in("ticker", tickers).lt("bar_date", day).gte("bar_date", new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10)).order("bar_date").order("ticker").range(from, to)) : [];
+    const priorClose = new Map(prior.map((b) => [b.ticker, Number(b.close)]));
     let available = 0;
     let pending = 0;
     let saved = 0;
@@ -325,6 +312,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         price,
         market_value: Number(marketValue.toFixed(2)),
         pl: Number(pl.toFixed(2)),
+        today_pl: positionDayPnl(qty, price, t.entry_date === day ? Number(t.entry_price) : (priorClose.get(ticker) ?? price)),
         pl_pct: Number((((price / Number(t.entry_price)) - 1) * 100).toFixed(2)),
         rank: score ? Number(score.rank) : null,
         score: score ? Number(score.score) : null,
@@ -353,6 +341,7 @@ export const fetchDashboard = createServerFn({ method: "GET" })
         price: pos.current_price,
         market_value: pos.market_value,
         pl: pos.unrealized_pl,
+        today_pl: positionDayPnl(pos.qty, pos.current_price, priorClose.get(pos.ticker) ?? pos.current_price),
         pl_pct: pos.unrealized_plpc,
         rank: null,
         score: null,
@@ -430,8 +419,9 @@ export const fetchDashboard = createServerFn({ method: "GET" })
       long_term_open_pl: Number(
         longTermHoldings.reduce((sum, hold) => sum + Number(hold.pl ?? 0), 0).toFixed(2),
       ),
+      open_today_pl: Number(holdings.reduce((sum, hold) => sum + hold.today_pl, 0).toFixed(2)),
       total_profit: Number(
-        (closedTrades ?? []).reduce((sum, trade) => sum + Number(trade.profit ?? 0), 0).toFixed(2),
+        [...closedTrades, ...closedLongTerm].reduce((sum, trade) => sum + Number(trade.profit ?? 0), 0).toFixed(2),
       ),
     };
   });

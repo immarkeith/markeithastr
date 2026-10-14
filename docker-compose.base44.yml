@@ -11,7 +11,7 @@ services:
       - .env
       - /run/base44/app.env
     environment:
-      - BASE44_PREVIEW_MODE=1
+      - BASE44_PREVIEW_MODE
       - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS
     command: ["sh", "-ec", "bun install --frozen-lockfile && exec bun run dev -- --port 3000 --host 0.0.0.0"]
     healthcheck:

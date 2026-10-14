@@ -1,8 +1,8 @@
 /**
  * The Lead Researcher's Master Formula.
  *
- * The six backup scientists experiment freely and change their own formulas as
- * often as they like. None of that touches the Master Formula. The Master
+ * The backup scientists record historical alternatives as proposals; neither
+ * their active formulas nor the active Master rule set changes from a replay. The Master
  * Formula is a persistent, versioned collection of individual findings that the
  * Lead Researcher has independently re-tested enough times to trust.
  *
@@ -438,15 +438,9 @@ export async function runMasterCycle(input: {
     const confirmations = passed ? rule.confirmations + 1 : rule.confirmations;
     const failures = passed ? Math.max(0, rule.failures - 1) : rule.failures + 1;
     let status: RuleStatus = rule.status;
-    if (rule.status !== "active" && confirmations >= CONFIRMATIONS_TO_PROMOTE) {
-      status = "active";
-      promoted.push(rule.label);
-    } else if (rule.status === "active" && failures >= FAILURES_TO_RETIRE) {
-      status = "retired";
-      retired.push(rule.label);
-    } else if (rule.status !== "active") {
-      parked.push(rule.label);
-    }
+    // Historical confirmations/failures are evidence, never permission to
+    // activate or retire a formula rule. Keep the owner's active set intact.
+    if (rule.status !== "active") parked.push(rule.label);
 
     await supabaseAdmin
       .from("master_rules")
