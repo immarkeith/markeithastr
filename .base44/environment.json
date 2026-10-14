@@ -1,0 +1,32 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "description": "Service-role key of the ASTR Supabase project (server-side reads/writes). Supabase dashboard -> Project Settings -> API.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "SUPABASE_URL",
+      "description": "URL of the ASTR Supabase project, e.g. https://kkwgbjovbcbzsvbhcyhq.supabase.co. Supabase dashboard -> Project Settings -> API. Overrides the sandbox default.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "SUPABASE_PUBLISHABLE_KEY",
+      "description": "Publishable (anon) key of the same Supabase project — the browser client uses it. Supabase dashboard -> Project Settings -> API.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_LIVE_KEY_ID",
+      "description": "Alpaca live API key id: market data, scans and trading. app.alpaca.markets -> API keys.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_LIVE_SECRET_KEY",
+      "description": "Alpaca live API secret. app.alpaca.markets -> API keys.",
+      "requiredAtBoot": false
+    }
+  ]
+}
