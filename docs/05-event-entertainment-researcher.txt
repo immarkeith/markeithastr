@@ -1,0 +1,66 @@
+What if we add a new researcher focused on entertainment and events. So it can discover relationships, map publicly traded companies, and schedule research tasks around known events. It continuously builds (or change if necessary) its own queue from available information sources. 
+
+Think of it as a chain of research.
+
+For example, the researcher sees from an event/calendar source that Detroit Pistons vs. Phoenix Suns is scheduled for October 5 at 7:00 PM EDT.
+
+Then ASTR does something like:
+
+1. Discover the event
+→ Pistons game
+→ October 5
+→ Detroit
+→ Little Caesars Arena
+
+2. Identify the entities surrounding the event
+→ Pistons
+→ arena
+→ league
+→ venue operators
+→ official sponsors
+→ apparel partners
+→ food/beverage partners
+→ broadcasters
+→ ticketing companies
+→ banking/financial partners
+→ transportation/hospitality
+→ merchandise/licensing
+→ advertising partners
+→ other commercially material relationships
+
+3. Research each relationship dynamically
+
+Instead of being told:
+
+“Look at Little Caesars.”
+
+the researcher asks:
+
+“Who has a current, publicly documented commercial relationship with the Pistons, the arena, the NBA, or this particular event?”
+
+Then it finds the relationship from sources such as team/league announcements, company filings, corporate websites, news, sponsorship announcements, and other reliable sources.
+
+4. Resolve the public-company connection
+
+This is important because Little Caesars itself isn’t necessarily the stock you can buy. The researcher has to follow the ownership structure.
+
+For example:
+
+Pistons game
+→ relationship discovered
+→ company/brand identified
+→ parent company identified
+→ determine whether parent is publicly traded
+→ resolve ticker
+→ determine exactly what the relationship is
+→ determine whether the relationship is economically meaningful enough to test.
+
+And that last part matters tremendously.
+
+The researcher shouldn’t say:
+
+“Pistons play tonight, therefore this stock should go up.”
+
+It should say:
+
+“This company has a documented relationship with this event. Now let’s test whether comparable historical events produced a measurable effect.”

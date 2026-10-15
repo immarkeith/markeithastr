@@ -1,0 +1,441 @@
+Make the following updates to the existing ASTR researcher/Analyze/Home system. Do NOT redesign anything and do NOT change the existing researcher formulas, scoring methodology, holding-period testing, trading strategy, or live BUY flow unless explicitly stated below.
+
+The goal is to add researcher-specific qualification thresholds, show qualification status/reasons in Analyze, and make one small presentation change to the Home page.
+
+==================================================
+1. ADD RESEARCHER-SPECIFIC MINIMUM QUALIFICATION THRESHOLDS
+==================================================
+
+Each of the six stock-picking researchers should have its OWN minimum qualification threshold.
+
+Researchers:
+
+1. Consistency
+2. Trend
+3. Growth
+4. Momentum
+5. Risk
+6. Contrarian
+
+Do NOT use one universal threshold for all six researchers.
+
+The threshold belongs to the researcher's methodology/system itself.
+
+The existing researcher formula should continue producing the fit score exactly as it does now.
+
+After the researcher calculates its fit score, compare that score against THAT researcher's minimum qualification threshold.
+
+Conceptually:
+
+researcher fit score >= that researcher's minimum threshold
+→ QUALIFIED
+
+researcher fit score < that researcher's minimum threshold
+→ NOT QUALIFIED
+
+Do not change how the fit score itself is calculated.
+
+Do not arbitrarily lower or raise scores to make something qualify.
+
+Do not create generic fallback scores.
+
+The threshold should be an explicit, inspectable value associated with each researcher so the system knows why a result qualified or did not qualify.
+
+==================================================
+2. QUALIFICATION STATUS ON THE ANALYZE PAGE
+==================================================
+
+Keep the existing Analyze page layout and design exactly as it currently is.
+
+Do NOT redesign the researcher cards/list.
+
+Keep the existing useful information such as:
+
+- Researcher name
+- Recommended holding period
+- Past signals
+- Average return
+- Up percentage
+- Fit/ranking information
+- Buy functionality
+
+However, change the current result area where appropriate to show qualification status.
+
+If a researcher MEETS its own minimum threshold:
+
+Show:
+
+"Qualified"
+
+There is NO need to generate an additional explanation when it qualifies.
+
+Keep the existing supporting statistics/information as they currently appear.
+
+If a researcher DOES NOT meet its own minimum threshold:
+
+Show a concise explanation of WHY it did not qualify.
+
+For example:
+
+"Does not qualify — fit score is below this researcher's minimum threshold."
+
+But whenever possible, make the explanation evidence-based and specific to the actual result, such as:
+
+"Does not qualify — historical consistency was too weak for this researcher's threshold."
+
+"Does not qualify — momentum did not remain strong enough across the tested horizon."
+
+The explanation must be based on the actual research data/result.
+
+Keep it SHORT — approximately one sentence.
+
+Do not turn this into a long AI-generated research report.
+
+The purpose is simply to tell me why the researcher did not consider the stock a qualifying opportunity.
+
+==================================================
+3. IMPORTANT DISTINCTION: LOW RANK ≠ NOT QUALIFIED
+==================================================
+
+Do NOT treat ranking and qualification as the same thing.
+
+A researcher can rank lower than another researcher and STILL be qualified.
+
+Qualification is determined by:
+
+that researcher's fit score
+compared against
+that researcher's own minimum qualification threshold.
+
+Ranking is simply the ordering of the researchers by their resulting fit.
+
+Therefore:
+
+- A researcher can rank #1 and fail its threshold.
+- A researcher can rank #4 and pass its threshold.
+- A researcher can rank #6 and still be qualified.
+
+Do not automatically label a researcher "not qualified" merely because it ranks low.
+
+The threshold determines qualification.
+
+The ranking determines order.
+
+==================================================
+4. ANALYZE PAGE BEHAVIOR
+==================================================
+
+The Analyze page should continue working the way it currently works.
+
+When I search something such as DIS / Disney:
+
+The six researchers independently analyze the stock using their own existing formulas.
+
+Each researcher:
+
+- uses its own formula
+- tests the available holding periods
+- determines its best evidence-backed holding period
+- produces its stock-specific fit score
+- is compared against its own qualification threshold
+
+Then the researchers are ranked by fit score as they are currently.
+
+Do NOT force all researchers to qualify.
+
+Do NOT force a researcher recommendation when its evidence does not meet its threshold.
+
+Do NOT add Skeptic to the stock-picking list.
+
+Skeptic remains a challenger/audit role.
+
+==================================================
+5. HOME PAGE — ONLY MAKE THE SMALL CHANGE DESCRIBED BELOW
+==================================================
+
+Do NOT redesign the Home page.
+
+Do NOT change the existing Home stock-analysis popup.
+
+Do NOT change the existing Long-Term Hold functionality.
+
+Do NOT change the amount-of-money input.
+
+Do NOT change the holding-period selection for Long-Term Hold.
+
+Do NOT change the existing buttons or general Home layout.
+
+There is only ONE requested Home-page change:
+
+Currently, when I search a stock from the Home page and choose the researcher option, the researchers appear in a fixed order.
+
+For example, it may currently show something like:
+
+Lead
+Trend
+Momentum
+Contrarian
+etc.
+
+That fixed order needs to be removed.
+
+Instead, the researchers should automatically appear in the SAME RANKING ORDER produced by the stock-specific Analyze research.
+
+For example, if Disney produces:
+
+1. Consistency — 82
+2. Trend — 78
+3. Growth — 75
+4. Momentum — 70
+5. Risk — 61
+6. Contrarian — 54
+
+then the Home researcher selection should display them in exactly that order.
+
+If another stock produces a different ranking, the Home list automatically changes order for that stock.
+
+There must be NO hard-coded researcher order.
+
+==================================================
+6. HOME PAGE — SHOW THE RECOMMENDED HOLD TIME
+==================================================
+
+Next to each researcher name in the Home researcher selection, display that researcher's recommended holding period.
+
+For example:
+
+Consistency — 1 day
+Trend — 3 months
+Growth — 1 month
+Momentum — 1 day
+Risk — 3 days
+Contrarian — 3 months
+
+The holding period must come from the researcher's actual stock-specific analysis.
+
+Do NOT use a universal holding period.
+
+Do NOT invent the holding period.
+
+Do NOT change the researcher's existing holding-period selection logic.
+
+This is simply displaying the result that the researcher already produced.
+
+==================================================
+7. HOME PAGE SHOULD REMAIN A COMPACT VERSION
+==================================================
+
+The Home researcher selector should NOT become a copy of the full Analyze page.
+
+The user-facing Home experience should remain essentially the same.
+
+The only visible researcher-selection changes are:
+
+1. Remove the fixed researcher order.
+2. Sort researchers according to their actual stock-specific ranking.
+3. Display the recommended holding period next to each researcher name.
+
+Everything else about the Home page should remain as it currently is.
+
+==================================================
+8. SHARED SOURCE OF TRUTH
+==================================================
+
+Do NOT create a separate scoring/ranking system specifically for Home.
+
+Home and Analyze must use the same underlying researcher analysis result.
+
+The flow should be:
+
+Stock
+→ six independent researcher formulas
+→ researcher-specific holding-period testing
+→ fit score
+→ researcher-specific qualification threshold
+→ qualified / not qualified
+→ ranking
+
+Analyze displays that result in its existing full format.
+
+Home uses that same result only to:
+
+- order the researcher choices
+- display each researcher's recommended holding period
+
+Do not duplicate the research logic.
+
+==================================================
+9. NO AUTOMATIC ASSIGNMENT
+==================================================
+
+Do NOT automatically assign a stock to a researcher.
+
+The system should analyze and rank the researchers, but I remain the person who chooses whether to use one.
+
+The flow remains:
+
+Research
+→ ranked/qualified evidence
+→ user chooses
+→ live BUY
+
+No automatic researcher assignment.
+
+No paper BUY.
+
+No forced diversification.
+
+No automatic trading based solely on the researcher ranking.
+
+==================================================
+10. DO NOT CHANGE EXISTING RESEARCHER LOGIC
+==================================================
+
+This is an enhancement to the existing system, NOT a replacement of the research system.
+
+Do NOT change:
+
+- researcher formulas
+- researcher weights
+- fit-score calculation
+- holding-period testing
+- stock-specific analysis
+- ranking methodology
+- live trading strategy
+- BUY execution
+- Long-Term Hold behavior
+- Analyze page layout
+- Home page layout
+- existing researcher identities
+- Skeptic's challenger/audit role
+
+Only add:
+
+1. Individual minimum qualification thresholds for each researcher.
+2. Qualified / not-qualified status.
+3. A short evidence-based explanation when a researcher does not qualify.
+4. Dynamic researcher ordering on Home based on the existing stock-specific ranking.
+5. Recommended holding time displayed next to each researcher on Home.
+
+Before modifying anything, inspect the existing implementation and reuse the current researcher-analysis results wherever possible. Do not rebuild working functionality unnecessarily.
+
+After implementation, run typecheck/build and verify that:
+
+- Analyze still works.
+- Home stock lookup still works.
+- Long-Term Hold still works.
+- Researcher ranking changes by stock.
+- Home researcher ordering matches Analyze ranking.
+- Home displays the correct researcher-specific holding period.
+- Each researcher uses its own qualification threshold.
+- Qualified researchers display "Qualified".
+- Non-qualified researchers display a concise reason.
+- No researcher is automatically assigned.
+- Skeptic is not added to the stock-picking list.
+- No existing trading behavior was changed.
+
+ASTR — Persistent Research Graphs & Incremental Updates
+
+Implement this as a targeted performance improvement to the existing ASTR application. Do not redesign the UI or replace existing research, trading, or graph functionality.
+
+1. Core objective
+
+Make the Research Lab load its previously calculated graphs and metrics immediately when opened, instead of making the user wait for historical data to be fetched, recalculated, and rendered again.
+
+Calculated results should be persisted and reused until the underlying data actually changes or a scheduled recalculation is due.
+
+The experience should feel like opening a saved snapshot of the latest research results, with updates occurring in the background when necessary.
+
+2. Real-money live trading: refresh every 5 minutes
+
+Real-money trading is the exception to the normal research caching rules.
+
+	•	Continue refreshing and verifying live trading information against the authoritative broker data every 5 minutes, using the existing scheduling infrastructure where possible.
+	•	Keep live account balances, positions, executions, realized and unrealized P&L, and the live P&L graph as accurate and current as the available broker data allows.
+	•	Reconcile against authoritative broker records instead of assuming cached values are correct.
+	•	Recalculate live P&L when needed to verify accuracy, even when a change is not expected.
+	•	Do not place, cancel, or modify orders simply because a refresh or recalculation runs.
+	•	Do not trigger a complete Research Lab historical recalculation merely because live trading information was refreshed.
+	•	Display the last successful refresh timestamp and clearly handle broker/API errors without presenting stale values as freshly verified.
+
+Preserve existing live-trading safety rules, order execution logic, credentials, and account separation.
+
+3. Researcher results: update only when necessary
+
+Researcher historical results should not automatically recalculate every five minutes.
+
+Historical researcher graphs and metrics
+
+	•	Persist the latest successfully calculated historical researcher results.
+	•	Load the saved results immediately when the Research Lab opens.
+	•	Recalculate historical performance at the existing end-of-day processing point, after the relevant market data is available and validated.
+	•	Recalculate earlier only when an actual relevant change requires it, such as a corrected historical bar, a changed trade record, or an intentional formula/configuration change.
+	•	Do not recalculate unchanged historical periods simply because the user opens the page, changes tabs, or refreshes the browser.
+	•	Preserve all existing researcher formulas, score thresholds, rankings, holding-period recommendations, and performance calculation rules.
+
+Today’s researcher P&L and graphs
+
+	•	Update today’s researcher P&L and today’s graph on the existing five-minute cadence only when necessary to satisfy the current-day reporting requirements.
+	•	If a researcher buys or sells during the day, update the affected researcher’s current-day results as soon as the relevant event is recorded.
+	•	If a relevant trade, fill, market bar, or other input changes, update only the affected researcher and dependent calculations.
+	•	Do not recalculate every researcher’s entire historical performance for a single current-day trade.
+	•	If nothing relevant changed, reuse the saved result.
+	•	Maintain the existing distinction between realized P&L, unrealized P&L, and any other metrics currently displayed.
+
+4. Incremental calculations
+
+Use incremental updates wherever mathematically valid.
+
+For rolling windows, retain the existing window and update the entering and leaving observations instead of rebuilding the entire window unnecessarily.
+
+For example, for a 50-observation window, when observation 51 arrives, add observation 51 and remove observation 1. Continue with the next observation as new data arrives.
+
+Apply this approach only where the existing formulas support it. Recalculate affected downstream values when a change requires it, and perform full recalculation when necessary to guarantee correctness.
+
+Do not change the statistical meaning of any existing formula merely to improve performance.
+
+5. Persistent cache and background processing
+
+Inspect the existing database, server functions, caching, query invalidation, and scheduling architecture before implementing changes.
+
+	•	Reuse existing infrastructure wherever possible.
+	•	Persist computed results with their calculation timestamp, applicable researcher or strategy identifier, time range, and source-data version or freshness marker.
+	•	Use a stable cache key that prevents live-trading results from being confused with researcher paper results.
+	•	Load the most recent valid saved result immediately.
+	•	Refresh or recalculate in the background without blocking the initial graph display.
+	•	Replace the displayed snapshot only after the newer calculation succeeds.
+	•	Prevent duplicate jobs and overlapping calculations from creating inconsistent results.
+	•	Invalidate only the affected results when their dependencies change.
+	•	If a background update fails, retain the last valid snapshot and clearly indicate that it may be stale.
+	•	Never invent, interpolate, or fabricate P&L or historical performance to make a graph load faster.
+
+Do not introduce unnecessary paid services, new APIs, or expensive infrastructure.
+
+6. Correctness and testing
+
+Before making changes, inspect the existing implementation and identify why Research Lab graphs take so long to populate.
+
+Determine whether the delay comes from repeated database queries, expensive calculations, excessive historical data retrieval, repeated component rendering, or another bottleneck.
+
+Implement the smallest effective fix.
+
+Verify that:
+
+	1.	Research Lab graphs appear immediately from persisted results when available.
+	2.	Opening the page does not trigger unnecessary full historical recalculation.
+	3.	Live-trading information continues to receive its five-minute verification.
+	4.	Today’s researcher results update when relevant trades or data actually change.
+	5.	Historical results update at the intended end-of-day processing point.
+	6.	Incremental calculations match full recalculations for the same inputs.
+	7.	Corrected historical data invalidates dependent results.
+	8.	Paper researcher data never contaminates real-money trading results.
+	9.	Failed background updates preserve the last valid snapshot.
+	10.	Existing graph ranges, formulas, rankings, visual appearance, and trading behavior remain intact.
+
+Run the relevant existing tests and build checks. Do not claim success for tests that were not actually run.
+
+7. Final implementation report
+
+Explain what caused the delay, which files were changed, how saved results are reused, how updates are triggered, how the five-minute live-trading verification is preserved, and what tests passed.
+
+Implement this performance improvement only. Do not redesign ASTR, modify trading strategies, alter researcher formulas, or introduce unrelated features.

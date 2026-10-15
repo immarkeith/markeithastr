@@ -1,0 +1,205 @@
+ASTR — BUILD A DEDICATED ADAPTIVE STOCK RESEARCHER
+1. Primary Objective
+Create a new, independent ASTR researcher designed specifically for stocks that I manually select and add to its stock queue.
+Unlike the existing researchers, this researcher must not be restricted to a predetermined trading strategy, fixed holding period, or standard historical-data lookback period.
+Its purpose is to research each assigned stock as thoroughly as the available data permits, determine when to buy, continuously evaluate the position, and determine the most appropriate time to sell.
+The researcher should use historical market data, current market conditions, company fundamentals, news, technical indicators, and other available information to develop and improve its decision-making formula.
+This is an independent researcher, not an extension of the Lead Researcher. Do not make it dependent on the Lead Researcher’s formula, assignments, holding periods, or decisions.
+2. Inspect the Existing Architecture First
+Before implementing anything, inspect the existing ASTR application and identify:
+	•	The current Analyze Stock functionality and where stocks are assigned to researchers.
+	•	The existing researcher registration, execution, scheduling, and monitoring architecture.
+	•	The Research Lab, researcher-specific performance graphs, and scoreboard.
+	•	The existing paper-trading infrastructure and how trades, cash, positions, and results are recorded.
+	•	The existing historical market-data and news-research integrations.
+	•	The market-hours restrictions, price-monitoring mechanisms, and sell execution logic.
+	•	The current database schema and any existing background jobs or scheduled functions.
+Reuse existing components and infrastructure wherever appropriate.
+Do not duplicate existing functionality unnecessarily. Do not modify, replace, or weaken existing researchers, their formulas, the Lead Researcher, the live trading system, or existing portfolio behavior.
+If a required capability does not exist, identify what needs to be added before implementing it.
+3. Researcher Registration and User Interface
+Add this researcher to the existing researcher list so that it can be selected from the existing Analyze Stock interface.
+The intended workflow should remain simple:
+	1.	Open Analyze Stock.
+	2.	Analyze a stock as usual.
+	3.	Assign the stock to this new researcher.
+	4.	Confirm the assignment.
+	5.	Let the researcher perform its research and operate independently in the background.
+The only meaningful difference in the assignment workflow should be that I can assign a stock to this dedicated researcher.
+The researcher must maintain its own independent stock queue. I can add as many stocks as I want, without an arbitrary hard-coded maximum of 15, 25, 30, or any other number.
+Do not impose a fixed holding-period label such as Consistency (30 days) on this researcher. Its holding period is determined separately for each stock and can change over time.
+Display useful information in the researcher interface, including assigned stocks, current status, open paper positions, entry prices, current prices, selected holding horizons, exit decisions, and performance.
+4. Independent Stock Queue
+Every stock I explicitly assign to this researcher becomes part of its dedicated queue.
+For each stock, maintain its own:
+	•	Research history and historical-data coverage.
+	•	Technical and fundamental analysis.
+	•	News and company-event history.
+	•	Trading signals and confidence estimates.
+	•	Current holding-horizon assessment.
+	•	Paper-trading positions and trade history.
+	•	Exit conditions and risk limits.
+	•	Performance metrics and learning history.
+Research one stock without allowing its decisions to overwrite another stock’s research or holding-period decision.
+Stocks in the queue do not automatically qualify for a purchase simply because I assigned them. Assignment authorizes research and consideration for paper trading, not an unconditional buy.
+The researcher should be able to evaluate multiple stocks concurrently, subject to available computing resources, API limits, and rate limits.
+5. Historical Data — Maximum Available Coverage
+When I add a stock, automatically initiate a historical-data discovery and backfill process.
+Find and retrieve as much relevant historical data as reasonably available for that specific stock, going back as far as the available sources permit.
+Do not simply reuse a three-year lookback or another existing researcher’s default limit.
+Requirements:
+	•	Determine the earliest available date for each relevant data source.
+	•	Retrieve historical price and volume data as far back as possible.
+	•	Retrieve historical financial statements and fundamental metrics when available.
+	•	Collect historical corporate events, stock splits, dividends, and other adjustments when supported.
+	•	Retrieve historical news and company announcements when a free, accessible source provides them.
+	•	Record data coverage, missing periods, source limitations, and retrieval timestamps.
+	•	Resume incomplete backfills without restarting unnecessarily.
+	•	Cache and reuse previously retrieved data.
+	•	Fetch only missing or newly available data when possible.
+	•	Respect provider rate limits and available storage.
+Historical coverage will differ by stock and source. Never fabricate historical records or claim complete coverage when the data is incomplete.
+Use historical information that was actually available at each simulated decision time. Avoid look-ahead bias, survivorship bias where applicable, and other forms of data leakage.
+6. Continuous Research and News Monitoring
+After the initial backfill, the researcher should continue monitoring each assigned stock throughout the trading process.
+Use available sources to evaluate:
+	•	Current price and volume behavior.
+	•	Intraday momentum and volatility.
+	•	Short-, medium-, and long-term trends.
+	•	Support and resistance.
+	•	Technical indicators and changes in market structure.
+	•	Company earnings and financial developments.
+	•	News, announcements, guidance, contracts, product launches, and material business developments.
+	•	Relevant economic or industry developments.
+	•	Upcoming events and potential catalysts.
+	•	Changes that could invalidate the original buy thesis.
+Prioritize material, time-sensitive information when evaluating an open position.
+Use existing integrations and free/public data sources wherever possible. Do not introduce paid APIs, paid services, or paid dependencies without my explicit approval. Reuse cached information and respect all source limitations.
+Do not assume that a news headline necessarily causes a stock to rise or fall. Evaluate its relevance, credibility, timing, and relationship to the stock’s actual price behavior.
+If a source becomes unavailable, continue with the remaining available sources and clearly identify the resulting research limitations.
+7. Adaptive Holding Period — Determined Independently for Every Stock
+This is the central requirement.
+The researcher must not have one fixed holding period that applies to every assigned stock.
+It must independently determine the appropriate trading approach for each stock using current evidence, historical behavior, market conditions, catalysts, risk, and tested strategy performance.
+Possible holding periods include:
+	•	Intraday trades.
+	•	Multiple hours.
+	•	Partial trading days.
+	•	Multiple trading days.
+	•	One week or several weeks.
+	•	One month or several months.
+	•	A year or longer, when supported by the evidence.
+These are examples, not fixed categories or mandatory limits.
+The researcher must be able to select a precise intended holding duration, including fractional trading days where appropriate, instead of rounding every decision to one, five, 30, or another standard number of days.
+For example:
+	•	NVIDIA might qualify for an anticipated 30-day holding period today.
+	•	A significant, credible catalyst might make an intraday opportunity more appropriate tomorrow.
+	•	Dell might be better suited to an intraday trade today but a multiweek position later.
+	•	An existing position might need to be sold before its intended holding period expires if new information materially changes its outlook.
+These decisions must be made independently for each stock and reevaluated as new information becomes available.
+The researcher should estimate both the expected opportunity and the risks associated with holding for different durations. It should compare possible holding horizons and select the one that performs best under validated, risk-adjusted testing rather than automatically choosing the longest or shortest duration.
+8. Buy, Hold, Reevaluate, and Sell Decisions
+For each stock, the researcher must make distinct decisions:
+BUY: Determine whether the current opportunity meets the researcher’s entry criteria. Consider the expected return, risk, market conditions, transaction costs, and the likelihood that the opportunity remains available when the order executes.
+HOLD: Maintain the position when the original thesis remains valid and the expected benefit of holding outweighs the risk.
+REASSESS: Reevaluate when prices move materially, new news arrives, a catalyst occurs, volatility changes, or the expected return deteriorates.
+SELL: Exit when the expected benefit of holding no longer justifies the risk, a target or exit condition is reached, the original thesis is invalidated, or another sufficiently strong reason to exit emerges.
+Do not force a position to remain open until its original target date.
+Do not assume that every negative price movement requires an immediate sale. Evaluate the magnitude, context, volatility, available evidence, and risk rules.
+A position intended to last 30 days might be sold after one day. A position initially intended as an intraday trade might warrant a different decision if the research supports a change, subject to the configured risk and trading rules.
+Record the reason for every decision.
+9. Intraday Monitoring and Rapid Risk Response
+The researcher must be able to detect material changes while a position is open.
+For example, if a stock is purchased and the company experiences a major negative development 30 minutes later, the researcher should recognize the development, reassess the position, and initiate a paper sell when the exit criteria are met.
+Where reliable data and sufficient warning signals exist, the researcher should also attempt to identify elevated downside risk before a sharp decline occurs.
+Use the fastest practical monitoring supported by the existing architecture, provider limits, and available infrastructure.
+Do not assume that the researcher can predict every crash or receive news before the market reacts. It must distinguish between a genuine predictive signal, a reaction to an already occurring price move, and an uncertain forecast.
+Define and enforce risk controls, including position sizing, maximum exposure, stop conditions, and emergency exit behavior. These controls must be configurable and must not be silently bypassed by the learning process.
+10. Trading Hours and Execution Restrictions
+This researcher must not intentionally initiate or execute paper-trading orders during premarket or after-hours sessions.
+Restrict order execution to regular market hours, using the applicable US market calendar and Eastern Time.
+A signal may be generated outside regular market hours, but any order must wait until the next eligible regular-session execution opportunity.
+If an exit condition occurs outside regular hours, record the event, reassess the position, and queue the exit for the next permitted execution opportunity.
+During regular market hours, monitor eligible open positions and process exit signals promptly.
+Use realistic execution assumptions, including available prices, slippage, transaction costs where applicable, and order-fill limitations. Do not assume every order fills at the price displayed when the signal was generated.
+11. Paper Trading Only
+This researcher must initially operate exclusively in paper-trading mode.
+It must never submit live brokerage orders, use live buying power, or change actual portfolio holdings.
+Paper trades must be recorded in a separate, clearly identified account or ledger so they cannot affect:
+	•	Existing live ASTR cash or buying power.
+	•	SAME_DAY live positions.
+	•	LONG_TERM live positions.
+	•	Live portfolio equity or profit and loss.
+	•	Existing live trade logs or researcher results.
+Use the existing paper-trading infrastructure if suitable. If it does not adequately isolate this researcher’s positions and cash, add the necessary separation.
+Support multiple open positions across different stocks, each with its own entry time, entry price, position size, holding-period estimate, ongoing reassessments, and exit logic.
+Prevent duplicate orders caused by repeated scans, retries, or overlapping jobs.
+Record each completed paper trade with its entry and exit information, the decision rationale, intended versus actual holding time, costs and slippage assumptions, and realized profit or loss.
+12. Research Lab and Performance Graph
+Give this researcher its own performance graph within the existing researcher section or Research Lab.
+Follow the application’s established researcher-graph design where appropriate, while keeping this researcher’s results separate from unrelated researchers.
+Track, at minimum:
+	•	Realized paper-trading profit and loss.
+	•	Unrealized profit and loss.
+	•	Win rate.
+	•	Average win and average loss.
+	•	Return on capital deployed.
+	•	Maximum drawdown.
+	•	Trade frequency and exposure.
+	•	Average and median holding duration.
+	•	Performance by stock and by holding horizon.
+	•	Forecast accuracy and risk-adjusted performance where measurable.
+Clearly distinguish completed trades from open positions.
+Only include eligible, completed paper trades in completed-trade statistics. Do not count unexecuted signals, rejected opportunities, or incomplete tests as completed wins or losses.
+Do not mix this researcher’s paper results into the existing live Home graph, live scoreboard, or unrelated researcher performance data.
+13. Learning, Testing, and Formula Improvement
+The researcher should improve its decision process over time using the results of its own research and paper trades.
+Develop and evaluate models for:
+	•	Entry timing.
+	•	Exit timing.
+	•	Holding-period selection.
+	•	News and catalyst interpretation.
+	•	Downside risk and volatility.
+	•	Expected returns over different horizons.
+	•	Confidence calibration.
+Evaluate alternative strategies and holding horizons using historical data and walk-forward testing.
+Use separate training, validation, and out-of-sample periods. Account for transaction costs, slippage, and realistic order execution.
+Avoid optimizing solely for historical returns. Evaluate drawdowns, consistency, risk-adjusted returns, sample size, and performance across different market conditions.
+Maintain a record of formula versions, test results, and changes in predictive performance. Preserve the ability to revert to a prior validated version if a new version performs poorly.
+Do not automatically promote an untested formula into production simply because it performed well on historical data or a small number of paper trades.
+Learning must never remove the required risk controls or modify any other ASTR researcher.
+14. Data Limits, Reliability, and Resource Management
+The stock queue may grow without an arbitrary application-imposed limit, but the implementation must remain practical.
+Use configurable scheduling, prioritized monitoring, caching, incremental historical backfills, retry handling, and rate-limit-aware job execution.
+Prioritize real-time risk monitoring for open positions while continuing background research on queued stocks.
+Do not promise that every stock can receive every possible data source on every scan if doing so exceeds provider limits or available resources.
+Instead, implement the most complete research cycle the available infrastructure can support, record the coverage and freshness of each source, and identify anything that could not be retrieved.
+Do not silently skip assigned stocks. Track each stock’s research status, pending jobs, errors, and last successful update.
+15. Preserve Existing ASTR Functionality
+This researcher is an additive feature.
+Do not alter the existing researchers’ formulas, scoring, rankings, holding periods, trading schedules, live trading behavior, or Research Lab calculations.
+Do not change the existing Lead Researcher into this new researcher.
+Do not assign stocks automatically to this researcher. I choose which stocks enter its queue.
+Do not execute live trades. Paper trading only.
+Do not add paid data providers or dependencies without approval.
+16. Implementation and Verification
+Before coding, summarize the existing architecture, identify reusable components, and explain any missing capabilities or implementation constraints.
+Then implement the feature using the smallest safe set of changes.
+Include appropriate database changes, isolated paper-trading records, background jobs, error handling, and tests.
+Verify at minimum that:
+	1.	I can add any number of stocks to the dedicated queue without a hard-coded stock-count limit.
+	2.	Each stock has its own research history and independently determined holding horizon.
+	3.	Historical backfill seeks the maximum available coverage rather than stopping at an inherited three-year limit.
+	4.	New research and material news can trigger a reassessment of an open position.
+	5.	A holding-period estimate can change without requiring a new researcher assignment.
+	6.	Different stocks can simultaneously have different holding horizons.
+	7.	Paper orders are restricted to regular market hours.
+	8.	An exit signal can cause a position to close before its original intended holding period ends.
+	9.	Paper cash, positions, and results never affect live ASTR accounts or unrelated researchers.
+	10.	Repeated scans cannot create duplicate paper orders.
+	11.	Graphs and statistics accurately reflect this researcher’s own paper-trading results.
+	12.	Learning and formula updates cannot modify existing researchers or bypass risk controls.
+	13.	Provider failures, incomplete data, and rate limits are handled transparently.
+At the end, report the files and database objects changed, the functionality implemented, the tests performed, any remaining limitations, and any additional costs or external services that would be required.
+Do not claim a capability is implemented or tested unless it actually is.
+Final objective: I select the stocks. This independent researcher performs the deepest practical historical and current research available, decides when each stock is worth buying, chooses and continually reevaluates its own stock-specific holding period, paper-trades those decisions during regular market hours, and improves its approach through disciplined testing. The existing ASTR system remains unchanged.

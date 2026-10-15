@@ -1,0 +1,293 @@
+================================================================================
+                    ASTR (AUTOMATED STOCK ROTATION & RESEARCH DESK)
+                           COMPLETE SYSTEM FUNCTIONAL SPECIFICATION
+================================================================================
+
+1. EXECUTIVE SUMMARY & CORE PHILOSOPHY
+--------------------------------------------------------------------------------
+ASTR is a quantitative, factor-based stock scanning, research, and execution platform
+designed to operate indefinitely on a strictly $0.00 external cost infrastructure (no paid
+subscriptions, no paid API keys).
+
+Key Operational Tenets:
+1. Strict Separation of Concerns (Air Gap): Paper/research simulation and live brokerage
+   execution are completely segregated. Research findings, simulated trades, or experimental
+   algorithms can NEVER touch, mutate, or risk real broker funds without explicit human confirmation.
+2. No Paper Broker APIs: Paper trading through third-party broker endpoints (e.g., Alpaca Paper)
+   is obsolete and permanently eliminated. All research simulations run internally against
+   immutable database ledgers and authentic historical price bars.
+3. Human-in-the-Loop Live Firewall: Live order placement that increases capital exposure
+   requires an explicit user-confirmation token ("manual_confirmed") from a UI dialog. Automated
+   scans can issue notifications or alert cards, but NEVER execute a live market BUY autonomously.
+4. Capital Protection & Calendar Realism: Automated cycles protect capital by exiting SAME_DAY
+   positions before the market close (preventing overnight gap risk) while honoring protected
+   LONG_TERM multi-day positions. All cycles strictly respect New York Stock Exchange calendar
+   rules (holidays, weekends, 9:30 AM–4:00 PM ET market hours, and T+1 cash settlement).
+
+
+2. USER INTERFACE & NAVIGATION ARCHITECTURE
+--------------------------------------------------------------------------------
+The application is structured into a streamlined, high-density financial dashboard
+operating on a dark minimal aesthetic. Navigation consists of eight core tabs:
+
+1. Home (Dashboard):
+   - Account Overview: Total Assets, Total Profit, Available Buying Power, and Settled Cash.
+   - Bot Status Toggle: Quick Start/Stop toggle for background scanning routines.
+   - Market Status Bar: Live status (Market Open, Closing Soon, Closed, Weekend/Holiday) with
+     time countdowns to next market events.
+   - Stocks Currently Held: Unified list showing live holdings with owning researcher identity,
+     target holding duration (e.g., "Trend · 17D target" or "Rotation · Same day"), market value,
+     elapsed holding time, and unrealized P&L %.
+   - Equity Curves: Interactive P&L chart with range selectors (Today, 1W, 1M, 3M, YTD, 1Y, 5Y, All).
+
+2. Research Lab:
+   - Specialist Research Cards: Independent performance tracks for all six specialists and Lead.
+   - Normalized Performance Curves: Percentage-based equity curves (preventing distortion from
+     differing dollar sizes) updated across time horizons.
+   - "Show Me Why" Diagnostic Drawer: Expandable breakdown of formula weights, raw factor scores,
+     and parameter sensitivity curves.
+   - Parameter Stability Engine: Real-time sensitivity checks verifying formula robustness
+     against ±2-day lookback perturbations and ±5% threshold shifts.
+   - Market Regime Matrix: 9-state macroeconomic condition grid classifying specialist win rates
+     and profit factors under prevailing volatility and trend regimes.
+
+3. Analyze Strategy:
+   - On-Demand Single-Stock Scoring: Instant analysis of any user-entered ticker (e.g., AAPL, DIS).
+   - Event Intelligence Banner: Scans and surfaces point-in-time SEC 8-K filings for the ticker,
+     highlighting filing items, sentiment scores, and direct clickable links to sec.gov.
+   - Independent Specialist Ranking Table: Ranks all specialists by historical setup fit against
+     the specific searched ticker, displaying optimal holding periods (e.g., 3D, 17D, 3M).
+   - Minimum Qualification Gate: Alerts the user if even the top-ranked specialist fails its
+     calibrated qualification bar, recommending a PASS rather than forcing a trade.
+   - Direct Manual BUY Action: User specifies dollar size ($) and confirms live order placement
+     directly attributed to the chosen specialist.
+
+4. Audit Desk (Lead Quantitative Self-Audit):
+   - Master Verification Banner: Displays real-time status (ALL PILLARS VERIFIED / ADVISORY WARNINGS /
+     MATHEMATICAL VIOLATIONS DETECTED).
+   - 4-Pillar Scorecard: Real-time verification of Raw-Bar Reconstruction, Scoreboard Math,
+     Balance Integrity ($0.00 leak tolerance), and Look-Ahead Bias.
+   - Audit Discrepancy Ledger: Granular table detailing any flagged trade ID, expected vs. actual
+     values, and exact mathematical violation reasons.
+   - "Run Audit Now": Manual trigger for immediate quantitative self-audit.
+
+5. Scoreboard:
+   - Comprehensive performance leaderboard comparing all research strategies, historical win rates,
+     average holding days, profit factors, and total realized gains.
+
+6. Trade Log:
+   - Immutable audit trail of every closed and open trade, containing fill timestamps, entry/exit
+     prices, hold durations, status notes, and owning strategy IDs.
+
+7. Alerts (Notifications):
+   - Notification center for scan completions, qualification alerts, market cycle events,
+     and audit discrepancies.
+
+8. Settings:
+   - Live Alpaca API credential status, system parameters, auto-run toggles, and risk constraints.
+
+
+3. RESEARCH DEPARTMENT: SPECIALIST & LEAD LOGIC
+--------------------------------------------------------------------------------
+ASTR employs an ensemble of independent mathematical researchers. Each specialist has an
+isolated mathematical objective, evaluates candidate securities independently, and never
+shares or pools calculations with peers.
+
+1. Lead Researcher (Master Formula & Synthesizer):
+   - Objective: Multi-factor synthesis, overarching universe ranking, and system-wide self-audit.
+   - Role: Blends core momentum, value, stability, and volume factors into the master benchmark
+     score. Serves as the primary reference score in the Analyze tab and oversees the Audit Desk.
+
+2. Trend Researcher:
+   - Objective: Trend persistence and moving average alignment.
+   - Mathematical Focus: Moving average ribbon slopes (SMA20, SMA50, SMA200), higher-high progression,
+     and breakout continuation. Favors medium-to-longer holding horizons (e.g., 10D to 45D).
+
+3. Contrarian Researcher:
+   - Objective: Mean-reversion from oversold extremes.
+   - Mathematical Focus: RSI(14) deep pullbacks (< 30), price extension below lower Bollinger Bands,
+     and volume capitulation near major historical support levels. Favors short rebound horizons (1D to 5D).
+
+4. Consistency Researcher:
+   - Objective: Smooth equity curve generation and low-variance performance.
+   - Mathematical Focus: High Sharpe/Sortino ratios, low maximum drawdown, tight daily return standard
+     deviation, and steady positive drift. Favors moderate holding horizons (5D to 20D).
+
+5. Growth Researcher:
+   - Objective: Aggressive momentum velocity and volume acceleration.
+   - Mathematical Focus: 5-day and 20-day Rate-of-Change (ROC), relative volume surges (RVOL > 2.0),
+     and high upside volatility. Favors high-turnaround momentum windows (2D to 10D).
+
+6. Risk Researcher:
+   - Objective: Downside containment and asymmetric risk-to-reward ratios.
+   - Mathematical Focus: Average True Range (ATR) volatility contraction, tight stop-loss boundaries,
+     and favorable risk/reward ratios (minimum 2.5:1 potential gain vs. risk).
+
+7. Skeptic Researcher (Adversarial Validator):
+   - Objective: System stress-tester and disqualifier.
+   - Mathematical Focus: Actively searches for reasons NOT to trade (liquidity traps, overhead
+     resistance, distribution patterns, regime headwinds).
+   - Boundary Rule: Excluded from BUY ranking tables. Acts purely as an internal hurdle/critic.
+
+8. Momentum Factor (Analyze-Only Engine):
+   - Serves as an analytical benchmark factor across universe ranking without running an isolated paper book.
+
+9. Autonomous Entertainment & Events Researcher (Phase H Satellite):
+   - Objective: Discover correlations between real-world events (sports, concerts, movie releases,
+     corporate sponsorships) and related equities.
+   - Boundary Rule: Strictly isolated research-only layer. Zero authority to modify live trading,
+     allocation, or existing specialist formulas without explicit user approval. Operates via $0
+     public sources (SEC 8-K, Wikidata, public event feeds).
+
+
+4. THE STOCK-SPECIFIC "ANALYZE" WORKFLOW
+--------------------------------------------------------------------------------
+When a user evaluates any ticker on the Analyze tab:
+1. Historical Retrieval: The system loads full historical daily bars for the ticker (from local
+   cache or on-demand free sources).
+2. Multi-Horizon Simulation: Each specialist independently tests its unique mathematical formula
+   across multiple forward holding horizons:
+   - Same-Day (0 sessions)
+   - 1 Trading Day (1D)
+   - 3 Trading Days (3D)
+   - 5 Trading Days (5D)
+   - 10 Trading Days (10D)
+   - 1 Month (21D)
+   - 3 Months (63D)
+3. Best-Fit Determination: Each specialist identifies its most reliable historical horizon for
+   that specific stock, generating a Stock-Specific Fit Score, sample count, win rate %, and average return %.
+4. Fit Ranking: The UI ranks specialists from best fit to least recommended.
+5. Minimum Qualification Threshold: Each specialist compares its score against its own evidence-calibrated
+   hurdle. If the #1 specialist fails to qualify, the system displays an explicit warning advising the user
+   to PASS (avoiding auto-cascading to #2).
+6. Execution: The user reviews evidence, selects the preferred specialist row, enters a dollar amount,
+   and clicks BUY. A native confirmation prompt proves human intent, and the live order is submitted
+   to the broker with the position locked to the selected specialist and holding target.
+
+
+5. LIVE TRADING, PORTFOLIO RULES & LIVE FIREWALL
+--------------------------------------------------------------------------------
+Live Broker Integration:
+- Alpaca Live API (Strictly one live credential pair: ALPACA_LIVE_KEY_ID / ALPACA_LIVE_SECRET_KEY).
+- Fractional Shares: Dollar-based orders (e.g., $50.00) submit fractional market orders.
+- Execution Firewall: The server function `buyNotional` strictly enforces `origin === "manual_confirmed"`.
+  Any programmatic or automated attempt to execute a live purchase throws an immediate security exception.
+
+Position Management:
+- SAME_DAY Positions:
+  * Designed for intraday factor exploitation.
+  * Hard Rule: Never held overnight. Automatically flagged and exited during the 3:45 PM ET pre-close cycle.
+- LONG_TERM / Specialist-Assigned Positions:
+  * Assigned a specific planned horizon (e.g., 17 trading days or 3 months).
+  * Protected Rule: Permanently shielded from automated daily sell cycles. Sells are executed manually
+    by the user or upon reaching the defined target/stop conditions with explicit user consent.
+
+Daily Execution Schedule (New York Time):
+- 8:00 AM ET: Key-Check cron verifies Alpaca live credential validity and connectivity.
+- 9:30 AM ET: Market Open. Live price streaming and active position monitoring commence.
+- 3:45 PM ET (Pre-Close Cycle): Scans all active positions; cleanly liquidates all SAME_DAY holdings.
+- 5:30 PM ET (Daily Post-Close Cycle): Caches closing bars, re-scores universes, evaluates paper
+  research horizons, runs event intelligence, and executes the Lead Quantitative Self-Audit.
+
+
+6. QUANTITATIVE SELF-AUDIT ENGINE (LEAD RESEARCHER DESK)
+--------------------------------------------------------------------------------
+To guarantee that backtests, simulated paper records, and reporting metrics never suffer from
+computational drift, data bugs, or look-ahead bias, the Lead Researcher executes an automated
+mathematical audit across four pillars:
+
+Pillar 1: Raw-Bar Trade Reconstruction
+- Verifies every simulated trade fill against authentic historical session bars (daily_bars).
+- Invariant 1: Entry price must fall within the authentic session bounds: [low * 0.995, high * 1.005].
+- Invariant 2: Exit price must fall within the authentic session bounds of the exit date.
+- Invariant 3: SAME_DAY trades must have exit_date === entry_date (zero overnight holds).
+
+Pillar 2: Immutable Scoreboard Recalculation
+- Bypasses cached counters and recalculates win rates, total P&L, and profit factors directly
+  from raw immutable trade records (`trades` table where status = 'closed').
+- Compares calculated values against live scoreboard caches to detect and alert on reporting drift.
+
+Pillar 3: Closed-Loop Balance Reconciliation ($0.00 Leak Tolerance)
+- Enforces the universal accounting equation:
+  Starting Capital + Net Realized P&L + Unrealized P&L = Current Book Value
+- Verifies that zero simulated cash leaks, duplicates, or vanishes across paper books.
+
+Pillar 4: Look-Ahead Bias Validation
+- Audits historical signals to verify that input datasets used timestamps strictly on or before
+  the signal evaluation date (`history_end <= signal_date`).
+- Zero data from future bars may ever leak into historical evaluations.
+
+Audit Verdict Hierarchy:
+- FAIL: Any mathematical violation (fill outside bar bounds, overnight hold on same-day trade, cash leak).
+- WARNING: Missing data bars or advisory anomalies.
+- PASS: 100% mathematical integrity across all audited tracks.
+
+
+7. MARKET REGIME MATRIX & STATISTICAL RIGOR
+--------------------------------------------------------------------------------
+Market environments dictate strategy success. ASTR classifies market conditions into
+exactly 9 composite states based on daily SPY analysis:
+
+Regime Engine:
+- Trend Dimensions (3 states):
+  * Bull: SPY close > SMA200 and 20-day SMA50 slope > 0.
+  * Bear: SPY close < SMA200 and 20-day SMA50 slope < 0.
+  * Sideways: Mixed moving average alignment.
+- Volatility Dimensions (3 states):
+  * Realized Volatility over 20 sessions (RV20) benchmarked against the trailing 252 sessions.
+  * Classified as Low Volatility (< 33rd percentile), Normal Volatility, or High Volatility (> 67th percentile).
+- Precedence Rule: High volatility takes precedence to protect against false breakouts during market shocks.
+- Total Regimes: 3 Trends × 3 Volatilities = 9 Composite Regimes.
+
+Statistical Safeguards:
+- Point-in-Time: The current session always evaluates using yesterday's finalized regime (zero look-ahead).
+- Transaction Costs: An explicit 0.10% round-trip slippage/commission cost is subtracted from all backtests.
+- Multiple Testing Correction: Benjamini-Hochberg False Discovery Rate (FDR) is applied to prevent
+  spurious correlations from being labeled as viable alpha.
+
+
+8. T+1 CASH SETTLEMENT & CAPITAL TRANCHING (PHASE F ARCHITECTURE)
+--------------------------------------------------------------------------------
+To ensure 100% realism in cash account trading without triggering broker Good Faith Violations (GFVs):
+
+1. Settlement Calendar:
+   - Cash from sold positions is locked in an unsettled pool for exactly 1 trading day
+     (`available_on = exit_date + 1 trading session`). Weekends and market holidays do not settle.
+2. Tranche Capital Allocation:
+   - For daily trading specialists (e.g., 1-day holds), capital is divided into Tranche A and Tranche B:
+     * Monday: Tranche A buys.
+     * Tuesday: Tranche A sells (funds unsettled until Wednesday); Tranche B deploys settled cash to buy.
+     * Wednesday: Tranche A cash is settled and redeployed; Tranche B sells.
+   - Eliminates cash exhaustion and guarantees continuous, compliant daily execution.
+3. Turnaround-Adjusted Ranking:
+   - Capital efficiency is evaluated by duration: Return % / (Hold Days + 1).
+
+
+9. CENTRAL CALIBRATION & DURATION POOL ROUTING (PHASE G ARCHITECTURE)
+--------------------------------------------------------------------------------
+1. Independent Signal Discovery:
+   - All 7 formulas autonomously submit qualifying opportunities. Specialists are never forced
+     to participate; submitting zero candidates is a valid, respected defensive stance.
+2. 6-Pillar Calibration Scoring:
+   - Opportunities are scored on: Historical Hit Rate, Current Regime Fit, Setup Quality,
+     Reward/Drawdown Asymmetry, Whipsaw Penalty, and Turnaround Efficiency.
+3. Cash Protection Cutoff:
+   - If no candidate setup clears the minimum calibrated confidence threshold, the system enforces
+     "Protect 100% Cash" ($0 deployed).
+4. Dual Duration Pools (Short-Term vs. Long-Term):
+   - Rather than dividing capital by specialist name, capital is routed into two duration pools:
+     * Short-Term Pool: Opportunities with holding horizons of 1–3 trading days.
+     * Long-Term Pool: Opportunities with holding horizons of 4+ trading days.
+   - Non-Cannibalization Rule: Unspent capital in one pool never drifts or subsidizes the other.
+
+
+10. TECHNOLOGY STACK & PERFORMANCE INVARIANTS
+--------------------------------------------------------------------------------
+- Full-Stack Framework: TanStack Start v1 (React 19, SSR/SSG with server functions via Vite 7).
+- Styling & Theming: Tailwind CSS v4 using semantic CSS variables, dark-mode first design tokens.
+- Server Architecture: Server functions (`createServerFn`) for internal application logic;
+  HTTP server routes under `src/routes/api/public/*` for external schedulers and webhooks.
+- Database & Backend: Lovable Cloud (PostgreSQL with Row Level Security, pg_cron, realtime).
+- Verification & Testing: Native TypeScript typing (`tsgo`), Playwright headless end-to-end testing,
+  and continuous build validation via Vite/Bun.
+================================================================================
