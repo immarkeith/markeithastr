@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ShieldCheck, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
+import { ShieldCheck, AlertTriangle, XCircle, RefreshCw, Wrench, Clock } from "lucide-react";
 
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
-import { getLeadAudit, runLeadAuditNow } from "@/lib/audit.functions";
+import { getLeadAudit, runLeadAuditNow, getRepairLogs, getIntegrityHistory } from "@/lib/audit.functions";
 
 export const Route = createFileRoute("/audit")({
   head: () => ({
@@ -59,6 +59,18 @@ function AuditDeskPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["lead-audit"],
     queryFn: () => load(),
+  });
+
+  const repairsLoad = useServerFn(getRepairLogs);
+  const { data: repairLogs } = useQuery({
+    queryKey: ["repair-logs"],
+    queryFn: () => repairsLoad(),
+  });
+
+  const integrityLoad = useServerFn(getIntegrityHistory);
+  const { data: integrityHistory } = useQuery({
+    queryKey: ["integrity-history"],
+    queryFn: () => integrityLoad(),
   });
 
   const auditMutation = useMutation({
@@ -158,6 +170,102 @@ function AuditDeskPage() {
                     <td className="p-3 text-muted-foreground">{String(d.expected)}</td>
                     <td className="p-3 text-destructive font-mono">{String(d.actual)}</td>
                     <td className="p-3 text-muted-foreground">{d.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Autonomous Repair Log */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Wrench className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold tracking-tight">Autonomous Repair Log</h2>
+        </div>
+        {!repairLogs || repairLogs.length === 0 ? (
+          <div className="rounded-md border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            No autonomous repairs logged yet. The health loop logs each allowlisted repair here with post-repair verification.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="p-3">Time</th>
+                  <th className="p-3">Repair</th>
+                  <th className="p-3">Target</th>
+                  <th className="p-3">Verified</th>
+                  <th className="p-3">Note</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {repairLogs.map((r) => (
+                  <tr key={r.id} className="hover:bg-muted/20">
+                    <td className="p-3 text-muted-foreground whitespace-nowrap">
+                      {new Date(r.checked_at).toLocaleString()}
+                    </td>
+                    <td className="p-3 font-medium">{r.repair_type.replace(/_/g, " ")}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{r.target ?? "—"}</td>
+                    <td className="p-3">
+                      {r.verified ? (
+                        <span className="font-medium text-emerald-500">✓ verified</span>
+                      ) : (
+                        <span className="font-medium text-amber-500">unverified</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-muted-foreground">{r.verification_note ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Integrity Audit History */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Clock className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold tracking-tight">Integrity Audit History</h2>
+        </div>
+        {!integrityHistory || integrityHistory.length === 0 ? (
+          <div className="rounded-md border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            No scheduled integrity audits yet. Daily and weekly audits appear here automatically.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="p-3">Time</th>
+                  <th className="p-3">Cadence</th>
+                  <th className="p-3">Verdict</th>
+                  <th className="p-3">Summary</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {integrityHistory.map((r) => (
+                  <tr key={r.id} className="hover:bg-muted/20">
+                    <td className="p-3 text-muted-foreground whitespace-nowrap">
+                      {new Date(r.checked_at).toLocaleString()}
+                    </td>
+                    <td className="p-3 font-medium uppercase">{r.cadence}</td>
+                    <td className="p-3">
+                      <span
+                        className={
+                          r.overall_verdict === "PASS"
+                            ? "font-medium text-emerald-500"
+                            : r.overall_verdict === "WARNING"
+                              ? "font-medium text-amber-500"
+                              : "font-medium text-rose-500"
+                        }
+                      >
+                        {r.overall_verdict}
+                      </span>
+                    </td>
+                    <td className="p-3 text-muted-foreground">{r.summary ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

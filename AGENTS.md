@@ -44,3 +44,28 @@
   (200 = SSR alive) and `docker compose -f docker-compose.base44.yml ps`
   (healthcheck renders `/unlock`). Then confirm the dashboard shows real
   figures (Total profit, Trade log rows) rather than an error state.
+
+## Phase 1 — Autonomous monitoring & safe repair
+
+- `migration/fresh/15-autonomous-audit.sql` creates two additive tables
+  (`audit_repair_log`, `audit_integrity_results`) and adjusts the pg_cron
+  health schedule from every 15 min to every 5 min during market hours, plus
+  daily (weekday 22:00 UTC) and weekly (Saturday 12:00 UTC) integrity audit
+  jobs. **This migration must be run once in the Supabase SQL editor** (replace
+  the `YOUR-APP.vercel.app` placeholder with the live app URL). Until it is run,
+  the health loop and integrity checks still work but repair logging and
+  integrity-result storage are silently skipped (graceful degradation).
+- `src/lib/repair-log.server.ts` — `logRepair()` records each allowlisted
+  repair (backfill history, cache missing days, re-run scan, rescore empty
+  scan, settle stale paper) to `audit_repair_log` with post-repair
+  verification status. Never throws.
+- `src/lib/integrity.server.ts` — `runIntegrityCheck()` wraps the existing
+  `runLeadSelfAudit()` engine, stores results in `audit_integrity_results`, and
+  alerts only on FAIL (warnings are logged but not pushed).
+- `src/routes/api/public/hooks/integrity.ts` — the pg_cron hook endpoint for
+  daily/weekly integrity audits.
+- The Audit Desk (`/audit`, hidden from nav) now shows two additional sections:
+  Autonomous Repair Log and Integrity Audit History.
+- Safe-repair allowlist (confirmed): re-run missed scan, backfill missing
+  `daily_bars`, settle stuck simulated paper position. No formula/weight/
+  strategy change is ever automatic — those stay human-approved.

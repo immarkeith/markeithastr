@@ -6,6 +6,7 @@
  * else becomes a notification. Server-only.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { logRepair } from "./repair-log.server";
 
 export interface HealthResult {
   ok: boolean;
@@ -98,7 +99,16 @@ export async function runHealthCheck(): Promise<HealthResult> {
           repairs.push(
             `Rebuilt price history: ${back.days_stored} sessions for ${back.tickers} tickers (${back.feed}).`,
           );
+          const missingBeforeBackfill = missing.length;
           missing = await missingDates();
+          await logRepair({
+            repair_type: "backfill_history",
+            target: "price-history-cache",
+            before_status: { missing_days: missingBeforeBackfill, thin: true },
+            after_status: { days_stored: back.days_stored, tickers: back.tickers, feed: back.feed, missing_after: missing.length },
+            verified: back.days_stored > 0,
+            verification_note: `${back.days_stored} sessions stored; ${missing.length} days still missing`,
+          });
         } else {
           issues.push("The data feed returned no usable history for the scan window.");
         }
@@ -121,7 +131,16 @@ export async function runHealthCheck(): Promise<HealthResult> {
           break;
         }
       }
-      if (cached > 0) repairs.push(`Downloaded ${cached} missing day(s) of price history.`);
+      if (cached > 0) {
+        repairs.push(`Downloaded ${cached} missing day(s) of price history.`);
+        await logRepair({
+          repair_type: "cache_missing_days",
+          target: "recent-missing-days",
+          after_status: { cached_days: cached },
+          verified: cached > 0,
+          verification_note: `${cached} missing day(s) downloaded`,
+        });
+      }
       // Re-read coverage so a day we just downloaded no longer blocks the scan
       // repair below (that stale list is why the scan never got re-run).
       try {
@@ -151,6 +170,13 @@ export async function runHealthCheck(): Promise<HealthResult> {
       try {
         const res = await runScan();
         repairs.push(`Re-ran the scan (${res.scored_count} names scored).`);
+        await logRepair({
+          repair_type: "rerun_scan",
+          target: status.nyDate,
+          after_status: { scored_count: res.scored_count },
+          verified: res.scored_count > 0,
+          verification_note: `Scan re-ran; ${res.scored_count} names scored`,
+        });
       } catch (error) {
         issues.push(`Scan retry failed: ${(error as Error).message}`);
       }
@@ -169,6 +195,13 @@ export async function runHealthCheck(): Promise<HealthResult> {
         if (res.scored_count > 0) {
           repairs.push(`Rescored the market after an empty scan (${res.scored_count} names).`);
           recovered = true;
+          await logRepair({
+            repair_type: "rescore_empty_scan",
+            target: "market-rescore",
+            after_status: { scored_count: res.scored_count },
+            verified: true,
+            verification_note: `Recovered from zero-score scan; ${res.scored_count} names`,
+          });
         }
       } catch (error) {
         issues.push(`Rescore after an empty scan failed: ${(error as Error).message}`);
@@ -201,6 +234,14 @@ export async function runHealthCheck(): Promise<HealthResult> {
       const res = await managePaperTrades({ phase: "exit", mode: "paper" });
       if (res.closed.length > 0) {
         repairs.push(`Closed ${res.closed.length} simulated day trade(s) left open.`);
+        await logRepair({
+          repair_type: "settle_stale_paper",
+          target: "stale-day-trades",
+          before_status: { stuck_count: (stale ?? []).length },
+          after_status: { closed_count: res.closed.length },
+          verified: res.closed.length > 0,
+          verification_note: `${res.closed.length} stuck day trade(s) settled`,
+        });
       } else {
         issues.push(`${(stale ?? []).length} simulated day trade(s) are stuck open.`);
       }

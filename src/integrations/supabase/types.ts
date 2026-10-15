@@ -386,6 +386,72 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_repair_log: {
+        Row: {
+          id: string
+          checked_at: string
+          repair_type: string
+          target: string | null
+          before_status: Json
+          after_status: Json
+          verified: boolean
+          verification_note: string | null
+          source: string
+        }
+        Insert: {
+          id?: string
+          checked_at?: string
+          repair_type: string
+          target?: string | null
+          before_status?: Json
+          after_status?: Json
+          verified?: boolean
+          verification_note?: string | null
+          source?: string
+        }
+        Update: {
+          id?: string
+          checked_at?: string
+          repair_type?: string
+          target?: string | null
+          before_status?: Json
+          after_status?: Json
+          verified?: boolean
+          verification_note?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
+      audit_integrity_results: {
+        Row: {
+          id: string
+          checked_at: string
+          cadence: string
+          overall_verdict: string
+          pillars: Json
+          discrepancies: Json
+          summary: string | null
+        }
+        Insert: {
+          id?: string
+          checked_at?: string
+          cadence: string
+          overall_verdict: string
+          pillars?: Json
+          discrepancies?: Json
+          summary?: string | null
+        }
+        Update: {
+          id?: string
+          checked_at?: string
+          cadence?: string
+          overall_verdict?: string
+          pillars?: Json
+          discrepancies?: Json
+          summary?: string | null
+        }
+        Relationships: []
+      }
       lead_tests: {
         Row: {
           contributing_rules: Json
