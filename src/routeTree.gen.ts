@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnalyzeRouteImport } from './routes/analyze'
+import { Route as AuditRouteImport } from './routes/audit'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
 const AnalyzeRoute = AnalyzeRouteImport.update({
   id: '/analyze',
   path: '/analyze',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -148,6 +154,7 @@ const ApiPublicHooksReplayRoute = ApiPublicHooksReplayRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analyze': typeof AnalyzeRoute
+  '/audit': typeof AuditRoute
   '/history': typeof HistoryRoute
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analyze': typeof AnalyzeRoute
+  '/audit': typeof AuditRoute
   '/history': typeof HistoryRoute
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analyze': typeof AnalyzeRoute
+  '/audit': typeof AuditRoute
   '/history': typeof HistoryRoute
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
@@ -223,6 +232,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/analyze'
+    | '/audit'
     | '/history'
     | '/lab'
     | '/notifications'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analyze'
+    | '/audit'
     | '/history'
     | '/lab'
     | '/notifications'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/analyze'
+    | '/audit'
     | '/history'
     | '/lab'
     | '/notifications'
@@ -296,6 +308,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalyzeRoute: typeof AnalyzeRoute
+  AuditRoute: typeof AuditRoute
   HistoryRoute: typeof HistoryRoute
   LabRoute: typeof LabRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -332,6 +345,13 @@ declare module '@tanstack/react-router' {
       path: '/analyze'
       fullPath: '/analyze'
       preLoaderRoute: typeof AnalyzeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -480,6 +500,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalyzeRoute: AnalyzeRoute,
+  AuditRoute: AuditRoute,
   HistoryRoute: HistoryRoute,
   LabRoute: LabRoute,
   NotificationsRoute: NotificationsRoute,
