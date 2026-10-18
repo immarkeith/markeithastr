@@ -142,7 +142,7 @@ export function PnlChart({
   } | null;
 }) {
   const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
-  const [marketOpen, setMarketOpen = useState(() => {
+  const [marketOpen, setMarketOpen] = useState(() => {
     const state = marketStatus().state;
     return state === "open" || state === "closing";
   });
@@ -403,7 +403,7 @@ export function PnlChart({
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">
                 Today’s Active
               </p>
-              <p className={`truncate text-lg font-bold ${todayActiveTicker === "—"? "text-muted-foreground" : "text-primary"}`}>
+              <p className={`truncate text-lg font-bold ${todayActiveTicker === "—" ? "text-muted-foreground" : "text-primary"}`}>
                 {todayActiveTicker}
               </p>
             </div>
@@ -611,3 +611,4 @@ export function PnlChart({
     </section>
   );
 }
+
