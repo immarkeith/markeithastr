@@ -11,7 +11,7 @@
 - [x] Remove the legacy standalone "Buy Long Term" button from Analyze flow
 - [x] Home Tab: update "Stocks Currently Held" to display owning researcher and target holding horizon (e.g. `Trend — DIS — $50 — 17D — +8.4%`)
 
-### Phase B — Research Lab Curves & Parameter Stability Testing ✅
+### Phase B — Research Lab Curves & Parameter Stability Testing (In Progress)
 *Target: 3–4 credits*
 - [x] Normalized researcher percentage curves (percentage-based return, not distorted by dollar amounts)
 - [x] Full time-range selectors for researcher curves: Today | 1W | 1M | 3M | YTD | 1Y | 5Y | All
@@ -21,6 +21,9 @@
 
 ### Phase C — Historical Market Regimes & Event Intelligence ✅
 *Target: 3–4 credits*
+<!-- Intrday sampling (15m/30m/1h per FEATURES.md §8.1) is NOT implemented;
+     curves use real cached daily closes. Phase B remains In Progress until a
+     real intraday bar source exists. -->
 - [x] Historical market condition classifier (SPY SMA20/50/200 direction + 20-day SMA50 slope; RV20 volatility vs trailing 252 sessions)
 - [x] Market regime tagging — exactly 9 composite states (Bull/Bear/Sideways × Low/Normal/High vol), high-vol precedence, 758 real SPY sessions loaded
 - [x] SEC EDGAR catalyst testing — deferred to Phase H per user decision
@@ -76,8 +79,8 @@
 - [ ] Consolidate redundant modules into canonical sources after all features are verified
 - [ ] Zero database schema changes, zero behavior modifications, full clean typecheck
 
-### Phase J — Comprehensive System Manual & Feature Catalog (`FEATURES.md`)
+### Phase J — Comprehensive System Manual & Feature Catalog (`FEATURES.md`) ✅
 *Target: 1 credit*
-- [ ] Create `FEATURES.md`: complete, exhaustive reference manual of all active ASTR systems, tabs, safeguards, and algorithms
-- [ ] Document every researcher formula, holding horizon logic, and ranking methodology
-- [ ] Detail all risk controls, live order firewalls, and T+1 cash management rules
+- [x] Create `FEATURES.md`: complete, exhaustive reference manual of all active ASTR systems, tabs, safeguards, and algorithms
+- [x] Document every researcher formula, holding horizon logic, and ranking methodology
+- [x] Detail all risk controls, live order firewalls, and T+1 cash management rules

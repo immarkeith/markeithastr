@@ -1,37 +1,81 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+
 import { fetchEvents } from "@/lib/events.functions";
 
-const tone: Record<string, string> = { bearish: "text-destructive", bullish: "text-primary", watch: "text-muted-foreground" };
+const tone: Record<string, string> = {
+  bearish: "text-destructive",
+  bullish: "text-success",
+  watch: "text-muted-foreground",
+};
 
-export function EventIntelligence() {
+/**
+ * Ticker-scoped Event Intelligence. Shown above the Analyze score tiles when
+ * the searched ticker has qualifying SEC filings; hidden entirely otherwise.
+ * Research context only — never read by trading, scoring, or position logic.
+ */
+export function EventIntelligence({ ticker }: { ticker: string }) {
   const fn = useServerFn(fetchEvents);
-  const { data } = useQuery({ queryKey: ["events"], queryFn: () => fn(), staleTime: 60_000 });
+  const { data, isError } = useQuery({
+    queryKey: ["events", ticker],
+    queryFn: () => fn({ data: { ticker } }),
+    // Switching tickers starts a fresh query; react-query keys isolate each
+    // ticker's cache so a delayed old-ticker response can never overwrite the
+    // current one.
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+
+  const events = data?.events ?? [];
+  // Hide when empty. A retrieval failure is shown distinctly, never read as
+  // "no events".
+  if (isError) {
+    return (
+      <section className="rounded-md border border-border bg-card p-4">
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+          Event Intelligence — {ticker}
+        </h2>
+        <p className="mt-1 text-sm text-destructive">
+          Event data could not be retrieved. This is not the same as having no events — try again shortly.
+        </p>
+      </section>
+      );
+  }
+  if (events.length === 0) return null;
+
   return (
-    <section className="space-y-2">
-      <h2 className="text-lg font-semibold">Event Intelligence</h2>
+    <section className="space-y-2 rounded-md border border-border bg-card p-4">
+      <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+        Event Intelligence — {ticker}
+      </h2>
       <p className="text-xs text-muted-foreground">
-        Free SEC 8-K filings for top candidates. Research only — never changes live trading.
+        SEC filings for this ticker. Research context only — never changes trading.
       </p>
-      {data?.latest?.verdict ? <p className="text-sm">Lead: {data.latest.verdict}</p> : null}
-      {!data?.events.length ? (
-        <p className="text-sm text-muted-foreground">No material filings found yet. Checked after each market day.</p>
-      ) : (
-        <ul className="divide-y divide-border text-sm">
-          {data.events.map((e: any) => (
-            <li key={e.ticker + e.filed_on + e.reason} className="flex justify-between gap-3 py-2">
-              <span>
-                <b>{e.ticker}</b> <span className="text-muted-foreground">{e.filed_on}</span>
-                <br />
-                <a href={e.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">{e.reason}</a>
+      <ul className="divide-y divide-border text-sm">
+        {events.map((e) => (
+          <li key={`${e.ticker}-${e.filed_on}-${e.reason}`} className="flex justify-between gap-3 py-2">
+            <span className="min-w-0">
+              <span className="font-medium">{e.reason}</span>
+              <span className="block text-xs text-muted-foreground">
+                {e.filed_on} · {e.form ?? "8-K"}
+                {e.items?.length ? ` · items ${e.items.join(", ")}` : ""}
               </span>
-              <span className={`shrink-0 font-medium ${tone[e.sentiment] ?? ""}`}>
-                {e.sentiment} {Number(e.score) > 0 ? "+" : ""}{e.score}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+              <a
+                href={e.url ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-primary underline-offset-2 hover:underline"
+              >
+                View original SEC filing
+              </a>
+            </span>
+            <span className={`shrink-0 text-right font-medium ${tone[e.sentiment] ?? ""}`}>
+              {e.sentiment} {Number(e.score) > 0 ? "+" : ""}
+              {e.score}
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
