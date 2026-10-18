@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
+import { marketStatus } from "@/lib/market-calendar";
 
 import { InfoDot } from "@/components/InfoDot";
 import { FutureCapitalAnalysis } from "@/components/FutureCapitalAnalysis";
-import { EventIntelligence } from "@/components/EventIntelligence";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import {
   ResearchDepartment,
@@ -47,7 +48,31 @@ export const Route = createFileRoute("/lab")({
 
 function LabPage() {
   const qc = useQueryClient();
-  const race = useQuery({ queryKey: ["race"], queryFn: () => fetchRace() });
+  // Market hours only: refresh every 10 minutes while the session is open;
+  // after hours the last state of the close is shown without re-fetching.
+  const [marketOpen, setMarketOpen] = useState(() => {
+    const s = marketStatus().state;
+    return s === "open" || s === "closing";
+  });
+  useEffect(() => {
+    const update = () => {
+      const s = marketStatus().state;
+      setMarketOpen(s === "open" || s === "closing");
+    };
+    update();
+    const id = globalThis.setInterval(update, 60_000);
+    return () => globalThis.clearInterval(id);
+  }, []);
+  const race = useQuery({
+    queryKey: ["race"],
+    queryFn: () => fetchRace(),
+    // Cached across visits; the 10-minute timer controls freshness instead of
+    // every remount refetching from scratch.
+    staleTime: 5 * 60_000,
+    refetchInterval: marketOpen ? 10 * 60_000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: marketOpen,
+  });
   const runFn = useServerFn(runRaceNow);
 
   const run = useMutation({
@@ -183,7 +208,6 @@ function LabPage() {
       <ResearchDisagreements />
 
       {d?.capital_analysis ? <FutureCapitalAnalysis analysis={d.capital_analysis} /> : null}
-      <EventIntelligence />
 
       {/* Phase C — how each formula behaves across the 9 market regimes. */}
       <section className="space-y-3">
@@ -441,4 +465,3 @@ function SlotCard({
     </section>
   );
 }
-
