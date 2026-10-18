@@ -1505,6 +1505,20 @@ export async function researcherEquityCurve(
   let coverageFrom: string | null = null;
   let coverageTo: string | null = null;
   let hasGaps = false;
+  // Trading sessions from a to b (inclusive) — used to detect interior gaps
+  // per FEATURES §8.2: a held session with no cached bar is a gap, never
+  // interpolated.
+  const sessionsBetween = (from: string, to: string): string[] => {
+    const out: string[] = [];
+    const cur = new Date(`${from}T00:00:00Z`);
+    const end = new Date(`${to}T00:00:00Z`);
+    while (cur <= end && out.length < 400) {
+      const iso = cur.toISOString().slice(0, 10);
+      if (isTradingDay(iso)) out.push(iso);
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    return out;
+  };
   for (const trade of trades) {
     const ticker = String(trade['ticker']);
     const entryPrice = Number(trade['entry_price']);
@@ -1515,15 +1529,20 @@ export async function researcherEquityCurve(
     const heldBars = (closesByTicker.get(ticker) ?? []).filter(
       (b) => b.date >= entryDate && (!exitDate || b.date <= exitDate),
     );
-    if (!exitDate && heldBars.length) {
-      const last = heldBars[heldBars.length - 1]!.date;
-      const target = exitDate ?? latestTradingDay();
-      if (last < target) hasGaps = true;
-    }
-    if (heldBars.length && exitDate) {
-      // A closed trade should have bars through its exit; a missing stretch is a gap.
-      const exitCovered = heldBars.some((b) => b.date >= exitDate);
-      if (!exitCovered) hasGaps = true;
+    const barDates = new Set(heldBars.map((b) => b.date));
+    // For an open trade, only sessions up to its newest bar are expected —
+    // today's bar may simply not be cached yet. For a closed trade, its exit
+    // session must be covered too.
+    const target = exitDate ?? heldBars[heldBars.length - 1]?.date;
+    if (target) {
+      for (const session of sessionsBetween(entryDate, target)) {
+        if (!barDates.has(session)) {
+          hasGaps = true;
+          break;
+        }
+      }
+    } else {
+      hasGaps = true; // held position with no bars at all
     }
     for (const bar of heldBars) {
       const pl = dollars * (bar.close / entryPrice - 1);
@@ -1540,9 +1559,4 @@ export async function researcherEquityCurve(
     return { date, equity: Number(running.toFixed(2)) };
   });
   return { strategy_id: strategyId, points, coverage_from: coverageFrom, coverage_to: coverageTo, has_gaps: hasGaps };
-}
-
-/** The most recent session the shared bar cache should know about. */
-function latestTradingDay(): string {
-  return today();
 }
