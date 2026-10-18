@@ -465,3 +465,4 @@ function SlotCard({
     </section>
   );
 }
+
