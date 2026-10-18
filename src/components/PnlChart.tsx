@@ -186,7 +186,7 @@ export function PnlChart({
       d.setUTCDate(d.getUTCDate() - d.getUTCDay());
       return d.toISOString().slice(0, 10);
     };
-        const build = (
+    const build = (
       source: { exit_date: string | null; entry_date?: string | null; profit: number }[],
       open: number,
     ): Map<string, number> => {
@@ -282,6 +282,18 @@ export function PnlChart({
     // No cached bar inside this window (e.g. Today before the session's bar
     // exists): fall back to the realized builder instead of collapsing flat.
     if (inWindow.length === 0) return null;
+    // Sparse coverage: when the cached bars back only a small slice of the
+    // window, the mark-to-market line collapses to a flat stub pinned to one
+    // edge — fall back to the realized builder so the trade history still shows.
+    const windowSpan = Math.max(
+      1,
+      (Date.parse(`${window.until}T00:00:00Z`) - Date.parse(`${window.from}T00:00:00Z`)) / 86400000,
+    );
+    const coveredSpan =
+      (Date.parse(`${inWindow[inWindow.length - 1]!.date}T00:00:00Z`) -
+        Date.parse(`${inWindow[0]!.date}T00:00:00Z`)) /
+      86400000;
+    if (inWindow.length < 2 || coveredSpan < windowSpan * 0.5) return null;
     const scale = percent && basis > 0 ? 100 / basis : 1;
     // Long ranges roll daily marks up to one point per week so the line stays
     // readable instead of drawing every session bunched together.
@@ -611,4 +623,3 @@ export function PnlChart({
     </section>
   );
 }
-
