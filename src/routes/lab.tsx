@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   fetchRace,
-  fetchOpenEquity,
   runRaceNow,
   setResearchRunning,
 } from "@/lib/race.functions";
@@ -239,6 +238,9 @@ function LabPage() {
               key={slot.key}
               slot={slot}
               longTermRates={slot.lane ? (d?.long_term_win_rates[slot.lane] ?? []) : []}
+              equity={
+                d?.equity_curves.find((c) => c.strategy_id === slot.strategy_id) ?? null
+              }
             />
           ))}
         </div>
@@ -264,6 +266,9 @@ function LabPage() {
 }
 
 type Entrant = NonNullable<Awaited<ReturnType<typeof fetchRace>>>["entrants"][number];
+type EquityCurve = NonNullable<
+  Awaited<ReturnType<typeof fetchRace>>
+>["equity_curves"][number];
 
 function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -324,19 +329,12 @@ function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
 function SlotCard({
   slot,
   longTermRates,
+  equity,
 }: {
   slot: Entrant;
   longTermRates: LongTermRate[];
+  equity: EquityCurve | null;
 }) {
-  // Authentic mark-to-market curve for this slot's open positions, fetched only
-  // while something is actually held.
-  const held = slot.holdings.length > 0;
-  const openEquity = useQuery({
-    queryKey: ["open-equity", slot.strategy_id],
-    queryFn: () => fetchOpenEquity({ data: { strategyId: slot.strategy_id! } }),
-    enabled: held && slot.strategy_id !== null,
-  });
-
   return (
     <section className="space-y-4">
       {/* Every researcher tests every market day, so no status badge is needed. */}
@@ -369,7 +367,7 @@ function SlotCard({
         percent
         basis={slot.basis}
         activeTicker={slot.holdings[0]?.ticker ?? null}
-        openEquity={held ? (openEquity.data ?? null) : null}
+        equity={equity}
       />
 
 

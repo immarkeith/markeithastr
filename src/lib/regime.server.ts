@@ -67,9 +67,17 @@ export interface SessionRegime {
   date: string;
   direction: Direction;
   volatility: VolTier;
-  /** RV20 percentile within its trailing 252 sessions (0-100). */
-  rv20_percentile: number;
+  /** 20-session realized volatility, annualized (RV20 * sqrt(252)), in %. */
+  annualized_vol_pct: number;
+  /** Percent of the 200-day SMA the close sat at (+ = above). */
+  sma200_distance_pct: number;
 }
+
+/** FEATURES.md §9.1 — fixed annualized-volatility band edges. */
+export const VOL_LOW_MAX_PCT = 15;
+export const VOL_NORMAL_MAX_PCT = 28;
+/** FEATURES.md §9.1 — trend axis edge: |distance from 200-day SMA| in %. */
+export const SMA_BAND_PCT = 5;
 
 interface SpyBar {
   date: string;
@@ -97,10 +105,16 @@ function realizedVol(closes: number[], end: number, period = 20): number | null 
   return Math.sqrt(variance) * 100;
 }
 
+/** Annualize a realized-vol figure (in %) the way FEATURES.md §9.1 specifies. */
+function annualize(rvPct: number): number {
+  return rvPct * Math.sqrt(252);
+}
+
 /**
- * Classify every session that has enough history. Sessions with fewer than
- * 272 preceding bars are skipped entirely (INSUFFICIENT_HISTORY) rather than
- * guessed — the caller sees exactly which dates were classifiable.
+ * Classify every session that has enough history. Sessions without a 200-day
+ * SMA and 20-session realized volatility (220 preceding bars) are skipped
+ * entirely (INSUFFICIENT_HISTORY) rather than guessed — the caller sees
+ * exactly which dates were classifiable.
  */
 export function classifySessions(bars: SpyBar[]): {
   regimes: Map<string, SessionRegime>;
@@ -112,43 +126,32 @@ export function classifySessions(bars: SpyBar[]): {
 
   for (let i = 0; i < bars.length; i++) {
     const sma200 = sma(closes, i, 200);
-    const sma50 = sma(closes, i, 50);
-    const sma50Back = sma(closes, i - 20, 50);
     const rv20 = realizedVol(closes, i);
-    if (sma200 === null || sma50 === null || sma50Back === null || rv20 === null) {
+    if (sma200 === null || rv20 === null) {
       skipped++;
       continue;
     }
-    // 252-session trailing percentile of RV20.
-    const start = Math.max(20, i - 251);
-    const window: number[] = [];
-    for (let j = start; j <= i; j++) {
-      const v = realizedVol(closes, j);
-      if (v !== null) window.push(v);
-    }
-    if (window.length < 60) {
-      skipped++;
-      continue;
-    }
-    const below = window.filter((v) => v < rv20).length;
-    const percentile = (below / window.length) * 100;
-
-    const slope = sma50 - sma50Back;
     const close = closes[i]!;
+    const sma200Distance = ((close - sma200) / sma200) * 100;
+    const annualizedVol = annualize(rv20);
+
+    // Direction: the close's distance from the 200-day SMA, per FEATURES.md §9.1.
     const direction: Direction =
-      close > sma200 && sma50 > sma200 && slope > 0
-        ? "bull"
-        : close < sma200 && sma50 < sma200 && slope < 0
-          ? "bear"
-          : "sideways";
+      sma200Distance > SMA_BAND_PCT ? "bull" : sma200Distance < -SMA_BAND_PCT ? "bear" : "sideways";
+    // Volatility: fixed annualized bands, not a rolling percentile.
     const volatility: VolTier =
-      percentile < 33 ? "low" : percentile <= 67 ? "normal" : "high";
+      annualizedVol < VOL_LOW_MAX_PCT
+        ? "low"
+        : annualizedVol <= VOL_NORMAL_MAX_PCT
+          ? "normal"
+          : "high";
 
     regimes.set(bars[i]!.date, {
       date: bars[i]!.date,
       direction,
       volatility,
-      rv20_percentile: Number(percentile.toFixed(1)),
+      annualized_vol_pct: Number(annualizedVol.toFixed(1)),
+      sma200_distance_pct: Number(sma200Distance.toFixed(2)),
     });
   }
   return { regimes, skipped };
@@ -316,13 +319,10 @@ export async function runRegimeAnalysis(
   const warnings: string[] = [];
   const { regimes, skipped } = classifySessions(spyBars);
   // High-Volatility Precedence — point-in-time on the latest classified session.
-  const lastRegime = spyBars.length ? regimes.get(spyBars[spyBars.length - 1]!.date) : undefined;
-  const latestRv20 = spyBars.length ? realizedVol(spyBars.map((b) => b.close), spyBars.length - 1) : null;
-  const spyAnnualizedVol =
-    latestRv20 === null ? null : Number((latestRv20 * Math.sqrt(252)).toFixed(1));
-  const highVolPrecedence =
-    (spyAnnualizedVol !== null && spyAnnualizedVol > HIGH_VOL_ANNUALIZED_PCT) ||
-    lastRegime?.volatility === "high";
+  const lastDate = spyBars.length ? spyBars[spyBars.length - 1]!.date : null;
+  const lastRegime = lastDate ? regimes.get(lastDate) : undefined;
+  const spyAnnualizedVol = lastRegime?.annualized_vol_pct ?? null;
+  const highVolPrecedence = lastRegime?.volatility === "high";
   if (highVolPrecedence) {
     warnings.push(
       `HIGH_VOL_PRECEDENCE: ${proxyTicker} annualized 20-session volatility is ${spyAnnualizedVol ?? "—"}% (threshold ${HIGH_VOL_ANNUALIZED_PCT}%). High volatility takes precedence — signal: trim position sizes ${HIGH_VOL_TRIM_PCT}% and weight the Skeptic ${HIGH_VOL_SKEPTIC_WEIGHT_MULTIPLIER}x.`,
@@ -330,7 +330,7 @@ export async function runRegimeAnalysis(
   }
   if (regimes.size === 0) {
     warnings.push(
-      `INSUFFICIENT_HISTORY: ${proxyTicker} cache has ${spyBars.length} sessions; regime classification needs ~272. No cell was evaluated.`,
+      `INSUFFICIENT_HISTORY: ${proxyTicker} cache has ${spyBars.length} sessions; regime classification needs ~221. No cell was evaluated.`,
     );
   } else if (skipped > 0) {
     warnings.push(

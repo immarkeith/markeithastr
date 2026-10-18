@@ -1086,6 +1086,8 @@ export async function raceStandings(): Promise<{
   days_running: number;
   min_days: number;
   suggestion: { name: string; strategy_id: string; edge: number } | null;
+  /** Mark-to-market equity curve per strategy_id, including the live book. */
+  equity_curves: ResearcherEquityCurve[];
 }> {
   const base = await loadSettings();
   const slots = await loadSlots();
@@ -1278,7 +1280,44 @@ export async function raceStandings(): Promise<{
         }
       : null;
 
-  return { entrants, days_running: daysRunning, min_days: RACE_MIN_DAYS, suggestion };
+  // Full mark-to-market curves for every book (paper + live), computed once so
+  // the Lab charts render real daily equity instead of realized-only steps.
+  const equityCurves: ResearcherEquityCurve[] = [];
+  for (const entrant of entrants) {
+    if (!entrant.strategy_id) {
+      equityCurves.push({
+        strategy_id: "live",
+        points: [],
+        coverage_from: null,
+        coverage_to: null,
+        has_gaps: false,
+      });
+      continue;
+    }
+    try {
+      equityCurves.push(await researcherEquityCurve(entrant.strategy_id));
+    } catch (error) {
+      console.error(
+        `equity curve failed for ${entrant.name}:`,
+        error instanceof Error ? error.message : error,
+      );
+      equityCurves.push({
+        strategy_id: entrant.strategy_id,
+        points: [],
+        coverage_from: null,
+        coverage_to: null,
+        has_gaps: false,
+      });
+    }
+  }
+
+  return {
+    entrants,
+    days_running: daysRunning,
+    min_days: RACE_MIN_DAYS,
+    suggestion,
+    equity_curves: equityCurves,
+  };
 }
 
 /**
@@ -1384,70 +1423,126 @@ export async function researcherPaperBuy(ticker: string, researcher: string) {
   return { ticker: sym, price, researcher, hold_days: researcherHoldDays(slot) };
 }
 
-// --------------------------------------------------- open-position equity ----
+// ------------------------------------------------------- daily equity curve --
 
-export interface OpenEquitySeries {
-  /** Cumulative open-position P/L (dollars) by trading date, marked to close. */
-  points: { date: string; pl: number }[];
-  /** Earliest bar date actually available for the held tickers. */
+export interface EquityPoint {
+  /** Trading session date (ISO). */
+  date: string;
+  /** Portfolio P/L in dollars: realized through this date + open marks to close. */
+  equity: number;
+}
+
+export interface ResearcherEquityCurve {
+  strategy_id: string;
+  points: EquityPoint[];
+  /** First/last dates a real bar backs the curve — anything outside is a gap. */
   coverage_from: string | null;
   coverage_to: string | null;
+  /** True when some sessions inside the covered span had no bar for a held position. */
+  has_gaps: boolean;
 }
 
 /**
- * Mark-to-market history for one slot's currently open paper positions.
+ * Full mark-to-market equity curve for one researcher's paper book, per
+ * FEATURES.md §8.1: realized P/L lands on exit dates, and every position
+ * (historical or still open) contributes dollars * (close / entry - 1) for
+ * every session it was held, priced from authentic cached daily closes.
  *
- * Every point is an authentic cached daily close: daily P/L =
- * dollars * (close / entry_price - 1), summed across holdings per date from
- * each position's entry date forward. No interpolation, no invented prices —
- * dates before the position opened (or before cached history exists) are
- * simply absent, and the chart labels that coverage honestly.
+ * Sessions with no bar for a held position are absent from the curve and
+ * flagged via has_gaps — never interpolated or invented.
  */
-export async function openEquitySeries(strategyId: string): Promise<OpenEquitySeries> {
-  const open = await slotOpenTrades(strategyId);
-  if (open.length === 0) {
-    return { points: [], coverage_from: null, coverage_to: null };
-  }
-  const tickers = [...new Set(open.map((t) => String(t.ticker)))];
-  const { data, error } = await supabaseAdmin
+export async function researcherEquityCurve(
+  strategyId: string,
+): Promise<ResearcherEquityCurve> {
+  const empty: ResearcherEquityCurve = {
+    strategy_id: strategyId,
+    points: [],
+    coverage_from: null,
+    coverage_to: null,
+    has_gaps: false,
+  };
+  const [openRows, closedRows] = await Promise.all([
+    slotOpenTrades(strategyId),
+    supabaseAdmin
+      .from("trades")
+      .select("ticker, entry_date, entry_price, dollars, exit_date, profit")
+      .eq("strategy_id", strategyId)
+      .eq("status", "closed")
+      .order("exit_date", { ascending: true })
+      .limit(400),
+  ]);
+  const trades = [
+    ...(openRows ?? []).map((t) => t as unknown as Record<string, unknown>),
+    ...((closedRows.data ?? []) as unknown as Record<string, unknown>[]),
+  ];
+  if (trades.length === 0) return empty;
+
+  const tickers = [...new Set(trades.map((t) => String(t['ticker'])))];
+  const { data: bars, error } = await supabaseAdmin
     .from("daily_bars")
     .select("ticker, bar_date, close")
     .in("ticker", tickers)
     .order("bar_date", { ascending: true });
   if (error) throw new Error(error.message);
-
   const closesByTicker = new Map<string, { date: string; close: number }[]>();
-  for (const row of data ?? []) {
+  for (const row of bars ?? []) {
     const ticker = String(row.ticker);
     const list = closesByTicker.get(ticker) ?? [];
     list.push({ date: String(row.bar_date), close: Number(row.close) });
     closesByTicker.set(ticker, list);
   }
 
-  const daily = new Map<string, number>();
+  // Realized P/L per exit date.
+  const realizedByDate = new Map<string, number>();
+  for (const trade of (closedRows.data ?? []) as Record<string, unknown>[]) {
+    const date = String(trade['exit_date'] ?? "");
+    if (!date) continue;
+    realizedByDate.set(date, (realizedByDate.get(date) ?? 0) + Number(trade['profit'] ?? 0));
+  }
+
+  // Daily unrealized P/L for every held position on every session it was open.
+  const openByDate = new Map<string, number>();
   let coverageFrom: string | null = null;
   let coverageTo: string | null = null;
-  for (const trade of open) {
-    const ticker = String(trade.ticker);
-    const entryPrice = Number(trade.entry_price);
-    const dollars = Number(trade.dollars);
-    const entryDate = String(trade.entry_date ?? "");
-    const bars = closesByTicker.get(ticker) ?? [];
-    for (const bar of bars) {
-      if (!entryPrice || bar.date < entryDate) continue;
+  let hasGaps = false;
+  for (const trade of trades) {
+    const ticker = String(trade['ticker']);
+    const entryPrice = Number(trade['entry_price']);
+    const dollars = Number(trade['dollars']);
+    const entryDate = String(trade['entry_date'] ?? "");
+    const exitDate = trade['exit_date'] ? String(trade['exit_date']) : null;
+    if (!entryPrice || !entryDate) continue;
+    const heldBars = (closesByTicker.get(ticker) ?? []).filter(
+      (b) => b.date >= entryDate && (!exitDate || b.date <= exitDate),
+    );
+    if (!exitDate && heldBars.length) {
+      const last = heldBars[heldBars.length - 1]!.date;
+      const target = exitDate ?? latestTradingDay();
+      if (last < target) hasGaps = true;
+    }
+    if (heldBars.length && exitDate) {
+      // A closed trade should have bars through its exit; a missing stretch is a gap.
+      const exitCovered = heldBars.some((b) => b.date >= exitDate);
+      if (!exitCovered) hasGaps = true;
+    }
+    for (const bar of heldBars) {
       const pl = dollars * (bar.close / entryPrice - 1);
-      daily.set(bar.date, (daily.get(bar.date) ?? 0) + pl);
+      openByDate.set(bar.date, (openByDate.get(bar.date) ?? 0) + pl);
       if (coverageFrom === null || bar.date < coverageFrom) coverageFrom = bar.date;
       if (coverageTo === null || bar.date > coverageTo) coverageTo = bar.date;
     }
   }
 
-  let cumulative = 0;
-  const points = [...daily.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, pl]) => {
-      cumulative += pl;
-      return { date, pl: Number(cumulative.toFixed(2)) };
-    });
-  return { points, coverage_from: coverageFrom, coverage_to: coverageTo };
+  const allDates = [...new Set([...realizedByDate.keys(), ...openByDate.keys()])].sort();
+  let running = 0;
+  const points: EquityPoint[] = allDates.map((date) => {
+    running += (realizedByDate.get(date) ?? 0) + (openByDate.get(date) ?? 0);
+    return { date, equity: Number(running.toFixed(2)) };
+  });
+  return { strategy_id: strategyId, points, coverage_from: coverageFrom, coverage_to: coverageTo, has_gaps: hasGaps };
+}
+
+/** The most recent session the shared bar cache should know about. */
+function latestTradingDay(): string {
+  return today();
 }
