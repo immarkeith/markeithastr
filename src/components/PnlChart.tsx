@@ -173,10 +173,21 @@ export function PnlChart({
     if (active.calendar) {
       return { today, from: calendarStart(active.calendar), until: today };
     }
+    // The "All" window starts at the earliest activity on record instead of a
+    // century back, so real history stretches across the chart instead of
+    // spiking in the last couple of pixels.
+    if (active.days >= 36500) {
+      const dates = [today];
+      for (const r of rows) if (r.exit_date) dates.push(r.exit_date);
+      for (const r of compareRows ?? []) if (r.exit_date) dates.push(r.exit_date);
+      for (const r of secondaryRows ?? []) if (r.exit_date) dates.push(r.exit_date);
+      for (const p of equity?.points ?? []) dates.push(p.date);
+      return { today, from: dates.reduce((a, b) => (a < b ? a : b)), until: today };
+    }
     const from = active.endYesterday ? isoDaysAgo(active.days) : isoDaysAgo(active.days - 1);
     const until = active.endYesterday ? isoDaysAgo(1) : today;
     return { today, from, until };
-  }, [active]);
+  }, [active, rows, compareRows, secondaryRows, equity]);
 
   const daily = useMemo(() => {
     // Long ranges group by week so the line stays readable on a phone.
@@ -186,7 +197,7 @@ export function PnlChart({
       d.setUTCDate(d.getUTCDate() - d.getUTCDay());
       return d.toISOString().slice(0, 10);
     };
-    const build = (
+        const build = (
       source: { exit_date: string | null; entry_date?: string | null; profit: number }[],
       open: number,
     ): Map<string, number> => {
@@ -539,7 +550,7 @@ export function PnlChart({
       </div>
       {series.length === 0 && (compareSeries?.length ?? 0) === 0 ? (
         <p className="text-xs text-muted-foreground">
-          Flat for this window — the line moves once a position is open or sold.
+          Flat for this window — no price movement or profit recorded in this period; the line moves once a position is open or sold.
         </p>
       ) : null}
 
