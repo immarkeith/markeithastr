@@ -558,7 +558,7 @@ export function PnlChart({
             <span
               className={`inline-block h-0 w-5 border-t-2 border-dashed border-current ${toneOf(secondaryTotal)}`}
             />
-            {secondaryLabel ?? "Long-Term P/L"} {"}
+            {secondaryLabel ?? "Long-Term P/L"}{" "}
             {secondaryTotal === null ? "—" : `${secondaryTotal >= 0 ? "+" : ""}${money(secondaryTotal)}`}
           </span>
         </div>
@@ -585,7 +585,7 @@ export function PnlChart({
         <p className="text-[10px] text-muted-foreground">
           Marked to real daily closes {equity.coverage_from} → {equity.coverage_to ?? "now"}
           {equity.coverage_to && equity.coverage_to < isoDaysAgo(0)
-            ? " — no newer bars cached yet, later dates show no movement"
+            ? " — no newer bars cache yet, later dates show no movement"
             : ""}
           {equity.has_gaps ? " — some sessions lack cached bars and show no movement there" : ""}
         </p>
