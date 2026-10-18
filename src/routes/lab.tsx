@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { marketStatus } from "@/lib/market-calendar";
@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   fetchRace,
+  refreshLabGraph,
   runRaceNow,
   setResearchRunning,
 } from "@/lib/race.functions";
@@ -48,8 +49,9 @@ export const Route = createFileRoute("/lab")({
 
 function LabPage() {
   const qc = useQueryClient();
-  // Market hours only: refresh every 10 minutes while the session is open;
-  // after hours the last state of the close is shown without re-fetching.
+  // The page renders the saved graph snapshot immediately; the five-minute
+  // background timer (scheduler + this refetch) keeps it current without ever
+  // triggering a full historical recalculation on open.
   const [marketOpen, setMarketOpen] = useState(() => {
     const s = marketStatus().state;
     return s === "open" || s === "closing";
@@ -66,13 +68,44 @@ function LabPage() {
   const race = useQuery({
     queryKey: ["race"],
     queryFn: () => fetchRace(),
-    // Cached across visits; the 10-minute timer controls freshness instead of
-    // every remount refetching from scratch.
+    // Served from the saved snapshot (one DB read); the 5-minute timer drives
+    // freshness instead of every remount recomputing the charts.
     staleTime: 5 * 60_000,
-    refetchInterval: marketOpen ? 10 * 60_000 : false,
+    refetchInterval: marketOpen ? 5 * 60_000 : false,
     refetchIntervalInBackground: false,
-    refetchOnWindowFocus: marketOpen,
+    refetchOnWindowFocus: false,
   });
+  const refreshFn = useServerFn(refreshLabGraph);
+  // Rebuild the snapshot in the background (append new points, re-mark open
+  // positions) and swap the fresh dataset into the cache without blocking the
+  // already-rendered saved data. Guarded by generated_at so a completed
+  // refresh never re-triggers itself.
+  const appliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!marketOpen) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const fresh = await refreshFn();
+        if (alive && fresh.guards.generated_at !== appliedRef.current) {
+          appliedRef.current = fresh.guards.generated_at;
+          qc.setQueryData(["race"], {
+            ...fresh.payload,
+            research_running: race.data?.research_running ?? true,
+            generated_at: fresh.guards.generated_at,
+          });
+        }
+      } catch {
+        // Keep showing the previously rendered snapshot.
+      }
+    };
+    void tick();
+    const id = globalThis.setInterval(() => void tick(), 5 * 60_000);
+    return () => {
+      alive = false;
+      globalThis.clearInterval(id);
+    };
+  }, [marketOpen, refreshFn, qc, race.data?.research_running]);
   const runFn = useServerFn(runRaceNow);
 
   const run = useMutation({

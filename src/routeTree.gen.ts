@@ -29,6 +29,7 @@ import { Route as ApiPublicHooksDeepenHistoryRouteImport } from './routes/api/pu
 import { Route as ApiPublicHooksDiscoverRouteImport } from './routes/api/public/hooks/discover'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksKeyCheckRouteImport } from './routes/api/public/hooks/key-check'
+import { Route as ApiPublicHooksLabRefreshRouteImport } from './routes/api/public/hooks/lab-refresh'
 import { Route as ApiPublicHooksPrecloseRouteImport } from './routes/api/public/hooks/preclose'
 import { Route as ApiPublicHooksPreopenRouteImport } from './routes/api/public/hooks/preopen'
 import { Route as ApiPublicHooksReplayRouteImport } from './routes/api/public/hooks/replay'
@@ -135,6 +136,12 @@ const ApiPublicHooksKeyCheckRoute = ApiPublicHooksKeyCheckRouteImport.update({
   path: '/api/public/hooks/key-check',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksLabRefreshRoute =
+  ApiPublicHooksLabRefreshRouteImport.update({
+    id: '/api/public/hooks/lab-refresh',
+    path: '/api/public/hooks/lab-refresh',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksPrecloseRoute = ApiPublicHooksPrecloseRouteImport.update({
   id: '/api/public/hooks/preclose',
   path: '/api/public/hooks/preclose',
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/key-check': typeof ApiPublicHooksKeyCheckRoute
+  '/api/public/hooks/lab-refresh': typeof ApiPublicHooksLabRefreshRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
   '/api/public/hooks/replay': typeof ApiPublicHooksReplayRoute
@@ -197,6 +205,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/key-check': typeof ApiPublicHooksKeyCheckRoute
+  '/api/public/hooks/lab-refresh': typeof ApiPublicHooksLabRefreshRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
   '/api/public/hooks/replay': typeof ApiPublicHooksReplayRoute
@@ -223,6 +232,7 @@ export interface FileRoutesById {
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/hooks/key-check': typeof ApiPublicHooksKeyCheckRoute
+  '/api/public/hooks/lab-refresh': typeof ApiPublicHooksLabRefreshRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
   '/api/public/hooks/preopen': typeof ApiPublicHooksPreopenRoute
   '/api/public/hooks/replay': typeof ApiPublicHooksReplayRoute
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
     | '/api/public/hooks/key-check'
+    | '/api/public/hooks/lab-refresh'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
     | '/api/public/hooks/replay'
@@ -275,6 +286,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
     | '/api/public/hooks/key-check'
+    | '/api/public/hooks/lab-refresh'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
     | '/api/public/hooks/replay'
@@ -300,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
     | '/api/public/hooks/key-check'
+    | '/api/public/hooks/lab-refresh'
     | '/api/public/hooks/preclose'
     | '/api/public/hooks/preopen'
     | '/api/public/hooks/replay'
@@ -326,6 +339,7 @@ export interface RootRouteChildren {
   ApiPublicHooksDiscoverRoute: typeof ApiPublicHooksDiscoverRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
   ApiPublicHooksKeyCheckRoute: typeof ApiPublicHooksKeyCheckRoute
+  ApiPublicHooksLabRefreshRoute: typeof ApiPublicHooksLabRefreshRoute
   ApiPublicHooksPrecloseRoute: typeof ApiPublicHooksPrecloseRoute
   ApiPublicHooksPreopenRoute: typeof ApiPublicHooksPreopenRoute
   ApiPublicHooksReplayRoute: typeof ApiPublicHooksReplayRoute
@@ -473,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksKeyCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/lab-refresh': {
+      id: '/api/public/hooks/lab-refresh'
+      path: '/api/public/hooks/lab-refresh'
+      fullPath: '/api/public/hooks/lab-refresh'
+      preLoaderRoute: typeof ApiPublicHooksLabRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/preclose': {
       id: '/api/public/hooks/preclose'
       path: '/api/public/hooks/preclose'
@@ -518,6 +539,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksDiscoverRoute: ApiPublicHooksDiscoverRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
   ApiPublicHooksKeyCheckRoute: ApiPublicHooksKeyCheckRoute,
+  ApiPublicHooksLabRefreshRoute: ApiPublicHooksLabRefreshRoute,
   ApiPublicHooksPrecloseRoute: ApiPublicHooksPrecloseRoute,
   ApiPublicHooksPreopenRoute: ApiPublicHooksPreopenRoute,
   ApiPublicHooksReplayRoute: ApiPublicHooksReplayRoute,
