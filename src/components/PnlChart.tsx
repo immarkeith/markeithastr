@@ -258,16 +258,15 @@ export function PnlChart({
     return [...all].sort();
   }, [window, active, daily]);
 
-  const cumulate = (byDay: Map<string, number> | null, withOpen = false) => {
-    if (!byDay && !withOpen) return null;
+  const cumulate = (byDay: Map<string, number> | null) => {
+    if (!byDay) return null;
     let running = 0;
     return days.map((day) => {
       // Realized profit lands on exit dates; the live mark (when no equity
       // curve exists) lands on today's point only.
-      const realized = byDay?.get(day) ?? 0;
-      const openDelta = withOpen ? 0 : 0;
-      running += realized + openDelta;
-      return { day, daily: realized + openDelta, cumulative: Number(running.toFixed(2)) };
+      const realized = byDay.get(day) ?? 0;
+      running += realized;
+      return { day, daily: realized, cumulative: Number(running.toFixed(2)) };
     });
   };
 
@@ -280,15 +279,34 @@ export function PnlChart({
     const inWindow = equity.points.filter(
       (p) => p.date >= window.from && p.date <= window.until,
     );
-    if (inWindow.length === 0) return [];
-    const base = inWindow[0]!.equity;
+    // No cached bar inside this window (e.g. Today before the session's bar
+    // exists): fall back to the realized builder instead of collapsing flat.
+    if (inWindow.length === 0) return null;
     const scale = percent && basis > 0 ? 100 / basis : 1;
-    return inWindow.map((p) => ({
-      day: p.date,
-      daily: Number(((p.equity - base) * scale).toFixed(2)),
-      cumulative: Number(((p.equity - base) * scale).toFixed(2)),
-    }));
-  }, [equity, window, percent, basis]);
+    // Long ranges roll daily marks up to one point per week so the line stays
+    // readable instead of drawing every session bunched together.
+    const rolled = (() => {
+      if (!active.weekly) return inWindow;
+      const byWeek = new Map<string, number>();
+      for (const p of inWindow) {
+        const d = new Date(`${p.date}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+        byWeek.set(d.toISOString().slice(0, 10), p.equity);
+      }
+      return [...byWeek.entries()]
+        .map(([date, eq]) => ({ date, equity: eq }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    })();
+    const base = rolled[0]!.equity;
+    let prev = base;
+    return rolled.map((p) => {
+      const cumulative = Number(((p.equity - base) * scale).toFixed(2));
+      // daily is the day-over-day change, not a repeat of the running total.
+      const daily = Number(((p.equity - prev) * scale).toFixed(2));
+      prev = p.equity;
+      return { day: p.date, daily, cumulative };
+    });
+  }, [equity, window, percent, basis, active.weekly]);
 
   const series = equitySeries ?? cumulate(daily.primary) ?? [];
   const compareSeries = cumulate(daily.compare);
@@ -318,30 +336,24 @@ export function PnlChart({
     ...(secondarySeries ?? []).map((p) => Math.abs(p.cumulative)),
   );
 
-  const pathOf = (points: { cumulative: number }[]) => {
-    const list = points.length === 1 ? [...points, ...points] : points;
-    return list
-      .map((point, i) => {
-        const x = (i / Math.max(1, list.length - 1)) * width;
-        const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
-        return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
-      })
-      .join(" ");
-  };
-
-  /** Equity mode: x positions follow each point's actual date, not even steps. */
+  /** X positions follow each point's actual date, not even steps, so every
+   *  line — primary, compare, secondary — shares one date-true axis. */
   const xOf = (day: string) => {
     const t = Date.parse(`${day}T00:00:00Z`);
     const from = Date.parse(`${window.from}T00:00:00Z`);
     const to = Date.parse(`${window.until}T00:00:00Z`);
     return ((t - from) / Math.max(1, to - from)) * width;
   };
-  const equityPath = (points: { day: string; cumulative: number }[]) =>
-    points
-      .map((p, i) => `${i === 0 ? "M" : "L"}${xOf(p.day).toFixed(2)},${(height / 2 - (p.cumulative / max) * (height / 2 - 2)).toFixed(2)}`)
+  const pathOf = (points: { day: string; cumulative: number }[]) => {
+    const list = points.length === 1 ? [...points, ...points] : points;
+    return list
+      .map((point, i) => {
+        const x = xOf(point.day);
+        const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
+        return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+      })
       .join(" ");
-  const equityLow = series.length ? Math.min(...series.map((p) => p.cumulative)) : 0;
-  const equityHigh = series.length ? Math.max(...series.map((p) => p.cumulative)) : 0;
+  };
 
   const twoLine = compareSeries !== null;
   // EVERY line reads the same way: profit is green, loss is red, flat or no
@@ -488,7 +500,7 @@ export function PnlChart({
             ) : null}
             {series.length > 0 ? (
               <path
-                d={equity && equity.points.length > 0 ? equityPath(series) : pathOf(series)}
+                d={pathOf(series)}
                 fill="none"
                 strokeWidth="1.6"
                 strokeLinecap="round"
@@ -546,7 +558,7 @@ export function PnlChart({
             <span
               className={`inline-block h-0 w-5 border-t-2 border-dashed border-current ${toneOf(secondaryTotal)}`}
             />
-            {secondaryLabel ?? "Long-Term P/L"}{" "}
+            {secondaryLabel ?? "Long-Term P/L"} {"}
             {secondaryTotal === null ? "—" : `${secondaryTotal >= 0 ? "+" : ""}${money(secondaryTotal)}`}
           </span>
         </div>
@@ -599,4 +611,3 @@ export function PnlChart({
     </section>
   );
 }
-
