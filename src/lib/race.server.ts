@@ -1383,3 +1383,71 @@ export async function researcherPaperBuy(ticker: string, researcher: string) {
   await openSlotTrade(slot, sym, price, stake);
   return { ticker: sym, price, researcher, hold_days: researcherHoldDays(slot) };
 }
+
+// --------------------------------------------------- open-position equity ----
+
+export interface OpenEquitySeries {
+  /** Cumulative open-position P/L (dollars) by trading date, marked to close. */
+  points: { date: string; pl: number }[];
+  /** Earliest bar date actually available for the held tickers. */
+  coverage_from: string | null;
+  coverage_to: string | null;
+}
+
+/**
+ * Mark-to-market history for one slot's currently open paper positions.
+ *
+ * Every point is an authentic cached daily close: daily P/L =
+ * dollars * (close / entry_price - 1), summed across holdings per date from
+ * each position's entry date forward. No interpolation, no invented prices —
+ * dates before the position opened (or before cached history exists) are
+ * simply absent, and the chart labels that coverage honestly.
+ */
+export async function openEquitySeries(strategyId: string): Promise<OpenEquitySeries> {
+  const open = await slotOpenTrades(strategyId);
+  if (open.length === 0) {
+    return { points: [], coverage_from: null, coverage_to: null };
+  }
+  const tickers = [...new Set(open.map((t) => String(t.ticker)))];
+  const { data, error } = await supabaseAdmin
+    .from("daily_bars")
+    .select("ticker, bar_date, close")
+    .in("ticker", tickers)
+    .order("bar_date", { ascending: true });
+  if (error) throw new Error(error.message);
+
+  const closesByTicker = new Map<string, { date: string; close: number }[]>();
+  for (const row of data ?? []) {
+    const ticker = String(row.ticker);
+    const list = closesByTicker.get(ticker) ?? [];
+    list.push({ date: String(row.bar_date), close: Number(row.close) });
+    closesByTicker.set(ticker, list);
+  }
+
+  const daily = new Map<string, number>();
+  let coverageFrom: string | null = null;
+  let coverageTo: string | null = null;
+  for (const trade of open) {
+    const ticker = String(trade.ticker);
+    const entryPrice = Number(trade.entry_price);
+    const dollars = Number(trade.dollars);
+    const entryDate = String(trade.entry_date ?? "");
+    const bars = closesByTicker.get(ticker) ?? [];
+    for (const bar of bars) {
+      if (!entryPrice || bar.date < entryDate) continue;
+      const pl = dollars * (bar.close / entryPrice - 1);
+      daily.set(bar.date, (daily.get(bar.date) ?? 0) + pl);
+      if (coverageFrom === null || bar.date < coverageFrom) coverageFrom = bar.date;
+      if (coverageTo === null || bar.date > coverageTo) coverageTo = bar.date;
+    }
+  }
+
+  let cumulative = 0;
+  const points = [...daily.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, pl]) => {
+      cumulative += pl;
+      return { date, pl: Number(cumulative.toFixed(2)) };
+    });
+  return { points, coverage_from: coverageFrom, coverage_to: coverageTo };
+}

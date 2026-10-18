@@ -80,7 +80,16 @@ export function RegimeMatrix() {
         <span>
           As of {report.as_of ?? "—"} · {report.spy_sessions} benchmark sessions · cost
           assumption {report.cost_assumption_pct}% round-trip
+          {report.spy_annualized_vol_pct !== null
+            ? ` · benchmark annualized vol ${report.spy_annualized_vol_pct}%`
+            : ""}
         </span>
+        {report.high_vol_precedence ? (
+          <span className="rounded border border-warning/60 bg-warning/10 px-2 py-0.5 font-semibold text-warning">
+            High-Vol Precedence — trim {report.position_trim_pct}% · Skeptic ×
+            {report.skeptic_weight_multiplier}
+          </span>
+        ) : null}
       </div>
 
       {report.warnings.length > 0 ? (

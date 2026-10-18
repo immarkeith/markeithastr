@@ -199,6 +199,14 @@ export interface RegimeReport {
   regime_counts: Record<`${Direction}/${VolTier}`, number>;
   lanes: LaneRegimeProfile[];
   warnings: string[];
+  /** Latest benchmark RV20 annualized (RV20 * sqrt(252)), in percent. */
+  spy_annualized_vol_pct: number | null;
+  /** High-Volatility Precedence: annualized vol above threshold (or High tier). */
+  high_vol_precedence: boolean;
+  /** When precedence is active: the signaled position-size trim, in percent. */
+  position_trim_pct: number | null;
+  /** When precedence is active: the signaled Skeptic weighting multiplier. */
+  skeptic_weight_multiplier: number | null;
   created_at?: string;
 }
 
@@ -207,6 +215,15 @@ const VOLS: VolTier[] = ["low", "normal", "high"];
 
 /** Explicit cost model: 10 bps round-trip until real spread data says otherwise. */
 const COST_ASSUMPTION_PCT = 0.1;
+/**
+ * High-Volatility Precedence: when the benchmark's annualized 20-session
+ * realized volatility exceeds this level, High volatility takes precedence and
+ * signals a position-size trim plus a doubled Skeptic weighting.
+ * Annualization: RV20 (in %) * sqrt(252).
+ */
+export const HIGH_VOL_ANNUALIZED_PCT = 28;
+export const HIGH_VOL_TRIM_PCT = 50;
+export const HIGH_VOL_SKEPTIC_WEIGHT_MULTIPLIER = 2;
 /** Provisional per-lane risk limit — clearly a starting setting, not a finding. */
 const PROVISIONAL_MAX_DD_PCT = 10;
 
@@ -298,6 +315,19 @@ export async function runRegimeAnalysis(
 
   const warnings: string[] = [];
   const { regimes, skipped } = classifySessions(spyBars);
+  // High-Volatility Precedence — point-in-time on the latest classified session.
+  const lastRegime = spyBars.length ? regimes.get(spyBars[spyBars.length - 1]!.date) : undefined;
+  const latestRv20 = spyBars.length ? realizedVol(spyBars.map((b) => b.close), spyBars.length - 1) : null;
+  const spyAnnualizedVol =
+    latestRv20 === null ? null : Number((latestRv20 * Math.sqrt(252)).toFixed(1));
+  const highVolPrecedence =
+    (spyAnnualizedVol !== null && spyAnnualizedVol > HIGH_VOL_ANNUALIZED_PCT) ||
+    lastRegime?.volatility === "high";
+  if (highVolPrecedence) {
+    warnings.push(
+      `HIGH_VOL_PRECEDENCE: ${proxyTicker} annualized 20-session volatility is ${spyAnnualizedVol ?? "—"}% (threshold ${HIGH_VOL_ANNUALIZED_PCT}%). High volatility takes precedence — signal: trim position sizes ${HIGH_VOL_TRIM_PCT}% and weight the Skeptic ${HIGH_VOL_SKEPTIC_WEIGHT_MULTIPLIER}x.`,
+    );
+  }
   if (regimes.size === 0) {
     warnings.push(
       `INSUFFICIENT_HISTORY: ${proxyTicker} cache has ${spyBars.length} sessions; regime classification needs ~272. No cell was evaluated.`,
@@ -417,6 +447,10 @@ export async function runRegimeAnalysis(
     regime_counts: regimeCounts,
     lanes,
     warnings,
+    spy_annualized_vol_pct: spyAnnualizedVol,
+    high_vol_precedence: highVolPrecedence,
+    position_trim_pct: highVolPrecedence ? HIGH_VOL_TRIM_PCT : null,
+    skeptic_weight_multiplier: highVolPrecedence ? HIGH_VOL_SKEPTIC_WEIGHT_MULTIPLIER : null,
   };
 
   if (options.save !== false) {

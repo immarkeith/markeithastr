@@ -152,3 +152,12 @@ export const runRaceNow = createServerFn({ method: "POST" })
     const { runRacePass } = await import("./race.server");
     return runRacePass({ phase: data.phase, force: true });
   });
+
+/** Mark-to-market equity series for one slot's open positions (Research Lab). */
+export const fetchOpenEquity = createServerFn({ method: "GET" })
+  .middleware([requireGate])
+  .inputValidator((input) => z.object({ strategyId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { openEquitySeries } = await import("./race.server");
+    return openEquitySeries(data.strategyId);
+  });

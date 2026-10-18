@@ -14,7 +14,12 @@ import {
   ResearcherTabs,
 } from "@/components/ResearchDepartment";
 import { Button } from "@/components/ui/button";
-import { fetchRace, runRaceNow, setResearchRunning } from "@/lib/race.functions";
+import {
+  fetchRace,
+  fetchOpenEquity,
+  runRaceNow,
+  setResearchRunning,
+} from "@/lib/race.functions";
 import { runRegimeNow } from "@/lib/regime.functions";
 import { runStabilityNow } from "@/lib/stability.functions";
 import { RegimeMatrix } from "@/components/RegimeMatrix";
@@ -323,6 +328,15 @@ function SlotCard({
   slot: Entrant;
   longTermRates: LongTermRate[];
 }) {
+  // Authentic mark-to-market curve for this slot's open positions, fetched only
+  // while something is actually held.
+  const held = slot.holdings.length > 0;
+  const openEquity = useQuery({
+    queryKey: ["open-equity", slot.strategy_id],
+    queryFn: () => fetchOpenEquity({ data: { strategyId: slot.strategy_id! } }),
+    enabled: held && slot.strategy_id !== null,
+  });
+
   return (
     <section className="space-y-4">
       {/* Every researcher tests every market day, so no status badge is needed. */}
@@ -355,6 +369,7 @@ function SlotCard({
         percent
         basis={slot.basis}
         activeTicker={slot.holdings[0]?.ticker ?? null}
+        openEquity={held ? (openEquity.data ?? null) : null}
       />
 
 

@@ -89,6 +89,7 @@ export function PnlChart({
   secondaryLabel,
   liveTicker,
   activeTicker,
+  openEquity,
 }: {
   rows: { exit_date: string | null; profit: number }[];
   ranges?: PnlRange[];
@@ -126,6 +127,17 @@ export function PnlChart({
    * ticker (or "—" when nothing is held) instead of the duplicated dollar P/L.
    */
   activeTicker?: string | null;
+  /**
+   * Authentic mark-to-market series for the slot's open positions: one point
+   * per real cached daily close. Merged into the curve on the dates it covers,
+   * so the line moves every session a position is held instead of only on
+   * exit days. No bars for a date means no point — never invented movement.
+   */
+  openEquity?: {
+    points: { date: string; pl: number }[];
+    coverage_from: string | null;
+    coverage_to: string | null;
+  } | null;
 }) {
   const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
   const [marketOpen, setMarketOpen] = useState(() => {
@@ -192,7 +204,10 @@ export function PnlChart({
       return byDay;
     };
 
-    const open = active.endYesterday ? 0 : active.live ? unrealizedToday : unrealized;
+    // With a mark-to-market series present, the open position is already
+    // carried bar-by-bar — adding the live unrealized again would double-count.
+    const hasOpenSeries = openEquity !== null && openEquity !== undefined && openEquity.points.length > 0;
+    const open = active.endYesterday || hasOpenSeries ? 0 : active.live ? unrealizedToday : unrealized;
     return {
       primary: build(rows, open),
       compare: compareRows ? build(compareRows, 0) : null,
@@ -211,7 +226,40 @@ export function PnlChart({
     unrealizedToday,
     percent,
     basis,
+    openEquity,
   ]);
+
+  /**
+   * Open-position mark-to-market P/L per in-window date, keyed by day. The
+   * series already carries cumulative open P/L; converting to per-day deltas
+   * lets it ride the same cumulative builder as the realized line, with the
+   * current `unrealized` total replacing the last bar close on today's point
+   * when a live mark is available.
+   */
+  const openDaily = useMemo(() => {
+    if (!openEquity || openEquity.points.length === 0) return null;
+    const byDay = new Map<string, number>();
+    let prev = 0;
+    for (const point of openEquity.points) {
+      if (point.date < window.from || point.date > window.until) {
+        prev = point.pl;
+        continue;
+      }
+      byDay.set(point.date, point.pl - prev);
+      prev = point.pl;
+    }
+    // When nothing is open any more, the last bar close already matches the
+    // final unrealized mark; when it differs (live quote moved after close),
+    // fold the remaining move into today so the curve ends at the real mark.
+    if (openEquity.points.length > 0 && unrealized !== 0 && !active.endYesterday) {
+      const last = openEquity.points[openEquity.points.length - 1]!;
+      const residual = unrealized - last.pl;
+      if (Math.abs(residual) > 0.005) {
+        byDay.set(window.today, (byDay.get(window.today) ?? 0) + residual);
+      }
+    }
+    return byDay;
+  }, [openEquity, window, unrealized, active.endYesterday]);
 
   // Generate a continuous date timeline so windows with few closed trades
   // still render a continuous mark-to-market curve instead of a flat 1-point collapse.
@@ -236,21 +284,25 @@ export function PnlChart({
       ...daily.primary.keys(),
       ...(daily.compare?.keys() ?? []),
       ...(daily.secondary?.keys() ?? []),
+      ...(openDaily?.keys() ?? []),
     ]);
     return [...all].sort();
-  }, [window, active, daily]);
+  }, [window, active, daily, openDaily]);
 
-  const cumulate = (byDay: Map<string, number> | null) => {
-    if (!byDay) return null;
+  const cumulate = (byDay: Map<string, number> | null, withOpen = false) => {
+    if (!byDay && !withOpen) return null;
     let running = 0;
     return days.map((day) => {
-      // Add realized profit on dates when it closed; otherwise carry prior equity forward
-      running += byDay.get(day) ?? 0;
-      return { day, daily: byDay.get(day) ?? 0, cumulative: Number(running.toFixed(2)) };
+      // Realized profit lands on exit dates; open-position marks land on each
+      // bar date the position was actually held.
+      const realized = byDay?.get(day) ?? 0;
+      const openDelta = withOpen ? (openDaily?.get(day) ?? 0) : 0;
+      running += realized + openDelta;
+      return { day, daily: realized + openDelta, cumulative: Number(running.toFixed(2)) };
     });
   };
 
-  const series = cumulate(daily.primary) ?? [];
+  const series = cumulate(daily.primary, true) ?? [];
   const compareSeries = cumulate(daily.compare);
   const secondarySeries = cumulate(daily.secondary);
 
@@ -514,6 +566,16 @@ export function PnlChart({
           </button>
         ))}
       </div>
+
+      {openEquity && openEquity.points.length > 0 && openEquity.coverage_from ? (
+        <p className="text-[10px] text-muted-foreground">
+          Open positions marked to real daily closes {openEquity.coverage_from} →{" "}
+          {openEquity.coverage_to ?? "now"}
+          {openEquity.coverage_to && openEquity.coverage_to < isoDaysAgo(0)
+            ? " — no newer bars cached yet, later dates show no movement"
+            : ""}
+        </p>
+      ) : null}
 
       {compact || series.length === 0 ? null : (
         <ul className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
