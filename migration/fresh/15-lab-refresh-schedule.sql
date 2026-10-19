@@ -8,8 +8,8 @@ SELECT cron.unschedule(jobname) FROM cron.job WHERE jobname = 'astr-lab-refresh'
 
 SELECT cron.schedule('astr-lab-refresh', '*/5 13-20 * * 1-5', $job$
   SELECT net.http_post(
-    url := 'https://astr-alpha.vercel.app/lab',
-    headers := jsonb_build_object('ContentType','application/json','x-hook-secret',(SELECT token FROM public.hook_tokens WHERE id = 1)),
+    url := 'https://YOUR-APP.vercel.app/api/public/hooks/lab-refresh',
+    headers := jsonb_build_object('Content-Type','application/json','x-hook-secret',(SELECT token FROM public.hook_tokens WHERE id = 1)),
     body := '{}'::jsonb
   );
 $job$);
