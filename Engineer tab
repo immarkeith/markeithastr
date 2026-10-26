@@ -122,3 +122,62 @@ The AI Engineer is barred from modifying, adding, or bypassing live-order execut
 #### 4.4 Decoupled Code vs. Data Rollback Guarantee
 - [ ] **Data Plane Inviolability**: Code rollbacks (`git revert`) operate solely on repository text files. A code rollback is programmatically forbidden from executing destructive SQL (`DROP`, `TRUNCATE`, `DELETE`) against historical tables (`daily_bars`, `trades`, `research_notebook`).
 - [ ] **Additive-Only Migrations**: Any schema change proposed by the engineer must be strictly non-destructive (e.g. `ADD COLUMN IF NOT EXISTS`), ensuring older code versions continue running without database rollbacks.
+---
+
+### 7. Critical Safety & Runner Adjustments (Pre-Implementation Guardrails)
+
+#### 7.1 Out-of-Band Gatekeeper (Verification Independent of the AI)
+The AI Engineer must never be capable of modifying or disabling its own security checks:
+- [ ] **Protected Workflow Origin**: The verification workflow (`.github/workflows/astr-engineer-verify.yml`) lives strictly on `main`. Branch protection rules require the `astr-independent-verification` status check to pass before any PR can be merged.
+- [ ] **Self-Modification Lockdown**: The runner script evaluates `git diff origin/main...HEAD --name-only`. If the diff touches `.github/workflows/`, `src/lib/broker.server.ts`, or any file handling live Alpaca credentials, the job halts immediately with exit code 1.
+- [ ] **UI Lockout**: The in-app **[Approve & Deploy]** button in ASTR queries the GitHub Status API and remains hard-disabled until the independent verification check returns `success`.
+
+#### 7.2 Two-Stage Runner Architecture & Queue Serialization
+Replaces the single 5-minute timeout and destructive `cancel-in-progress: true` behavior:
+- [ ] **Task Queue Serialization**: Multiple prompts do not cancel in-flight work. New prompts are saved to `public.engineer_tasks` with `status: queued`. The runner processes tasks sequentially (FIFO) to prevent race conditions and corrupted intermediate states.
+- [ ] **Two-Stage Runner Jobs**:
+  - **Stage 1: Fast Security & Lint Gate** (`timeout-minutes: 2`): Validates file paths, AST blocklists, and executes `bun run lint` (ESLint 9).
+  - **Stage 2: Compile & Bundle Verification** (`timeout-minutes: 6`): Runs `bun install --frozen-lockfile` and executes `"build": "vite build"`. The 6-minute window accommodates cold runner cache misses without timing out legitimate builds.
+
+#### 7.3 Single-Occurrence Anchor Assertion (Zero-Ambiguity Patch Engine)
+Prevents search-and-replace patches from corrupting similar code blocks:
+- [ ] **Exact Anchor Matching**: Before applying any replacement hunk, the runner script verifies the anchor string's occurrence count in the target file:
+  - `occurrences === 0` $\rightarrow$ Hard stop. Logs: *"Anchor string not found in target file."*
+  - `occurrences > 1` $\rightarrow$ Hard stop. Logs: *"Ambiguous anchor (matched N locations). Expansion of context lines required."*
+  - `occurrences === 1` $\rightarrow$ Apply patch.
+- [ ] **Process-Level Guardrails**: Token limits (50k input / 8k output) and the 3-repair self-correction loop are enforced by execution counters inside the runner script, not merely requested inside the model prompt.
+
+#### 7.4 Isolated Schema Approval & Destructive SQL Shield
+Ensures database integrity remains completely separate from Git code rollbacks:
+- [ ] **Zero Automated DDL Execution**: Git merges never apply SQL migrations automatically. If a task touches `supabase/migrations/`, ASTR renders a dedicated **"Database Migration Review"** card requiring a separate, explicit user confirmation tap before SQL is sent to the backend.
+- [ ] **Destructive SQL Rejection**: The runner automatically scans any `.sql` diff for destructive operations (`DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `ALTER ... DROP`). Any detected destructive command triggers immediate task rejection.
+- [ ] **Code-Only Rollbacks**: Rolling back a Git tag (`git revert`) operates solely on text files and is programmatically blocked from executing rollback SQL against `daily_bars`, `trades`, or `research_notebook`.
+
+#### 7.5 Diagnostic & Diff Preservation for Failed Tasks
+- [ ] **Permanent Audit Trail**: When a task fails all 3 repair attempts or is manually rejected by the user:
+  - The temporary branch may be pruned, but the task record in `engineer_tasks` transitions to `failed` or `rejected` (never deleted).
+  - The full proposed diff (`diff_content`) and the complete compiler/runtime logs (`engineer_logs`) are permanently retained.
+- [ ] **Failed Tasks Archive**: The mobile UI provides an *"Archived & Failed Tasks"* drawer allowing you to inspect the failed code, review the terminal stack trace, and re-prompt or refine the instruction without starting from scratch.
+#### 7.6 Branch Rulesets & Immutable Gatekeeper Protection
+Protection against token escalation or gatekeeper evasion:
+- [ ] **Minimal-Privilege GitHub PAT**: The `GITHUB_ENGINEER_TOKEN` is strictly scoped with **no** repository administration privileges (`Administration: Read-only` or omitted). It cannot alter branch protections, delete status checks, or edit repository rulesets.
+- [ ] **Strict Branch Ruleset on `main`**:
+  - Require status check `astr-independent-verification` to pass before merging.
+  - Block force pushes (`Allow force pushes: disabled`).
+  - Block direct pushes to `main` (`Require pull request before merging: enabled`).
+- [ ] **Commit SHA Verification**: The in-app approval endpoint independently queries the GitHub Commit Status API for the **exact commit SHA** produced by the runner, rejecting approvals if the check passed on an older or different SHA.
+
+#### 7.7 Durable Atomic Queue & Crash Recovery
+Prevents duplicate runs, race conditions, and orphaned tasks:
+- [ ] **Atomic Task Claiming (`FOR UPDATE SKIP LOCKED`)**: A PostgreSQL function (`claim_next_engineer_task()`) claims the next `queued` task atomically:
+  ```sql
+  UPDATE public.engineer_tasks
+  SET status = 'planning', locked_at = NOW(), locked_by = runner_id
+  WHERE id = (
+    SELECT id FROM public.engineer_tasks
+    WHERE status = 'queued'
+    ORDER BY created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  )
+  RETURNING *;
