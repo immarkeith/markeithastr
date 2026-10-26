@@ -1,0 +1,94 @@
+### Phase K — ASTR Self-Development AI Engineer Tab (`/engineer`)
+*Target: 3–4 credits (One-time build in Lovable; 100% self-contained and $0 platform fees thereafter)*
+
+#### Core Philosophy & Golden Rules
+- **Platform Independence**: Once built, this tab does NOT call Lovable, Bolt, Replit, or Cursor. ASTR operates as its own autonomous development studio with zero monthly platform subscriptions.
+- **Pay-As-You-Go Raw Intelligence**: Connects directly to raw AI model APIs (e.g. DeepSeek-V3 / DeepSeek-R1 for near-$0 pennies/task, or Claude 3.5/3.7 Sonnet). No monthly seats or credit packages.
+- **Strict Live Trading Firewall**: The AI Engineer is programmatically barred from touching `broker.server.ts`, live Alpaca order routing, live keys, or executing live trades. It cannot bypass ASTR's paper/live isolation.
+- **Zero Direct-to-Main Commits**: Every change is drafted on an isolated Git branch (`engineer/<task-slug>`). Live production code only updates after verification passes and you tap "Approve & Merge" from your phone.
+- **Mandatory Compile Verification**: No task can be marked "Ready for Review" unless `bun run build` exits cleanly with code 0 in the sandbox.
+
+---
+
+#### 1. Security & Credentials Setup (One-Time)
+- [ ] Add `GITHUB_ENGINEER_TOKEN` to backend secrets (fine-grained GitHub PAT scoped strictly to repository `Contents: Read & Write`, `Pull Requests: Read & Write`, `Workflows: Read & Write`).
+- [ ] Add `ENGINEER_LLM_API_KEY` to backend secrets (direct API key for DeepSeek via OpenRouter or Anthropic; pre-funded with $5–$10 pay-as-you-go).
+- [ ] Configure `ENGINEER_WEBHOOK_SECRET` for cryptographically verified communication between the GitHub runner and ASTR.
+
+#### 2. Database Schema & Logging Engine
+- [ ] Create `public.engineer_tasks` table:
+  - `id` (uuid, primary key)
+  - `prompt` (text, your instruction from voice or text)
+  - `status` (`queued`, `planning`, `inspecting`, `coding`, `testing`, `review_ready`, `merged`, `rejected`, `failed`)
+  - `branch_name` (text, e.g. `engineer/fix-lab-graph-timeout`)
+  - `plan_summary` (text, AI's planned approach before touching code)
+  - `diff_content` (text, unified git diff for UI review)
+  - `files_modified` (text array)
+  - `build_passed` (boolean, false until `bun run build` succeeds)
+  - `created_at`, `updated_at`, `completed_at`
+- [ ] Create `public.engineer_logs` table for real-time mobile streaming:
+  - `id` (uuid), `task_id` (fk to `engineer_tasks`), `step_name` (text), `log_text` (text), `level` (`info`, `warn`, `error`), `created_at`
+- [ ] RLS policies enabled: read and write restricted to authenticated account; service-role endpoint for runner webhooks.
+
+#### 3. Hardened Safety Guardrail Engine (`src/lib/engineer/guardrails.server.ts`)
+- [ ] **Blacklisted File Mask**: Absolute code-level rejection if the agent attempts to modify:
+  - `src/lib/broker.server.ts` (Live Alpaca execution)
+  - Live trading secrets or `.env` credential handlers
+  - Live cash balances or production position tables
+- [ ] **Scope Enforcer**: AI prompts are system-prompted with strict anti-hallucination bounds:
+  - Forbidden from creating unrequested features or expanding project scope.
+  - Allowed only to read, plan, edit the target area, test, and report.
+- [ ] **Automated Self-Correction Loop**:
+  - If `bun run build` fails during runner execution, the compiler error output is fed back into the AI model for up to 3 autonomous repair attempts before failing the task.
+
+#### 4. Execution Sandbox Runner (`.github/workflows/astr-engineer.yml`)
+- [ ] Set up free GitHub Actions runner workflow triggered via repository dispatch (`workflow_dispatch`):
+  - Uses 100% free runner minutes (2,000 min/mo included with private GitHub repos).
+  - Steps:
+    1. Check out fresh branch from `main`.
+    2. Set up Bun runtime.
+    3. Run lightweight agent script that pulls task prompt, reads relevant files, calls model API, and applies file patches.
+    4. Execute `bun run build` (and existing tests).
+    5. On success: push branch to remote, compute `git diff`, and ping ASTR webhook with diff and pass state.
+    6. On failure: feed stdout/stderr back into retry loop or log error and stop safely.
+
+#### 5. In-App Mobile Development Studio UI (`src/routes/engineer.tsx`)
+- [ ] **Navigation Entry**: Add "AI Engineer" tab with code/wrench icon to desktop header and mobile bottom drawer.
+- [ ] **Mobile Voice & Text Input Bar**:
+  - Integrated **Mic Button** utilizing browser-native Web Speech API ($0 cost, uses phone on-device dictation).
+  - Audio visualizer pulse indicating when microphone is actively listening.
+  - Quick-action prompt chips: *"Diagnose Latest Error"*, *"Investigate Slow Query"*, *"Audit Researcher Formula"*, *"Clean Unused Code"*.
+- [ ] **Live Task Progression Stepper**:
+  - Visual status pill: `Idle` → `Reading Code` → `Applying Changes` → `Compiling (bun run build)` → `Awaiting Your Approval`.
+  - Expandable real-time terminal output drawer showing exact console output from the runner.
+- [ ] **Mobile-Optimized Diff Viewer**:
+  - Unified red/green diff component highlighting exact lines added/removed, formatted cleanly for smartphone screens.
+  - "Files Touched" badge summary (e.g. `2 files changed, +14 lines, -3 lines`).
+- [ ] **Approval & Disaster Recovery Controls**:
+  - Green **[Approve & Deploy]** button: Merges branch into `main` via GitHub API and triggers production deployment.
+  - Red **[Reject & Discard]** button: Deletes branch and archives task with no changes applied.
+  - Amber **[Ask For Revisions]** button: Sends follow-up feedback back to the agent before merging.
+
+#### 6. End-to-End Pilot Verification (Milestone 1 Test)
+- [ ] From your phone, speak a safe, contained instruction into the new tab:
+  > *"Add a small build version timestamp to the bottom of the Settings page."*
+- [ ] Verify GitHub runner starts autonomously without opening Lovable or any external tool.
+- [ ] Verify `bun run build` runs and passes.
+- [ ] Verify green/red diff appears on phone screen in the ASTR tab.
+- [ ] Tap **Approve & Deploy**, and verify the change appears live in production.
+
+#### Phase K.1 — Checkpoint Engine & Recovery System (The Safety Net)
+*Target: 2 credits (Build recovery BEFORE autonomous code generation)*
+
+1. Database Schema:
+   - Create `engineer_checkpoints` (id, tag_name, commit_sha, milestone_name, classification, created_at, verified).
+   - Create `engineer_change_log` (id, task_description, classification, affected_files, diff_summary, status).
+2. GitHub Sync & Tagging Service (`src/lib/engineer/github.server.ts`):
+   - Tag creation via GitHub Git Refs API (`refs/tags/checkpoint/...`).
+   - Revert commit generation via GitHub Git API.
+3. Mobile Checkpoint UI (`src/routes/engineer/recovery.tsx`):
+   - Card view of all milestones and recent commits.
+   - Diff preview sheet formatted for phone screens.
+   - "Rollback Whole App" and "Feature-Specific Revert" actions with confirmation gates.
+4. Historical Data Firewall:
+   - Hardcoded exclusion ensuring code rollbacks never execute destructive SQL against `daily_bars`, `trades`, or `research_notebook`.
