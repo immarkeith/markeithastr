@@ -92,3 +92,33 @@
    - "Rollback Whole App" and "Feature-Specific Revert" actions with confirmation gates.
 4. Historical Data Firewall:
    - Hardcoded exclusion ensuring code rollbacks never execute destructive SQL against `daily_bars`, `trades`, or `research_notebook`.
+#### 3.1 Hardened Multi-Layer Firewall (Zero-Trust Live Trading Isolation)
+The AI Engineer is barred from modifying, adding, or bypassing live-order execution paths through five defense layers:
+- [ ] **Network & Endpoint Blocklist**: The agent's diff is statically scanned prior to build. Any newly introduced reference to `api.alpaca.markets`, `/v2/orders`, or live broker endpoints triggers an immediate hard rejection. (Read-only `data.alpaca.markets` remains permitted for historical bars).
+- [ ] **Secret Quarantine**: The GitHub Actions runner and agent environment are strictly prohibited from receiving `ALPACA_LIVE_KEY_ID` or `ALPACA_LIVE_SECRET_KEY`.
+- [ ] **Workflow Immutability**: The entire `.github/` directory is read-only to the agent. It cannot alter workflow step permissions or inject secrets into CI/CD jobs.
+- [ ] **Database Schema Quarantine**: The agent cannot issue migrations modifying the `trades` table, RLS policies on trade modes, or create database triggers with network execution privileges.
+
+#### 4.1 GitHub Runner Quota & Resource Optimization
+- [ ] **Runner Timeout Protection**: Hardcode `timeout-minutes: 5` on every verification job to prevent runaway loops from draining free GitHub monthly allowances (2,000 min/mo on private accounts).
+- [ ] **Concurrency Control**: Configure `concurrency: { group: astr-engineer, cancel-in-progress: true }` to kill pending or superseded runs immediately when a new task is initiated.
+- [ ] **Cost-Aware Execution**: Provide support for an optional self-hosted runner (`runs-on: self-hosted`) for completely free, unlimited local execution if private cloud minutes are constrained.
+
+#### 4.2 TanStack Start & Repository-Aware Build Verification
+- [ ] **Dynamic Manifest Resolution**: The runner inspects `package.json` directly and executes `"build": "vite build"`.
+- [ ] **Automatic Route Tree Regeneration**: Since TanStack Start v1 dynamically builds `src/routeTree.gen.ts`, newly created routes must trigger route generation before checking for compile errors.
+- [ ] **Two-Phase Quality Gate**: 
+  1. Static Linting: `bun run lint` (ESLint 9 checks for syntax and unused variables).
+  2. Full Bundle Compile: `bun run build` (Vite 8 production build verifying server functions and client components).
+
+#### 4.3 High-Efficiency Patch Engine (Precision & Token Economy)
+- [ ] **Search-and-Replace Diffs**: The model must output targeted replacement blocks anchored by 2–3 unchanged context lines, rather than re-streaming entire 1,000+ line files. This cuts token consumption by ~90% and prevents accidental loss of existing helper functions.
+- [ ] **Pre-Task Diagnostic Log Ingestion**: When processing bug-fix prompts, the runner automatically injects the latest 5 error records from `health_checks` into the prompt so the agent sees the actual stack trace before touching code.
+- [ ] **Budget & Loop Enforcer**:
+  - Max 3 autonomous retry attempts per task.
+  - Per-task token cap (e.g. 50k input / 8k output).
+  - If a task fails 3 consecutive builds, the runner discards the branch, records the failed diff in `engineer_tasks`, and pushes an alert card to your Notifications tab.
+
+#### 4.4 Decoupled Code vs. Data Rollback Guarantee
+- [ ] **Data Plane Inviolability**: Code rollbacks (`git revert`) operate solely on repository text files. A code rollback is programmatically forbidden from executing destructive SQL (`DROP`, `TRUNCATE`, `DELETE`) against historical tables (`daily_bars`, `trades`, `research_notebook`).
+- [ ] **Additive-Only Migrations**: Any schema change proposed by the engineer must be strictly non-destructive (e.g. `ADD COLUMN IF NOT EXISTS`), ensuring older code versions continue running without database rollbacks.
