@@ -50,6 +50,13 @@
       "when": 1790386081326,
       "tag": "0006_event_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793522021442,
+      "tag": "0007_bounded_bar_coverage",
+      "breakpoints": true
     }
   ]
 }

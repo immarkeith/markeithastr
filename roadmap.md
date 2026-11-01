@@ -40,7 +40,7 @@
 *Target: 1 credit / Chat Mode execution*
 
 - [ ] **Database Storage Purge**:
-  - Run one-line pruning queries to remove `health_checks` older than 7 days (~2,500 rows).
+  - [x] Removed 3,023 `health_checks` older than seven days on November 1, 2026.
   - Prune legacy `scan_scores` (keep rank <= 10 for latest 30 runs, drop older runs). Reclaim ~30 MB storage.
 - [ ] **Data Ingestion Self-Healing (Alpaca 401)**:
   - Verify and update Alpaca Live credentials in Settings to unfreeze daily bar caching (frozen since Sept 18, 2026).
@@ -49,6 +49,7 @@
 - [ ] **15-Minute Health Check Query Optimization**:
   - Scope `bar_dates_present()` in `src/lib/health.server.ts` to trailing 180 days rather than full sequential scan across 100,000+ unindexed rows.
   - Add transient query retry so single database timeouts do not trigger high-severity alert cards.
+  - Maintenance work in progress: verify pruning, add bounded coverage/retry, protect simulated exits against missing prices, and validate a free secondary daily-price source without changing live execution.
 
 ---
 
