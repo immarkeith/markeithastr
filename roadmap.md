@@ -164,3 +164,32 @@
 - [ ] Comprehensive 4-category inventory (KEEP, MERGE, REVIEW, DELETE).
 - [ ] Consolidate redundant modules into canonical sources after all features are verified.
 - [ ] Zero database schema changes, zero behavior modifications, full clean typecheck.
+---
+
+## Phase B.1 & Phase 2g — True Daily Mark-to-Market Curves & Stock-Specific Discovery
+
+### 1. Research Lab True Daily Mark-to-Market Engine (`race.server.ts`)
+*Problem documented: `PnlChart` currently builds curves from realized profit on `exit_date` and carries the value forward, leaving flat baselines and false end-spikes. True curves require session-by-session valuation.*
+- [ ] **Server-Side Session Reconstruction**:
+  - In `src/lib/race.server.ts`, load every researcher's open and closed paper positions.
+  - For each active chart window, load cached `daily_bars` for every held ticker across all trading sessions between `entry_date` and `exit_date` (or latest bar if still open).
+  - Compute daily portfolio equity using the formal snapshot formula:
+    $$\text{equity}_t = \sum_{i \le t} \text{realized P/L}_i + \sum_{\text{open at } t} \left( \text{stake} \times \left( \frac{\text{close}_t}{\text{entry\_price}} - 1 \right) \right)$$
+  - Never accumulate unrealized P/L across consecutive days; evaluate each session as an independent mark-to-market snapshot.
+- [ ] **Gaps & Data Coverage Safeguards**:
+  - Missing sessions must remain explicit gaps; never carry previous closes forward to simulate artificial flat lines.
+  - Tag each researcher's curve with `coverage_from`, `coverage_to`, and `has_gaps`.
+  - When cached session coverage is under 50% for a requested range, display an explicit *"Data coverage pending"* warning banner rather than falling back to realized-only stepping.
+
+### 2. Lab PnlChart Visual Scale & Coordinate Calibration (`PnlChart.tsx`)
+*Problem documented: Percent mode dynamically scales the vertical axis without numerical tick marks, causing tiny fractional movements to look like massive spikes.*
+- [ ] **Numerical Y-Axis Ticks**: Add explicit percentage graduation marks (e.g. -2.0%, -1.0%, 0.0%, +1.0%, +2.0%) so micro-fluctuations do not visually dominate the viewport.
+- [ ] **Baseline Grounding**: Anchor curves to a visible zero-line so positive and negative performance have an honest visual reference.
+- [ ] **Direct Point Ingestion**: Render the server-emitted daily equity series directly instead of synthesizing calendar steps in client memory.
+
+### 3. Phase 2g — BYOB Stock-Specific Discovery & Dynamic Horizon Engine
+*Goal: Evolve from static universal scoring to stock-specific quantitative modeling across the seed universe (NVDA, AMD, MU, DELL, LRCX, SHOP, AVGO, ASML, ANET, etc.).*
+- [ ] **Stock-Specific Formula Exploration**: Test independent momentum, mean-reversion, and breakout parameter combinations against historical bars for each individual seed stock.
+- [ ] **Empirical Holding Horizon Calibration**: Determine the specific holding horizon (1 to 21 trading days) that maximizes risk-adjusted expectancy for that specific ticker.
+- [ ] **Out-of-Sample Validation**: Require candidate models to clear at least 10 historical test trades across two unseen market regimes with positive net expectancy after 0.1% modeled costs.
+- [ ] **Analyze Desk Integration**: Surface validated stock-specific BYOB findings on the Analyze tab alongside standard specialists without altering live execution rules.
