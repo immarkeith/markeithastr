@@ -25,6 +25,7 @@ import {
 
 import { HISTORY_DAYS, loadSettings, scoreConfig, volumeShare, type Settings } from "./scan.server";
 import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
+import { researchMarketMark, pendingResearchMark } from "./research-market-mark.server";
 
 export interface RaceSlot {
   id: number;
@@ -516,6 +517,7 @@ async function closeSlotTrade(
   why: string,
   settlementDays: number,
   keepPct: number,
+  markDate = today(),
 ): Promise<number | null> {
   const dollars = Number(trade['dollars']);
   const entry = Number(trade['entry_price']);
@@ -525,8 +527,8 @@ async function closeSlotTrade(
   const { data: claimed, error } = await supabaseAdmin
     .from("trades")
     .update({
-      exit_date: today(),
-      exit_at: new Date().toISOString(),
+      exit_date: markDate,
+      exit_at: markDate === today() ? new Date().toISOString() : null,
       exit_price: price,
       profit: Number(profit.toFixed(2)),
       kept: Number(kept.toFixed(2)),
@@ -542,11 +544,12 @@ async function closeSlotTrade(
 
   // Cash settles on the trading calendar (T+1 skips weekends and holidays).
   // This affects when the money is spendable — never whether the stock closed.
-  const availableOn = settlementDate(today(), settlementDays);
+  const availableOn = settlementDate(markDate, settlementDays);
 
   const rows: Record<string, unknown>[] = [
     {
       kind: "settle",
+      entry_date: markDate,
       amount: Number((dollars + Math.min(profit, 0)).toFixed(2)),
       available_on: availableOn,
       trade_id: trade['id'],
@@ -557,6 +560,7 @@ async function closeSlotTrade(
   if (profit > 0) {
     rows.push({
       kind: "reserve",
+      entry_date: markDate,
       amount: Number(kept.toFixed(2)),
       available_on: availableOn,
       trade_id: trade['id'],
@@ -567,6 +571,7 @@ async function closeSlotTrade(
     if (rest > 0.004) {
       rows.push({
         kind: "settle",
+        entry_date: markDate,
         amount: Number(rest.toFixed(2)),
         available_on: availableOn,
         trade_id: trade['id'],
@@ -661,16 +666,14 @@ export async function runRacePass(
         for (const trade of open) {
           if (String(trade.status) !== "open") continue; // already closed: no second sell
           const ticker = String(trade.ticker);
-          const score = byTicker.get(ticker);
-          const price = Number(marks.get(ticker) ?? score?.close ?? trade.entry_price ?? 0);
-          if (!price) continue;
           const row = trade as unknown as Record<string, unknown>;
 
           // Short-term leg: what a normal same-day sale would have produced.
           if (row['same_day_profit'] === null || row['same_day_profit'] === undefined) {
-            const hypothetical = await recordSameDay(row, price);
+            const sameDayPrice = await researchMarketMark(ticker, String(trade.entry_date));
+            const hypothetical = sameDayPrice === null ? null : await recordSameDay(row, sameDayPrice);
             if (hypothetical !== null) {
-              entry.same_day.push({ ticker, price, profit: hypothetical });
+              entry.same_day.push({ ticker, price: sameDayPrice ?? 0, profit: hypothetical });
             }
           }
 
@@ -678,6 +681,14 @@ export async function runRacePass(
           const target = holdTarget(row);
           if (today() < target) {
             entry.held.push(ticker);
+            continue;
+          }
+
+          const price = await researchMarketMark(ticker, target);
+          if (price === null) {
+            await pendingResearchMark(String(trade.id));
+            entry.held.push(ticker);
+            entry.skipped = "Pending Market Mark — research exit awaits its exact-session close.";
             continue;
           }
 
@@ -689,6 +700,7 @@ export async function runRacePass(
             why,
             settlementDays,
             keepPct,
+            target,
           );
           if (profit === null) continue; // already closed elsewhere
           entry.closed.push({ ticker, exit: price, profit, why });
@@ -829,8 +841,8 @@ export async function safetyCloseStalePaper(
         if (row['same_day_profit'] !== null && row['same_day_profit'] !== undefined) continue;
         const pastEntrySession = String(trade.entry_date) < day || sessionOver;
         if (!pastEntrySession && options.force !== true) continue;
-        const price = Number(marks.get(String(trade.ticker)) ?? trade.entry_price ?? 0);
-        if (price) await recordSameDay(row, price);
+        const price = await researchMarketMark(String(trade.ticker), String(trade.entry_date));
+        if (price !== null) await recordSameDay(row, price);
       }
 
       const stale = open.filter((t) => {
@@ -842,8 +854,9 @@ export async function safetyCloseStalePaper(
       if (stale.length === 0) continue;
       for (const trade of stale) {
         const ticker = String(trade.ticker);
-        const price = Number(marks.get(ticker) ?? trade.entry_price ?? 0);
-        if (!price) continue;
+        const target = holdTarget(trade as unknown as Record<string, unknown>);
+        const price = await researchMarketMark(ticker, target);
+        if (price === null) { await pendingResearchMark(String(trade.id)); continue; }
         const why =
           holdTarget(trade as unknown as Record<string, unknown>) < day
             ? "paper safety close — the 3-day research hold had already ended"
@@ -855,6 +868,7 @@ export async function safetyCloseStalePaper(
           why,
           settlementDays,
           keepPct,
+          target,
         );
         if (profit === null) continue; // already closed: never sell twice
         out.closed.push({ slot: slot.id, ticker, exit: price, profit, why });
