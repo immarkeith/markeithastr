@@ -639,7 +639,6 @@ export async function runRacePass(
 
     try {
       const ranked = rankings.get(slot.id) ?? [];
-      const byTicker = new Map(ranked.map((r) => [r.ticker, r]));
       const open = await slotOpenTrades(slot.strategy_id);
       const closes = await latestCloses([
         ...open.map((t) => String(t.ticker)),
@@ -653,16 +652,6 @@ export async function runRacePass(
       // sold in the paper book. Cash settlement (T+1) is handled separately in
       // closeSlotTrade and never decides whether a position stays open.
       if (phase !== "entry") {
-        const marks = new Map(closes);
-        try {
-          const { alpacaLatestPrices } = await import("./market-data.server");
-          const live = open.length
-            ? await alpacaLatestPrices(open.map((t) => String(t.ticker)))
-            : new Map<string, number>();
-          for (const [ticker, price] of live) if (price) marks.set(ticker, price);
-        } catch {
-          // No live quote available: the latest cached close is the mark.
-        }
         for (const trade of open) {
           if (String(trade.status) !== "open") continue; // already closed: no second sell
           const ticker = String(trade.ticker);
@@ -672,8 +661,8 @@ export async function runRacePass(
           if (row['same_day_profit'] === null || row['same_day_profit'] === undefined) {
             const sameDayPrice = await researchMarketMark(ticker, String(trade.entry_date));
             const hypothetical = sameDayPrice === null ? null : await recordSameDay(row, sameDayPrice);
-            if (hypothetical !== null) {
-              entry.same_day.push({ ticker, price: sameDayPrice ?? 0, profit: hypothetical });
+            if (hypothetical !== null && sameDayPrice !== null) {
+              entry.same_day.push({ ticker, price: sameDayPrice, profit: hypothetical });
             }
           }
 
@@ -832,7 +821,6 @@ export async function safetyCloseStalePaper(
     try {
       const open = await slotOpenTrades(slot.strategy_id);
       out.checked += open.length;
-      const marks = await latestCloses(open.map((t) => String(t.ticker)));
 
       // Back-fill the hypothetical same-day result for anything that has moved
       // past its entry session without one recorded.

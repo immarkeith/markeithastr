@@ -39,17 +39,19 @@
 ## Priority 1: Operational Hygiene & Data Health (Immediate Fixes)
 *Target: 1 credit / Chat Mode execution*
 
-- [ ] **Database Storage Purge**:
+- [x] **Database Storage Purge**:
   - [x] Removed 3,023 `health_checks` older than seven days on November 1, 2026.
-  - Prune legacy `scan_scores` (keep rank <= 10 for latest 30 runs, drop older runs). Reclaim ~30 MB storage.
+  - [x] Removed 138 old runs and 39,195 attached/low-ranked scores; verified 30 runs and 300 top-ten scores remain. All 100,014 historical bars preserved. Deleted space can be reused; physical allocation is not guaranteed to shrink immediately.
 - [ ] **Data Ingestion Self-Healing (Alpaca 401)**:
-  - Verify and update Alpaca Live credentials in Settings to unfreeze daily bar caching (frozen since Sept 18, 2026).
-  - Implement free secondary fallback price provider (Stooq / Yahoo public endpoints) in `marketDataService` so price feeds never stall on credential rotation.
-  - Mark un-priced historical exits as "Pending Market Mark" rather than logging false $0.00 exits.
-- [ ] **15-Minute Health Check Query Optimization**:
-  - Scope `bar_dates_present()` in `src/lib/health.server.ts` to trailing 180 days rather than full sequential scan across 100,000+ unindexed rows.
-  - Add transient query retry so single database timeouts do not trigger high-severity alert cards.
-  - Maintenance work in progress: verify pruning, add bounded coverage/retry, protect simulated exits against missing prices, and validate a free secondary daily-price source without changing live execution.
+  - [ ] Replace rejected Alpaca credentials using the owner's valid pair; credentials cannot be reconstructed automatically. Full scan caching remains blocked until valid credentials are supplied.
+  - [x] Add best-effort free Yahoo completed-session fallback for research marks only. Stooq currently returns a browser challenge. Do not mix Yahoo volume/adjustments with IEX scanner inputs; provider-separated ingestion remains pending.
+  - [x] Missing research exit prices remain "Pending Market Mark", with no fabricated zero P&L or settlement; historical closes use target-session dates.
+  - [x] Cache updates preserve older rows during partial provider responses; transient deepening failures no longer permanently blacklist tickers.
+  - [ ] Review and repair previously contaminated zero-profit research records with provenance and ledger reconciliation; no historical trade records changed during this maintenance pass.
+- [x] **15-Minute Health Check Query Optimization**:
+  - [x] Health coverage uses an indexed, trailing-180-calendar-day query; missing-session detection independently covers the full 160-session scoring window.
+  - [x] One transient query retry records recovery; persistent failures remain visible.
+  - [ ] Full mark-to-market graph reconstruction remains Phase B; this maintenance does not declare graph accuracy repaired.
 
 ---
 
