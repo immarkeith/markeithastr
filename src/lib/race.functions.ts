@@ -7,33 +7,28 @@ import { z } from "zod";
 
 import { requireGate } from "./gate-middleware";
 
+/**
+ * Everything the Research Lab renders, read from the latest saved snapshot
+ * instead of recalculated per visit. A snapshot is one database read; only a
+ * first-ever run (nothing saved yet) pays for the full historical build.
+ * `research_running` is read live: it is a user control, not graph data.
+ */
 export const fetchRace = createServerFn({ method: "GET" })
   .middleware([requireGate])
   .handler(async () => {
-    const { raceStandings } = await import("./race.server");
-    const { researcherLongTermWinRates } = await import("./long-term-research.server");
-    const { capitalAnalysis } = await import("./capital-analysis.server");
+    const { readLabGraph, rebuildLabGraph } = await import("./lab-graph.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [standings, longTermWinRates, capital] = await Promise.all([
-      raceStandings(),
-      researcherLongTermWinRates(),
-      capitalAnalysis(),
-    ]);
-    const { data: strategies } = await supabaseAdmin
-      .from("strategies")
-      .select("id, name, description")
-      .order("name", { ascending: true });
+    const existing = await readLabGraph();
+    const snapshot = existing ?? (await rebuildLabGraph());
     const { data: settings } = await supabaseAdmin
       .from("app_settings")
       .select("research_auto")
       .eq("id", 1)
       .maybeSingle();
     return {
-      ...standings,
-      strategies: strategies ?? [],
+      ...snapshot.payload,
       research_running: settings?.research_auto !== false,
-      long_term_win_rates: longTermWinRates,
-      capital_analysis: capital,
+      generated_at: snapshot.guards.generated_at,
     };
   });
 
@@ -150,5 +145,29 @@ export const runRaceNow = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { runRacePass } = await import("./race.server");
-    return runRacePass({ phase: data.phase, force: true });
+    const result = await runRacePass({ phase: data.phase, force: true });
+    // The pass may have opened or closed simulated positions: refresh the
+    // saved graph snapshot so the Lab shows the new bookkeeping at once.
+    try {
+      const { refreshLabGraphIntraday } = await import("./lab-graph.server");
+      await refreshLabGraphIntraday();
+    } catch (refreshError) {
+      console.error(
+        "post-pass snapshot refresh failed:",
+        refreshError instanceof Error ? refreshError.message : refreshError,
+      );
+    }
+    return result;
+  });
+
+/**
+ * Refresh the Lab's saved graph snapshot: append new session points and
+ * re-mark open positions, rebuilding fully when the saved snapshot fails
+ * validation. Also invalidated right after a manual test pass.
+ */
+export const refreshLabGraph = createServerFn({ method: "POST" })
+  .middleware([requireGate])
+  .handler(async () => {
+    const { refreshLabGraphIntraday } = await import("./lab-graph.server");
+    return refreshLabGraphIntraday();
   });

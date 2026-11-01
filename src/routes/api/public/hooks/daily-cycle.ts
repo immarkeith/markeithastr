@@ -55,6 +55,18 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
           } catch (rbError) {
             console.error("history rebuild step failed:", rbError instanceof Error ? rbError.message : rbError);
           }
+          // End of day: the full graph rebuild lands here, after the replay
+          // step, so backfilled price history is folded in the same night —
+          // realized P&L and new bars are computed once, not per visit.
+          try {
+            const { rebuildLabGraph } = await import("@/lib/lab-graph.server");
+            await rebuildLabGraph();
+          } catch (graphError) {
+            console.error(
+              "end-of-day lab graph rebuild failed:",
+              graphError instanceof Error ? graphError.message : graphError,
+            );
+          }
           // Phase E: Lead Researcher Quantitative Self-Audit post-market run
           try {
             const { runLeadSelfAudit } = await import("@/lib/audit.server");

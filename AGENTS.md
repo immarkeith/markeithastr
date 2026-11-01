@@ -69,3 +69,37 @@
 - Safe-repair allowlist (confirmed): re-run missed scan, backfill missing
   `daily_bars`, settle stuck simulated paper position. No formula/weight/
   strategy change is ever automatic — those stay human-approved.
+
+## Research exit marks — inventory (2026-11-01, read-only)
+
+`bun scripts/inventory-research-marks.ts` classifies every closed `profit = 0`
+trade against an authentic exact-session close. It never writes. Re-run inside
+the container:
+
+```
+docker compose -f docker-compose.base44.yml exec -T web bun scripts/inventory-research-marks.ts --probe
+```
+
+What the Supabase project `kkwgbjovbcbzsvbhcyhq` actually contains (7,781
+trades): **259** closed `$0` trades — **134** with `exit_price = entry_price`,
+**125** with genuinely different prices that round to `$0.00`.
+
+- **9 provably contaminated** (Aug–Sep 2026): the booked mark equals the entry
+  price while the authentic exact-session close differs. All 9 are recoverable
+  from an exact-session close (DIS, ABNB, BBIO, LTR, INSP, IGPT ×3, MLR).
+- **125 same-session round trips** ("historical rebuild" rows): entry and exit
+  on the same session, and the cached close *confirms* the price. Not a
+  fabricated mark, but zero-information rows that still count as non-wins.
+- **125 legitimate breakevens**: price moved, the $20–25 stake makes it < $0.01.
+
+The "113 contaminated trades between Aug and Oct 2026" figure does **not** match
+this project — only 9 candidates fall in that window and match the shape. It may
+come from the older project `nzayozxwyasvcroshddy` (no service-role key is
+committed for it, so it cannot be enumerated from the sandbox).
+
+## Research price integrity (ASTR standing rules)
+
+- Operational bar coverage uses a date-bounded RPC with one transient retry; preserve the full-history RPC for historical consumers.
+- Cache ingestion upserts returned bars rather than deleting a session, so a partial provider response cannot erase stored history.
+- Secondary daily prices are research-only exact-session marks, never broker execution prices or scanner volume inputs; do not mix provider conventions in the shared cache.
+- Missing research marks stay pending without P&L or settlement; code recovery never deletes historical data.

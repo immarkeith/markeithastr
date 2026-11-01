@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import { marketStatus } from "@/lib/market-calendar";
 
 import { InfoDot } from "@/components/InfoDot";
 import { FutureCapitalAnalysis } from "@/components/FutureCapitalAnalysis";
-import { EventIntelligence } from "@/components/EventIntelligence";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import {
   ResearchDepartment,
@@ -14,7 +15,12 @@ import {
   ResearcherTabs,
 } from "@/components/ResearchDepartment";
 import { Button } from "@/components/ui/button";
-import { fetchRace, runRaceNow, setResearchRunning } from "@/lib/race.functions";
+import {
+  fetchRace,
+  refreshLabGraph,
+  runRaceNow,
+  setResearchRunning,
+} from "@/lib/race.functions";
 import { runRegimeNow } from "@/lib/regime.functions";
 import { runStabilityNow } from "@/lib/stability.functions";
 import { RegimeMatrix } from "@/components/RegimeMatrix";
@@ -43,7 +49,63 @@ export const Route = createFileRoute("/lab")({
 
 function LabPage() {
   const qc = useQueryClient();
-  const race = useQuery({ queryKey: ["race"], queryFn: () => fetchRace() });
+  // The page renders the saved graph snapshot immediately; the five-minute
+  // background timer (scheduler + this refetch) keeps it current without ever
+  // triggering a full historical recalculation on open.
+  const [marketOpen, setMarketOpen] = useState(() => {
+    const s = marketStatus().state;
+    return s === "open" || s === "closing";
+  });
+  useEffect(() => {
+    const update = () => {
+      const s = marketStatus().state;
+      setMarketOpen(s === "open" || s === "closing");
+    };
+    update();
+    const id = globalThis.setInterval(update, 60_000);
+    return () => globalThis.clearInterval(id);
+  }, []);
+  const race = useQuery({
+    queryKey: ["race"],
+    queryFn: () => fetchRace(),
+    // Served from the saved snapshot (one DB read); the 5-minute timer drives
+    // freshness instead of every remount recomputing the charts.
+    staleTime: 5 * 60_000,
+    refetchInterval: marketOpen ? 5 * 60_000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+  });
+  const refreshFn = useServerFn(refreshLabGraph);
+  // Rebuild the snapshot in the background (append new points, re-mark open
+  // positions) and swap the fresh dataset into the cache without blocking the
+  // already-rendered saved data. Guarded by generated_at so a completed
+  // refresh never re-triggers itself.
+  const appliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!marketOpen) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const fresh = await refreshFn();
+        if (alive && fresh.guards.generated_at !== appliedRef.current) {
+          appliedRef.current = fresh.guards.generated_at;
+          qc.setQueryData(["race"], {
+            ...fresh.payload,
+            research_running: race.data?.research_running ?? true,
+            generated_at: fresh.guards.generated_at,
+          });
+        }
+      } catch {
+        // Keep showing the previously rendered snapshot.
+      }
+    };
+    void tick();
+    const id = globalThis.setInterval(() => void tick(), 5 * 60_000);
+    return () => {
+      alive = false;
+      globalThis.clearInterval(id);
+    };
+  }, [marketOpen, refreshFn, qc, race.data?.research_running]);
   const runFn = useServerFn(runRaceNow);
 
   const run = useMutation({
@@ -179,7 +241,6 @@ function LabPage() {
       <ResearchDisagreements />
 
       {d?.capital_analysis ? <FutureCapitalAnalysis analysis={d.capital_analysis} /> : null}
-      <EventIntelligence />
 
       {/* Phase C — how each formula behaves across the 9 market regimes. */}
       <section className="space-y-3">
@@ -234,6 +295,9 @@ function LabPage() {
               key={slot.key}
               slot={slot}
               longTermRates={slot.lane ? (d?.long_term_win_rates[slot.lane] ?? []) : []}
+              equity={
+                d?.equity_curves.find((c) => c.strategy_id === slot.strategy_id) ?? null
+              }
             />
           ))}
         </div>
@@ -259,6 +323,9 @@ function LabPage() {
 }
 
 type Entrant = NonNullable<Awaited<ReturnType<typeof fetchRace>>>["entrants"][number];
+type EquityCurve = NonNullable<
+  Awaited<ReturnType<typeof fetchRace>>
+>["equity_curves"][number];
 
 function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -319,9 +386,11 @@ function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
 function SlotCard({
   slot,
   longTermRates,
+  equity,
 }: {
   slot: Entrant;
   longTermRates: LongTermRate[];
+  equity: EquityCurve | null;
 }) {
   return (
     <section className="space-y-4">
@@ -355,6 +424,7 @@ function SlotCard({
         percent
         basis={slot.basis}
         activeTicker={slot.holdings[0]?.ticker ?? null}
+        equity={equity}
       />
 
 

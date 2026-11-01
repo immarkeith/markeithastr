@@ -1854,6 +1854,13 @@ export type Database = {
           ticker_count: number
         }[]
       }
+      bar_dates_present_since: {
+        Args: { p_start: string }
+        Returns: {
+          bar_date: string
+          ticker_count: number
+        }[]
+      }
       scan_input: {
         Args: { p_days: number; p_limit: number; p_offset: number }
         Returns: {

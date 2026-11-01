@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { StatTile } from "@/components/StatTile";
+import { EventIntelligence } from "@/components/EventIntelligence";
 import { InfluenceProfile } from "@/components/InfluenceProfile";
 import { ResearcherBuyTable } from "@/components/ResearcherBuyTable";
 import { Badge } from "@/components/ui/badge";
@@ -127,6 +128,9 @@ function ResultCard({
 
   return (
     <div className="space-y-4">
+      {/* Research context first: SEC filings for this ticker sit above the
+          score tiles. Hidden entirely when the ticker has no filings. */}
+      <EventIntelligence ticker={result.ticker} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile
           label={result.ticker}

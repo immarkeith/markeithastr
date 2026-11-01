@@ -107,9 +107,16 @@ export async function evaluateEvents() {
   return { summary, verdict, ready };
 }
 
-export async function eventsOverview() {
+export async function eventsOverview(opts: { ticker?: string; limit?: number } = {}) {
+  const limit = opts.limit ?? 15;
+  let query = supabaseAdmin
+    .from("market_events")
+    .select("ticker, filed_on, form, items, sentiment, score, confidence, reason, url")
+    .order("filed_on", { ascending: false })
+    .limit(limit);
+  if (opts.ticker) query = query.eq("ticker", opts.ticker.toUpperCase());
   const [{ data: events }, { data: runs }] = await Promise.all([
-    supabaseAdmin.from("market_events").select("ticker, filed_on, sentiment, score, confidence, reason, url").order("filed_on", { ascending: false }).limit(15),
+    query,
     supabaseAdmin.from("research_runs").select("summary, created_at").eq("kind", "event_intelligence").order("created_at", { ascending: false }).limit(1),
   ]);
   return { events: events ?? [], latest: (runs?.[0]?.summary as any) ?? null };

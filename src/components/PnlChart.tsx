@@ -89,6 +89,7 @@ export function PnlChart({
   secondaryLabel,
   liveTicker,
   activeTicker,
+  equity,
 }: {
   rows: { exit_date: string | null; profit: number }[];
   ranges?: PnlRange[];
@@ -126,6 +127,19 @@ export function PnlChart({
    * ticker (or "—" when nothing is held) instead of the duplicated dollar P/L.
    */
   activeTicker?: string | null;
+  /**
+   * Server-built mark-to-market equity for this book (FEATURES.md §8.1):
+   * realized P/L through each date plus every open position marked to that
+   * session's real cached close. When present, it REPLACES the realized-only
+   * construction entirely — the chart draws these points directly, re-based
+   * to the selected window so the line starts at zero.
+   */
+  equity?: {
+    points: { date: string; equity: number }[];
+    coverage_from: string | null;
+    coverage_to: string | null;
+    has_gaps: boolean;
+  } | null;
 }) {
   const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
   const [marketOpen, setMarketOpen] = useState(() => {
@@ -159,10 +173,21 @@ export function PnlChart({
     if (active.calendar) {
       return { today, from: calendarStart(active.calendar), until: today };
     }
+    // The "All" window starts at the earliest activity on record instead of a
+    // century back, so real history stretches across the chart instead of
+    // spiking in the last couple of pixels.
+    if (active.days >= 36500) {
+      const dates = [today];
+      for (const r of rows) if (r.exit_date) dates.push(r.exit_date);
+      for (const r of compareRows ?? []) if (r.exit_date) dates.push(r.exit_date);
+      for (const r of secondaryRows ?? []) if (r.exit_date) dates.push(r.exit_date);
+      for (const p of equity?.points ?? []) dates.push(p.date);
+      return { today, from: dates.reduce((a, b) => (a < b ? a : b)), until: today };
+    }
     const from = active.endYesterday ? isoDaysAgo(active.days) : isoDaysAgo(active.days - 1);
     const until = active.endYesterday ? isoDaysAgo(1) : today;
     return { today, from, until };
-  }, [active]);
+  }, [active, rows, compareRows, secondaryRows, equity]);
 
   const daily = useMemo(() => {
     // Long ranges group by week so the line stays readable on a phone.
@@ -192,7 +217,10 @@ export function PnlChart({
       return byDay;
     };
 
-    const open = active.endYesterday ? 0 : active.live ? unrealizedToday : unrealized;
+    // With a mark-to-market equity curve present, the open position is already
+    // carried bar-by-bar — adding the live unrealized again would double-count.
+    const hasOpenSeries = equity !== null && equity !== undefined && equity.points.length > 0;
+    const open = active.endYesterday || hasOpenSeries ? 0 : active.live ? unrealizedToday : unrealized;
     return {
       primary: build(rows, open),
       compare: compareRows ? build(compareRows, 0) : null,
@@ -211,6 +239,7 @@ export function PnlChart({
     unrealizedToday,
     percent,
     basis,
+    equity,
   ]);
 
   // Generate a continuous date timeline so windows with few closed trades
@@ -244,13 +273,65 @@ export function PnlChart({
     if (!byDay) return null;
     let running = 0;
     return days.map((day) => {
-      // Add realized profit on dates when it closed; otherwise carry prior equity forward
-      running += byDay.get(day) ?? 0;
-      return { day, daily: byDay.get(day) ?? 0, cumulative: Number(running.toFixed(2)) };
+      // Realized profit lands on exit dates; the live mark (when no equity
+      // curve exists) lands on today's point only.
+      const realized = byDay.get(day) ?? 0;
+      running += realized;
+      return { day, daily: realized, cumulative: Number(running.toFixed(2)) };
     });
   };
 
-  const series = cumulate(daily.primary) ?? [];
+  /**
+   * The server-built mark-to-market curve, sliced to the selected window and
+   * re-based so it starts at zero. Used INSTEAD of the realized-only builder.
+   */
+  const equitySeries = useMemo(() => {
+    if (!equity || equity.points.length === 0) return null;
+    const inWindow = equity.points.filter(
+      (p) => p.date >= window.from && p.date <= window.until,
+    );
+    // No cached bar inside this window (e.g. Today before the session's bar
+    // exists): fall back to the realized builder instead of collapsing flat.
+    if (inWindow.length === 0) return null;
+    // Sparse coverage: when the cached bars back only a small slice of the
+    // window, the mark-to-market line collapses to a flat stub pinned to one
+    // edge — fall back to the realized builder so the trade history still shows.
+    const windowSpan = Math.max(
+      1,
+      (Date.parse(`${window.until}T00:00:00Z`) - Date.parse(`${window.from}T00:00:00Z`)) / 86400000,
+    );
+    const coveredSpan =
+      (Date.parse(`${inWindow[inWindow.length - 1]!.date}T00:00:00Z`) -
+        Date.parse(`${inWindow[0]!.date}T00:00:00Z`)) /
+      86400000;
+    if (inWindow.length < 2 || coveredSpan < windowSpan * 0.5) return null;
+    const scale = percent && basis > 0 ? 100 / basis : 1;
+    // Long ranges roll daily marks up to one point per week so the line stays
+    // readable instead of drawing every session bunched together.
+    const rolled = (() => {
+      if (!active.weekly) return inWindow;
+      const byWeek = new Map<string, number>();
+      for (const p of inWindow) {
+        const d = new Date(`${p.date}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+        byWeek.set(d.toISOString().slice(0, 10), p.equity);
+      }
+      return [...byWeek.entries()]
+        .map(([date, eq]) => ({ date, equity: eq }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    })();
+    const base = rolled[0]!.equity;
+    let prev = base;
+    return rolled.map((p) => {
+      const cumulative = Number(((p.equity - base) * scale).toFixed(2));
+      // daily is the day-over-day change, not a repeat of the running total.
+      const daily = Number(((p.equity - prev) * scale).toFixed(2));
+      prev = p.equity;
+      return { day: p.date, daily, cumulative };
+    });
+  }, [equity, window, percent, basis, active.weekly]);
+
+  const series = equitySeries ?? cumulate(daily.primary) ?? [];
   const compareSeries = cumulate(daily.compare);
   const secondarySeries = cumulate(daily.secondary);
 
@@ -278,11 +359,19 @@ export function PnlChart({
     ...(secondarySeries ?? []).map((p) => Math.abs(p.cumulative)),
   );
 
-  const pathOf = (points: { cumulative: number }[]) => {
+  /** X positions follow each point's actual date, not even steps, so every
+   *  line — primary, compare, secondary — shares one date-true axis. */
+  const xOf = (day: string) => {
+    const t = Date.parse(`${day}T00:00:00Z`);
+    const from = Date.parse(`${window.from}T00:00:00Z`);
+    const to = Date.parse(`${window.until}T00:00:00Z`);
+    return ((t - from) / Math.max(1, to - from)) * width;
+  };
+  const pathOf = (points: { day: string; cumulative: number }[]) => {
     const list = points.length === 1 ? [...points, ...points] : points;
     return list
       .map((point, i) => {
-        const x = (i / Math.max(1, list.length - 1)) * width;
+        const x = xOf(point.day);
         const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
         return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
       })
@@ -461,7 +550,7 @@ export function PnlChart({
       </div>
       {series.length === 0 && (compareSeries?.length ?? 0) === 0 ? (
         <p className="text-xs text-muted-foreground">
-          Flat for this window — the line moves once a position is open or sold.
+          Flat for this window — no price movement or profit recorded in this period; the line moves once a position is open or sold.
         </p>
       ) : null}
 
@@ -515,6 +604,16 @@ export function PnlChart({
         ))}
       </div>
 
+      {equity && equity.points.length > 0 && equity.coverage_from ? (
+        <p className="text-[10px] text-muted-foreground">
+          Marked to real daily closes {equity.coverage_from} → {equity.coverage_to ?? "now"}
+          {equity.coverage_to && equity.coverage_to < isoDaysAgo(0)
+            ? " — no newer bars cached yet, later dates show no movement"
+            : ""}
+          {equity.has_gaps ? " — some sessions lack cached bars and show no movement there" : ""}
+        </p>
+      ) : null}
+
       {compact || series.length === 0 ? null : (
         <ul className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
           {series
@@ -535,4 +634,3 @@ export function PnlChart({
     </section>
   );
 }
-
