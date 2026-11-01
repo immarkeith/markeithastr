@@ -97,6 +97,27 @@ this project — only 9 candidates fall in that window and match the shape. It m
 come from the older project `nzayozxwyasvcroshddy` (no service-role key is
 committed for it, so it cannot be enumerated from the sandbox).
 
+### Reconciliation applied 2026-11-01
+
+Each candidate was re-priced against the provider's daily bar for its exit
+session **and** checked against the entry session's own high/low. A booked entry
+price that falls outside the range that session actually traded cannot be
+repaired by swapping the exit mark alone — the P&L would be invented.
+
+- **4 repaired** (entry price inside the entry session's range, so the round trip
+  is real): MLR `56.88 → 55.23` (−0.58), ABNB `184.70 → 180.10` (−0.62),
+  BBIO `84.67 → 83.84` (−0.25), LNN `116.84 → 117.27` (+0.07). `kept` was set
+  with `profit` and `status_note` records the old and new mark.
+- **5 left as-is, annotated "Needs review"** (entry price impossible for the
+  session it was booked in, so no P&L can be derived): INSP (entry 41.43 while
+  the 2026-09-16 range was 72.23–75.49), IGPT ×3 (entry 107.895 while the range
+  was 92.75–95.11), DIS (entry 100.00 while the range was 103.70–105.25). Do not
+  "fix" these by writing the authentic exit close: that would book a fake +75%
+  INSP win. They need a decision about the entry price first.
+- After any trade-data change, rebuild the stored Lab snapshot
+  (`refreshLabGraphIntraday()`), otherwise `/research` keeps serving the old
+  numbers.
+
 ## Researcher equity curves (`src/lib/race.server.ts`, `src/lib/lab-graph.server.ts`)
 
 - A curve point is a **level**: cumulative realized P/L through that date plus
