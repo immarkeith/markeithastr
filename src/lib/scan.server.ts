@@ -12,6 +12,7 @@ import {
   type Provider,
 } from "./market-data.server";
 import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
+import { retryCoverage } from "./market-data-validation";
 
 export interface Settings {
   provider: Provider;
@@ -112,15 +113,19 @@ function today(): string {
 
 // ------------------------------------------------------------- bar cache ----
 
-export async function barCoverage(): Promise<{ bar_date: string; ticker_count: number }[]> {
-  const { data, error } = await supabaseAdmin.rpc("bar_dates_present");
-  if (error) throw new Error(error.message);
-  return (data ?? []) as { bar_date: string; ticker_count: number }[];
+export async function barCoverage(start?: string, recovered?: () => void): Promise<{ bar_date: string; ticker_count: number }[]> {
+  const earliest = start ?? recentWeekdays(HISTORY_DAYS + 5)[0];
+  if (!earliest) return [];
+  return retryCoverage(async () => {
+    const { data, error } = await supabaseAdmin.rpc("bar_dates_present_since", { p_start: earliest });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as { bar_date: string; ticker_count: number }[];
+  }, recovered);
 }
 
 /** Weekdays in the lookback window that we have no cached bars for, oldest first. */
 export async function missingDates(days = HISTORY_DAYS): Promise<string[]> {
-  const coverage = await barCoverage();
+  const coverage = await barCoverage(recentWeekdays(days + 5)[0]);
   const present = new Set(coverage.filter((c) => c.ticker_count > 0).map((c) => c.bar_date));
   // Yesterday is the newest reliably-settled daily bar.
   const end = new Date();
@@ -132,10 +137,9 @@ export async function missingDates(days = HISTORY_DAYS): Promise<string[]> {
 
 
 async function replaceDay(date: string, rows: BarRow[]): Promise<number> {
-  await supabaseAdmin.from("daily_bars").delete().eq("bar_date", date);
   const chunk = 2000;
   for (let i = 0; i < rows.length; i += chunk) {
-    const { error } = await supabaseAdmin.from("daily_bars").insert(rows.slice(i, i + chunk));
+    const { error } = await supabaseAdmin.from("daily_bars").upsert(rows.slice(i, i + chunk), { onConflict: "ticker,bar_date" });
     if (error) throw new Error(error.message);
   }
   return rows.length;
@@ -1145,7 +1149,13 @@ export async function managePaperTrades(
     const score = byTicker.get(ticker);
     // Last resort is the entry price itself: a day trade must never stay open
     // just because that symbol dropped out of the cached universe.
-    const price = Number(bar?.close ?? score?.close ?? trade.entry_price ?? 0);
+    let price = Number(bar?.close ?? score?.close ?? trade.entry_price ?? 0);
+    if (activeMode === "paper") {
+      const { researchMarketMark, pendingResearchMark } = await import("./research-market-mark.server");
+      const mark = await researchMarketMark(ticker, trade.entry_date);
+      if (mark === null) { await pendingResearchMark(trade.id); continue; }
+      price = mark;
+    }
     if (!price) continue;
     const barDate = bar?.bar_date ?? runRow?.bars_as_of ?? today();
 

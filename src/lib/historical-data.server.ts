@@ -45,8 +45,8 @@ export async function deepenHistory(opts: { tickers?: number; years?: number } =
       if (bars.length === 0) newlyDone.push(s.ticker);
     } catch (e) {
       console.error("history deepen failed", s.ticker, e instanceof Error ? e.message : e);
-      // A failing ticker must not be retried every pass either.
-      newlyDone.push(s.ticker);
+      // A credential outage/timeout is not proof that older history is absent.
+      // Leave the ticker retryable; only a successful empty response is final.
     }
   }
   if (newlyDone.length > 0) {

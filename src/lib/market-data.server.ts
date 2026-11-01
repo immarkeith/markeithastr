@@ -9,6 +9,8 @@
  *    endpoint), against a shortlist of active US equities.
  */
 
+import { validDailyBar } from "./market-data-validation";
+
 export type Provider = "polygon" | "alpaca";
 
 export interface BarRow {
@@ -53,7 +55,7 @@ export function recentWeekdays(count: number, endDate = new Date()): string[] {
 }
 
 async function getJson(url: string, headers: Record<string, string> = {}): Promise<any> {
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(12000) });
   const text = await res.text();
   if (!res.ok) {
     throw new Error(`Market data request failed [${res.status}]: ${text.slice(0, 300)}`);
@@ -108,7 +110,8 @@ function alpacaHeaders(): Record<string, string> {
   const raw = apiKey();
   if (raw.includes(":")) {
     const [id, secret] = raw.split(":");
-    return { "APCA-API-KEY-ID": id!.trim(), "APCA-API-SECRET-KEY": secret!.trim() };
+    if (!id?.trim() || !secret?.trim()) throw new Error("Market data key pair is incomplete.");
+    return { "APCA-API-KEY-ID": id.trim(), "APCA-API-SECRET-KEY": secret.trim() };
   }
   return { Authorization: `Bearer ${raw}` };
 }
@@ -285,4 +288,31 @@ export async function alpacaLatestPrices(symbols: string[]): Promise<Map<string,
     console.error("latest prices failed:", error instanceof Error ? error.message : error);
   }
   return map;
+}
+
+/** Free, best-effort completed daily research marks; not real-time execution data.
+ * Kept out of daily_bars: Yahoo volume/adjustment conventions differ from IEX.
+ */
+export async function yahooDailyBars(symbol: string, start: string, end: string): Promise<BarRow[]> {
+  const ticker = symbol.trim().toUpperCase();
+  if (!TICKER_OK.test(ticker)) throw new Error("Unsupported research ticker.");
+  const first = Date.parse(`${start}T00:00:00Z`);
+  const last = Date.parse(`${end}T00:00:00Z`);
+  if (!Number.isFinite(first) || !Number.isFinite(last) || first > last) throw new Error("Invalid date range.");
+  const params = new URLSearchParams({ interval: "1d", period1: String(first / 1000), period2: String(last / 1000 + 86400) });
+  const json = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?${params}`, { "User-Agent": "ASTR/1.0" });
+  const result = json?.chart?.result?.[0];
+  const quote = result?.indicators?.quote?.[0];
+  if (json?.chart?.error || !quote || !Array.isArray(result?.timestamp)) throw new Error("Secondary daily prices unavailable.");
+  const rows: BarRow[] = [];
+  // Daily timestamps must be a completed New York session, never a partial bar.
+  const now = new Date();
+  const nyDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  for (let i = 0; i < result.timestamp.length; i++) {
+    const date = new Date(result.timestamp[i] * 1000).toISOString().slice(0, 10);
+    if (date < start || date > end || date >= nyDate) continue;
+    const row: BarRow = { ticker, bar_date: date, open: quote.open?.[i], high: quote.high?.[i], low: quote.low?.[i], close: quote.close?.[i], volume: quote.volume?.[i] };
+    if (validDailyBar(row)) rows.push(row);
+  }
+  return rows;
 }
