@@ -349,7 +349,7 @@ async function appendCurves(
       .from("daily_bars")
       .select("ticker, bar_date, close")
       .in("ticker", tickers)
-      .gt("bar_date", guard.coverage_to)
+      .gte("bar_date", guard.coverage_to)
       .lte("bar_date", day)
       .order("bar_date", { ascending: true });
     if (barError) throw new Error(barError.message);
@@ -363,29 +363,46 @@ async function appendCurves(
     for (const date of realizedByDate.keys()) if (date <= day) dateSet.add(date);
     const dates = [...dateSet].sort();
 
+    // A point is a level: cumulative realized P/L plus the marks of the
+    // positions still held at that session's close. Each new point therefore
+    // moves by that day's realized P/L plus the CHANGE in mark level — adding
+    // the whole mark again every session would pile the same unrealized dollars
+    // up once per day.
+    const markLevel = (date: string): number | null => {
+      const heldNow = positions.filter(
+        (p) =>
+          p.entry_date && p.entry_date <= date && (p.exit_date === null || p.exit_date > date),
+      );
+      if (heldNow.length === 0) return 0;
+      let level = 0;
+      let priced = false;
+      for (const p of heldNow) {
+        const close = closeAt.get(`${p.ticker}|${date}`);
+        if (close === undefined) continue;
+        level += p.dollars * (close / p.entry_price - 1);
+        priced = true;
+      }
+      return priced ? level : null;
+    };
+
     const lastPoint = curve.points[curve.points.length - 1];
     let running = lastPoint ? lastPoint.equity : 0;
+    // The stored curve ends at coverage_to, so that session's mark level is the
+    // baseline its last point already contains.
+    let previousLevel = markLevel(guard.coverage_to) ?? 0;
     const appended: EquityPoint[] = [];
     let gaps = curve.has_gaps;
 
     for (const date of dates) {
-      let delta = 0;
-      let touched = false;
-      for (const p of positions) {
-        if (!p.entry_date || p.entry_date > date) continue;
-        if (p.exit_date !== null && p.exit_date < date) continue;
-        const close = closeAt.get(`${p.ticker}|${date}`);
-        if (close === undefined) continue;
-        delta += p.dollars * (close / p.entry_price - 1);
-        touched = true;
-      }
-      const realized = realizedByDate.get(date);
-      if (realized !== undefined) {
-        delta += realized;
-        touched = true;
-      }
-      if (!touched) continue;
-      running += delta;
+      if (date <= guard.coverage_to) continue;
+      // A held position with no cached bar is a gap, never movement: keep the
+      // previous level and let the gap flag report it.
+      const level = markLevel(date);
+      const realized = realizedByDate.get(date) ?? 0;
+      if (level === null && realized === 0) continue;
+      const nextLevel = level ?? previousLevel;
+      running += realized + (nextLevel - previousLevel);
+      previousLevel = nextLevel;
       appended.push({ date, equity: Number(running.toFixed(2)) });
     }
 

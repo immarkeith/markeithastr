@@ -97,6 +97,27 @@ this project — only 9 candidates fall in that window and match the shape. It m
 come from the older project `nzayozxwyasvcroshddy` (no service-role key is
 committed for it, so it cannot be enumerated from the sandbox).
 
+## Researcher equity curves (`src/lib/race.server.ts`, `src/lib/lab-graph.server.ts`)
+
+- A curve point is a **level**: cumulative realized P/L through that date plus
+  the marks of positions still held at that session's close. Never add the day's
+  full mark onto a running total — that piles the same unrealized dollars up once
+  per held session, which is the bug both the full rebuild and the intraday
+  incremental path used to have.
+- A position's exit session is realized only; its mark stops the session before,
+  so the exit price is not counted twice.
+- Closed trades are paged (`range`), not `limit(400)`: the row cap silently cut
+  the curve off years in the past.
+- Known gap: the `daily_bars` read inside `researcherEquityCurve` is a single
+  unpaged query, and PostgREST returns at most 1,000 rows, so historical marks
+  are effectively absent (`coverage_from`/`coverage_to` null, `has_gaps` true) and
+  the chart shows realized steps. Fixing it needs a SQL-side aggregate over
+  `daily_bars` (344k rows) rather than a client fetch.
+- After changing curve math, the Lab serves a stored snapshot from `research_runs`
+  (`refreshLabGraphIntraday()` / `rebuildLabGraph()`), so rebuild before checking
+  the chart — `docker compose -f docker-compose.base44.yml exec -T web bun -e
+  'import {refreshLabGraphIntraday} from "./src/lib/lab-graph.server"; console.log((await refreshLabGraphIntraday()).mode)'`.
+
 ## Research price integrity (ASTR standing rules)
 
 - Operational bar coverage uses a date-bounded RPC with one transient retry; preserve the full-history RPC for historical consumers.
