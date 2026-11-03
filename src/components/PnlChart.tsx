@@ -490,23 +490,27 @@ export function PnlChart({
           {percent ? "P/L (%)" : "P/L ($)"}
         </span>
         <div className="flex-1 space-y-1">
+          <div className="flex items-stretch gap-1">
           <svg
             viewBox={`0 0 ${width} ${height}`}
-            className={compact ? "h-20 w-full" : "h-32 w-full"}
+            className={`${compact ? "h-20" : "h-32"} min-w-0 flex-1`}
             preserveAspectRatio="none"
           >
-            {/* Dotted break-even baseline, the way Robinhood draws it. */}
-            <line
-              x1="0"
-              x2={width}
-              y1={height / 2}
-              y2={height / 2}
-              stroke="currentColor"
-              strokeWidth="0.4"
-              strokeDasharray="1.5 1.5"
-              className="text-muted-foreground/60"
-              vectorEffect="non-scaling-stroke"
-            />
+            {/* Scale grid: faint lines at ±max and ±half; the zero line is stronger. */}
+            {ticks.map((t) => (
+              <line
+                key={t}
+                x1="0"
+                x2={width}
+                y1={yOf(t)}
+                y2={yOf(t)}
+                stroke="currentColor"
+                strokeWidth={t === 0 ? "0.6" : "0.4"}
+                strokeDasharray={t === 0 ? "1.5 1.5" : "0.6 2"}
+                className={t === 0 ? "text-muted-foreground/70" : "text-muted-foreground/25"}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
             {compareSeries && compareSeries.length > 0 ? (
               <path
                 d={pathOf(compareSeries)}
