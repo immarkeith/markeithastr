@@ -1555,10 +1555,13 @@ export async function researcherEquityCurve(
   }
 
   const allDates = [...new Set([...realizedByDate.keys(), ...openByDate.keys()])].sort();
-  let running = 0;
+  // Equity = cumulative realized P/L + that day's open-position snapshot.
+  // Unrealized P/L is a point-in-time mark, never accumulated across days.
+  let cumulativeRealized = 0;
   const points: EquityPoint[] = allDates.map((date) => {
-    running += (realizedByDate.get(date) ?? 0) + (openByDate.get(date) ?? 0);
-    return { date, equity: Number(running.toFixed(2)) };
+    cumulativeRealized += realizedByDate.get(date) ?? 0;
+    const equity = cumulativeRealized + (openByDate.get(date) ?? 0);
+    return { date, equity: Number(equity.toFixed(2)) };
   });
   return { strategy_id: strategyId, points, coverage_from: coverageFrom, coverage_to: coverageTo, has_gaps: hasGaps };
 }
