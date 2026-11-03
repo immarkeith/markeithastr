@@ -89,7 +89,7 @@ run once, idempotently.
 - **Phase 0 (this turn):** save reference docs; produce this plan; remove the
   Audit Desk tab from normal navigation (engine preserved).
 - **Phase 1 — Autonomous monitoring & safe repair:** ✅ DONE —
-  `migration/fresh/15-autonomous-audit.sql` (additive `audit_repair_log` +
+  `migration/fresh/16-autonomous-audit.sql` (additive `audit_repair_log` +
   `audit_integrity_results` tables, 5-min health schedule, daily + weekly
   integrity cron jobs); `src/lib/repair-log.server.ts` (allowlisted repair
   logging with post-repair verification, graceful degradation);
@@ -97,7 +97,7 @@ run once, idempotently.
   alerts only on FAIL); `src/routes/api/public/hooks/integrity.ts` (cron hook);
   `src/lib/health.server.ts` updated to log each repair; Audit Desk (`/audit`)
   shows repair log + integrity history sections.
-  **Action needed:** run `15-autonomous-audit.sql` in the Supabase SQL editor
+  **Action needed:** run `16-autonomous-audit.sql` in the Supabase SQL editor
   (replace `YOUR-APP.vercel.app` with the live URL).
 - **Phase 2 — Phase E audit corrections:** rewrite the four pillars
   (entry + exit bar validation; distinguish unavailable bars from real

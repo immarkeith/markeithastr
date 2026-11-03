@@ -11,8 +11,8 @@ workflow.
 - Patch engine: `scripts/engineer-runner.ts` · verification: `scripts/engineer-verify.ts`
 - App surfaces: `/engineer` (mission control) and `/engineer/recovery`
 - Schema: `supabase/migrations/20261103010000_engineer_phase_k.sql`
-  (identical fresh-rebuild copy: `migration/fresh/16-engineer-phase-k.sql`)
-- Audit schema: `migration/fresh/15-autonomous-audit.sql`
+  (identical fresh-rebuild copy: `migration/fresh/17-engineer-phase-k.sql`)
+- Audit schema: `migration/fresh/16-autonomous-audit.sql`
 
 ## 1. Database migrations
 
@@ -21,7 +21,7 @@ extension is required for either file.
 
 Run them in this order, once each, in your database's SQL console:
 
-1. `migration/fresh/15-autonomous-audit.sql` — two additive tables
+1. `migration/fresh/16-autonomous-audit.sql` — two additive tables
    (`audit_repair_log`, `audit_integrity_results`) plus an **optional** schedule.
 2. `supabase/migrations/20261103010000_engineer_phase_k.sql` — six additive
    tables, the atomic lease RPCs and the privilege block.
@@ -30,7 +30,7 @@ Both files are idempotent (`CREATE TABLE IF NOT EXISTS`,
 `CREATE OR REPLACE FUNCTION`) and additive: they never read, alter or delete
 existing trading, research or market-data tables. Re-running them is safe.
 
-Before running file 15, replace `YOUR-APP.example.com` with your app's host —
+Before running file 16, replace `YOUR-APP.example.com` with your app's host —
 it is only used by the scheduling block.
 
 ### Portability guarantees in the SQL

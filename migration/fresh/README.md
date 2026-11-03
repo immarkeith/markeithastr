@@ -37,12 +37,12 @@ Each file is small enough to copy and paste on a phone.
     - `13-event-intelligence.sql` — event intelligence tables.
     - `14-key-check-schedule.sql` — key-check scheduling.
     - `15-lab-refresh-schedule.sql` — Lab snapshot refresh job.
-    - `15-autonomous-audit.sql` — audit repair log + integrity results (replace
+    - `16-autonomous-audit.sql` — audit repair log + integrity results (replace
       `YOUR-APP.example.com` with your app host). Plain PostgreSQL 13+; the
       pg_cron part is skipped with a NOTICE when pg_cron is absent.
-    - `16-engineer-phase-k.sql` — the `/engineer` queue, RPCs and privileges.
+    - `17-engineer-phase-k.sql` — the `/engineer` queue, RPCs and privileges.
 
-Nothing in files 11 → 16 needs a Supabase-only feature: they run unchanged on a
+Nothing in files 11 → 17 needs a Supabase-only feature: they run unchanged on a
 vanilla PostgreSQL 13+ server (see `docs/phase-k-deployment.md`).
 
 ## 2. New app deployment

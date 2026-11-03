@@ -2,7 +2,7 @@
 --
 -- Canonical copies, kept byte-identical:
 --   supabase/migrations/20261103010000_engineer_phase_k.sql
---   migration/fresh/16-engineer-phase-k.sql   (the 01 → 16 rebuild path)
+--   migration/fresh/17-engineer-phase-k.sql   (the 01 → 17 rebuild path)
 --
 -- ADDITIVE ONLY. This migration creates new tables and functions; it never
 -- touches existing trading, research, or market-data tables. Run it once in

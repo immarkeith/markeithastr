@@ -47,7 +47,7 @@
 
 ## Phase 1 — Autonomous monitoring & safe repair
 
-- `migration/fresh/15-autonomous-audit.sql` creates two additive tables
+- `migration/fresh/16-autonomous-audit.sql` creates two additive tables
   (`audit_repair_log`, `audit_integrity_results`) and an **optional** schedule:
   health every 5 min during market hours (13:00–20:59 UTC weekdays) and hourly
   otherwise, daily integrity at 22:00 UTC, weekly deep audit Saturday 12:00 UTC.
@@ -158,7 +158,7 @@ verified commit. Nothing reaches the target branch without that approval.
 ### One-time setup (required before the queue works)
 
 1. Run `supabase/migrations/20261103010000_engineer_phase_k.sql` in your SQL
-   console (the `migration/fresh/16-engineer-phase-k.sql` copy is byte-identical
+   console (the `migration/fresh/17-engineer-phase-k.sql` copy is byte-identical
    — keep them in sync). It is additive: six tables (`engineer_settings`,
    `engineer_checkpoints`, `engineer_change_log`, `engineer_tasks`,
    `engineer_logs`, `engineer_health_events`) plus `claim_next_engineer_task`,

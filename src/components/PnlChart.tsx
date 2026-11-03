@@ -352,12 +352,23 @@ export function PnlChart({
   const tone = up ? "text-success" : "text-destructive";
   const width = 100;
   const height = 40;
-  const max = Math.max(
-    0.01,
+  // Minimum bracket so tiny moves stay near break-even instead of filling the
+  // chart (±2% in percent mode, ±$1 in dollars), then rounded to a clean step.
+  const rawMax = Math.max(
+    percent ? 2 : 1,
     ...series.map((p) => Math.abs(p.cumulative)),
     ...(compareSeries ?? []).map((p) => Math.abs(p.cumulative)),
     ...(secondarySeries ?? []).map((p) => Math.abs(p.cumulative)),
   );
+  const max = niceCeil(rawMax);
+  const ticks = [max, max / 2, 0, -max / 2, -max];
+  const yOf = (v: number) => height / 2 - (v / max) * (height / 2 - 2);
+  const fmtTick = (v: number) => {
+    const sign = v > 0 ? "+" : v < 0 ? "−" : "";
+    const a = Math.abs(v);
+    if (percent) return `${sign}${a < 10 ? a.toFixed(1) : a.toFixed(0)}%`;
+    return `${sign}$${a < 10 ? a.toFixed(2) : a.toFixed(0)}`;
+  };
 
   /** X positions follow each point's actual date, not even steps, so every
    *  line — primary, compare, secondary — shares one date-true axis. */
@@ -372,7 +383,7 @@ export function PnlChart({
     return list
       .map((point, i) => {
         const x = xOf(point.day);
-        const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
+        const y = yOf(point.cumulative);
         return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
       })
       .join(" ");
@@ -479,23 +490,27 @@ export function PnlChart({
           {percent ? "P/L (%)" : "P/L ($)"}
         </span>
         <div className="flex-1 space-y-1">
+          <div className="flex items-stretch gap-1">
           <svg
             viewBox={`0 0 ${width} ${height}`}
-            className={compact ? "h-20 w-full" : "h-32 w-full"}
+            className={`${compact ? "h-20" : "h-32"} min-w-0 flex-1`}
             preserveAspectRatio="none"
           >
-            {/* Dotted break-even baseline, the way Robinhood draws it. */}
-            <line
-              x1="0"
-              x2={width}
-              y1={height / 2}
-              y2={height / 2}
-              stroke="currentColor"
-              strokeWidth="0.4"
-              strokeDasharray="1.5 1.5"
-              className="text-muted-foreground/60"
-              vectorEffect="non-scaling-stroke"
-            />
+            {/* Scale grid: faint lines at ±max and ±half; the zero line is stronger. */}
+            {ticks.map((t) => (
+              <line
+                key={t}
+                x1="0"
+                x2={width}
+                y1={yOf(t)}
+                y2={yOf(t)}
+                stroke="currentColor"
+                strokeWidth={t === 0 ? "0.6" : "0.4"}
+                strokeDasharray={t === 0 ? "1.5 1.5" : "0.6 2"}
+                className={t === 0 ? "text-muted-foreground/70" : "text-muted-foreground/25"}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
             {compareSeries && compareSeries.length > 0 ? (
               <path
                 d={pathOf(compareSeries)}
@@ -543,6 +558,19 @@ export function PnlChart({
               />
             ) : null}
           </svg>
+          {/* Y-axis values, positioned to match the grid lines (5%–95% of height). */}
+          <div className="relative w-9 shrink-0 font-mono text-[8px] tabular-nums text-muted-foreground">
+            {ticks.map((t) => (
+              <span
+                key={t}
+                className={`absolute right-0 -translate-y-1/2 ${t === 0 ? "text-foreground/80" : ""}`}
+                style={{ top: `${(yOf(t) / height) * 100}%` }}
+              >
+                {fmtTick(t)}
+              </span>
+            ))}
+          </div>
+          </div>
           <p className="text-center text-[9px] uppercase tracking-wider text-muted-foreground">
             Date / time
           </p>
