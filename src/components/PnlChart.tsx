@@ -352,12 +352,23 @@ export function PnlChart({
   const tone = up ? "text-success" : "text-destructive";
   const width = 100;
   const height = 40;
-  const max = Math.max(
-    0.01,
+  // Minimum bracket so tiny moves stay near break-even instead of filling the
+  // chart (±2% in percent mode, ±$1 in dollars), then rounded to a clean step.
+  const rawMax = Math.max(
+    percent ? 2 : 1,
     ...series.map((p) => Math.abs(p.cumulative)),
     ...(compareSeries ?? []).map((p) => Math.abs(p.cumulative)),
     ...(secondarySeries ?? []).map((p) => Math.abs(p.cumulative)),
   );
+  const max = niceCeil(rawMax);
+  const ticks = [max, max / 2, 0, -max / 2, -max];
+  const yOf = (v: number) => height / 2 - (v / max) * (height / 2 - 2);
+  const fmtTick = (v: number) => {
+    const sign = v > 0 ? "+" : v < 0 ? "−" : "";
+    const a = Math.abs(v);
+    if (percent) return `${sign}${a < 10 ? a.toFixed(1) : a.toFixed(0)}%`;
+    return `${sign}$${a < 10 ? a.toFixed(2) : a.toFixed(0)}`;
+  };
 
   /** X positions follow each point's actual date, not even steps, so every
    *  line — primary, compare, secondary — shares one date-true axis. */
@@ -372,7 +383,7 @@ export function PnlChart({
     return list
       .map((point, i) => {
         const x = xOf(point.day);
-        const y = height / 2 - (point.cumulative / max) * (height / 2 - 2);
+        const y = yOf(point.cumulative);
         return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
       })
       .join(" ");
