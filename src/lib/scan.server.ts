@@ -1153,7 +1153,7 @@ export async function managePaperTrades(
     if (activeMode === "paper") {
       const { researchMarketMark, pendingResearchMark } = await import("./research-market-mark.server");
       const mark = await researchMarketMark(ticker, trade.entry_date);
-      if (mark === null) { await pendingResearchMark(trade.id); continue; }
+      if (mark === null) { await pendingResearchMark(trade.id, String(trade.entry_date)); continue; }
       price = mark;
     }
     if (!price) continue;

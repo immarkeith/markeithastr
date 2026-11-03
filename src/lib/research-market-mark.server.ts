@@ -16,9 +16,22 @@ export async function researchMarketMark(ticker: string, date: string): Promise<
   }
 }
 
-export async function pendingResearchMark(id: string): Promise<void> {
+/**
+ * Record that this research position is waiting on a real mark.
+ *
+ * The row stays `open` with no exit price and no P&L, so the daily passes keep
+ * retrying it: if the exact session close is ever obtained, the normal close
+ * path books it once. Nothing is invented and nothing is settled here.
+ *
+ * `session` names the session whose close is missing, so a later recovery can
+ * resolve exactly that mark instead of guessing which date to re-price.
+ */
+export async function pendingResearchMark(id: string, session?: string): Promise<void> {
+  const note = session
+    ? `Pending Market Mark — exact-session price for ${session} unavailable; no P&L or settlement recorded.`
+    : "Pending Market Mark — exact-session price unavailable; no P&L or settlement recorded.";
   const { error } = await supabaseAdmin.from("trades")
-    .update({ status_note: "Pending Market Mark — exact-session price unavailable; no P&L or settlement recorded." })
+    .update({ status_note: note })
     .eq("id", id).eq("mode", "paper").eq("status", "open");
   if (error) throw new Error(error.message);
 }

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnalyzeRouteImport } from './routes/analyze'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as EngineerRouteImport } from './routes/engineer'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -24,10 +25,13 @@ import { Route as TradeHistoryRouteImport } from './routes/trade-history'
 import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
+import { Route as EngineerIndexRouteImport } from './routes/engineer.index'
+import { Route as EngineerRecoveryRouteImport } from './routes/engineer.recovery'
 import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
 import { Route as ApiPublicHooksDeepenHistoryRouteImport } from './routes/api/public/hooks/deepen-history'
 import { Route as ApiPublicHooksDiscoverRouteImport } from './routes/api/public/hooks/discover'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
+import { Route as ApiPublicHooksIntegrityRouteImport } from './routes/api/public/hooks/integrity'
 import { Route as ApiPublicHooksKeyCheckRouteImport } from './routes/api/public/hooks/key-check'
 import { Route as ApiPublicHooksLabRefreshRouteImport } from './routes/api/public/hooks/lab-refresh'
 import { Route as ApiPublicHooksPrecloseRouteImport } from './routes/api/public/hooks/preclose'
@@ -47,6 +51,11 @@ const AnalyzeRoute = AnalyzeRouteImport.update({
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EngineerRoute = EngineerRouteImport.update({
+  id: '/engineer',
+  path: '/engineer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -109,6 +118,16 @@ const WatchlistRoute = WatchlistRouteImport.update({
   path: '/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EngineerIndexRoute = EngineerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EngineerRoute,
+} as any)
+const EngineerRecoveryRoute = EngineerRecoveryRouteImport.update({
+  id: '/recovery',
+  path: '/recovery',
+  getParentRoute: () => EngineerRoute,
+} as any)
 const ApiPublicHooksDailyCycleRoute =
   ApiPublicHooksDailyCycleRouteImport.update({
     id: '/api/public/hooks/daily-cycle',
@@ -129,6 +148,11 @@ const ApiPublicHooksDiscoverRoute = ApiPublicHooksDiscoverRouteImport.update({
 const ApiPublicHooksHealthRoute = ApiPublicHooksHealthRouteImport.update({
   id: '/api/public/hooks/health',
   path: '/api/public/hooks/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksIntegrityRoute = ApiPublicHooksIntegrityRouteImport.update({
+  id: '/api/public/hooks/integrity',
+  path: '/api/public/hooks/integrity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHooksKeyCheckRoute = ApiPublicHooksKeyCheckRouteImport.update({
@@ -162,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analyze': typeof AnalyzeRoute
   '/audit': typeof AuditRoute
+  '/engineer': typeof EngineerRouteWithChildren
   '/history': typeof HistoryRoute
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
@@ -174,10 +199,13 @@ export interface FileRoutesByFullPath {
   '/unlock': typeof UnlockRoute
   '/verification': typeof VerificationRoute
   '/watchlist': typeof WatchlistRoute
+  '/engineer/recovery': typeof EngineerRecoveryRoute
+  '/engineer/': typeof EngineerIndexRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
+  '/api/public/hooks/integrity': typeof ApiPublicHooksIntegrityRoute
   '/api/public/hooks/key-check': typeof ApiPublicHooksKeyCheckRoute
   '/api/public/hooks/lab-refresh': typeof ApiPublicHooksLabRefreshRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
@@ -200,10 +228,13 @@ export interface FileRoutesByTo {
   '/unlock': typeof UnlockRoute
   '/verification': typeof VerificationRoute
   '/watchlist': typeof WatchlistRoute
+  '/engineer/recovery': typeof EngineerRecoveryRoute
+  '/engineer': typeof EngineerIndexRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
+  '/api/public/hooks/integrity': typeof ApiPublicHooksIntegrityRoute
   '/api/public/hooks/key-check': typeof ApiPublicHooksKeyCheckRoute
   '/api/public/hooks/lab-refresh': typeof ApiPublicHooksLabRefreshRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
@@ -215,6 +246,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/analyze': typeof AnalyzeRoute
   '/audit': typeof AuditRoute
+  '/engineer': typeof EngineerRouteWithChildren
   '/history': typeof HistoryRoute
   '/lab': typeof LabRoute
   '/notifications': typeof NotificationsRoute
@@ -227,10 +259,13 @@ export interface FileRoutesById {
   '/unlock': typeof UnlockRoute
   '/verification': typeof VerificationRoute
   '/watchlist': typeof WatchlistRoute
+  '/engineer/recovery': typeof EngineerRecoveryRoute
+  '/engineer/': typeof EngineerIndexRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
+  '/api/public/hooks/integrity': typeof ApiPublicHooksIntegrityRoute
   '/api/public/hooks/key-check': typeof ApiPublicHooksKeyCheckRoute
   '/api/public/hooks/lab-refresh': typeof ApiPublicHooksLabRefreshRoute
   '/api/public/hooks/preclose': typeof ApiPublicHooksPrecloseRoute
@@ -243,6 +278,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analyze'
     | '/audit'
+    | '/engineer'
     | '/history'
     | '/lab'
     | '/notifications'
@@ -255,10 +291,13 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/verification'
     | '/watchlist'
+    | '/engineer/recovery'
+    | '/engineer/'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
     | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
+    | '/api/public/hooks/integrity'
     | '/api/public/hooks/key-check'
     | '/api/public/hooks/lab-refresh'
     | '/api/public/hooks/preclose'
@@ -281,10 +320,13 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/verification'
     | '/watchlist'
+    | '/engineer/recovery'
+    | '/engineer'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
     | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
+    | '/api/public/hooks/integrity'
     | '/api/public/hooks/key-check'
     | '/api/public/hooks/lab-refresh'
     | '/api/public/hooks/preclose'
@@ -295,6 +337,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analyze'
     | '/audit'
+    | '/engineer'
     | '/history'
     | '/lab'
     | '/notifications'
@@ -307,10 +350,13 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/verification'
     | '/watchlist'
+    | '/engineer/recovery'
+    | '/engineer/'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
     | '/api/public/hooks/discover'
     | '/api/public/hooks/health'
+    | '/api/public/hooks/integrity'
     | '/api/public/hooks/key-check'
     | '/api/public/hooks/lab-refresh'
     | '/api/public/hooks/preclose'
@@ -322,6 +368,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalyzeRoute: typeof AnalyzeRoute
   AuditRoute: typeof AuditRoute
+  EngineerRoute: typeof EngineerRouteWithChildren
   HistoryRoute: typeof HistoryRoute
   LabRoute: typeof LabRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -338,6 +385,7 @@ export interface RootRouteChildren {
   ApiPublicHooksDeepenHistoryRoute: typeof ApiPublicHooksDeepenHistoryRoute
   ApiPublicHooksDiscoverRoute: typeof ApiPublicHooksDiscoverRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
+  ApiPublicHooksIntegrityRoute: typeof ApiPublicHooksIntegrityRoute
   ApiPublicHooksKeyCheckRoute: typeof ApiPublicHooksKeyCheckRoute
   ApiPublicHooksLabRefreshRoute: typeof ApiPublicHooksLabRefreshRoute
   ApiPublicHooksPrecloseRoute: typeof ApiPublicHooksPrecloseRoute
@@ -366,6 +414,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/engineer': {
+      id: '/engineer'
+      path: '/engineer'
+      fullPath: '/engineer'
+      preLoaderRoute: typeof EngineerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -452,6 +507,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/engineer/': {
+      id: '/engineer/'
+      path: '/'
+      fullPath: '/engineer/'
+      preLoaderRoute: typeof EngineerIndexRouteImport
+      parentRoute: typeof EngineerRoute
+    }
+    '/engineer/recovery': {
+      id: '/engineer/recovery'
+      path: '/recovery'
+      fullPath: '/engineer/recovery'
+      preLoaderRoute: typeof EngineerRecoveryRouteImport
+      parentRoute: typeof EngineerRoute
+    }
     '/api/public/hooks/daily-cycle': {
       id: '/api/public/hooks/daily-cycle'
       path: '/api/public/hooks/daily-cycle'
@@ -478,6 +547,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/hooks/health'
       fullPath: '/api/public/hooks/health'
       preLoaderRoute: typeof ApiPublicHooksHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/integrity': {
+      id: '/api/public/hooks/integrity'
+      path: '/api/public/hooks/integrity'
+      fullPath: '/api/public/hooks/integrity'
+      preLoaderRoute: typeof ApiPublicHooksIntegrityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/key-check': {
@@ -518,10 +594,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface EngineerRouteChildren {
+  EngineerRecoveryRoute: typeof EngineerRecoveryRoute
+  EngineerIndexRoute: typeof EngineerIndexRoute
+}
+
+const EngineerRouteChildren: EngineerRouteChildren = {
+  EngineerRecoveryRoute: EngineerRecoveryRoute,
+  EngineerIndexRoute: EngineerIndexRoute,
+}
+
+const EngineerRouteWithChildren = EngineerRoute._addFileChildren(
+  EngineerRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalyzeRoute: AnalyzeRoute,
   AuditRoute: AuditRoute,
+  EngineerRoute: EngineerRouteWithChildren,
   HistoryRoute: HistoryRoute,
   LabRoute: LabRoute,
   NotificationsRoute: NotificationsRoute,
@@ -538,6 +629,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksDeepenHistoryRoute: ApiPublicHooksDeepenHistoryRoute,
   ApiPublicHooksDiscoverRoute: ApiPublicHooksDiscoverRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
+  ApiPublicHooksIntegrityRoute: ApiPublicHooksIntegrityRoute,
   ApiPublicHooksKeyCheckRoute: ApiPublicHooksKeyCheckRoute,
   ApiPublicHooksLabRefreshRoute: ApiPublicHooksLabRefreshRoute,
   ApiPublicHooksPrecloseRoute: ApiPublicHooksPrecloseRoute,

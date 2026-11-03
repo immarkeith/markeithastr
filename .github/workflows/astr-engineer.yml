@@ -1,0 +1,120 @@
+name: ASTR Autonomous Engineer Runner
+
+# Phase K execution sandbox.
+#
+# Claims exactly one queued engineering task, drafts it on an isolated
+# engineer/<slug> branch with the AI patch engine, runs the live-trading
+# firewall, then hands the EXACT commit to a second, independent job that runs
+# the full verification suite. Nothing is merged or deployed here: merging is a
+# separate, human-approved action in the app.
+#
+# Credential isolation: this workflow only ever receives ENGINEER_* credentials.
+# Live Alpaca keys are deliberately absent, and the runner aborts if it finds
+# them in its environment.
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [engineer-task-queued]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: astr-engineer-worker
+  cancel-in-progress: false
+
+jobs:
+  run-task:
+    name: Plan, patch and push
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      status: ${{ steps.runner.outputs.status }}
+      task_id: ${{ steps.runner.outputs.task_id }}
+      branch: ${{ steps.runner.outputs.branch }}
+      sha: ${{ steps.runner.outputs.sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_ENGINEER_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run engineer agent
+        id: runner
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ENGINEER_LLM_API_KEY: ${{ secrets.ENGINEER_LLM_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_ENGINEER_TOKEN }}
+        run: bun run scripts/engineer-runner.ts
+
+  independent-verify:
+    name: Independent verification (${{ needs.run-task.outputs.sha }})
+    needs: run-task
+    if: needs.run-task.outputs.status == 'pushed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # The exact commit produced by the runner — never the branch tip.
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.run-task.outputs.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_ENGINEER_TOKEN }}
+
+      - name: Assert exact commit
+        run: |
+          set -e
+          HEAD_SHA=$(git rev-parse HEAD)
+          echo "checked out $HEAD_SHA"
+          test "$HEAD_SHA" = "${{ needs.run-task.outputs.sha }}"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: bun run lint
+
+      - name: Production build
+        id: build
+        continue-on-error: true
+        run: bun run build
+
+      - name: Record verification against the exact SHA
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TASK_ID: ${{ needs.run-task.outputs.task_id }}
+          SHA: ${{ needs.run-task.outputs.sha }}
+          BRANCH: ${{ needs.run-task.outputs.branch }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: bun run scripts/engineer-verify.ts
+
+      - name: Fail the job when verification failed
+        if: steps.lint.outcome == 'failure' || steps.build.outcome == 'failure'
+        run: exit 1

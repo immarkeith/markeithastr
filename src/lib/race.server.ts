@@ -519,8 +519,12 @@ async function closeSlotTrade(
   keepPct: number,
   markDate = today(),
 ): Promise<number | null> {
+  // A sale needs a real, positive mark. Without one the position stays open and
+  // pending — the entry price is never used as an exit mark.
+  if (!Number.isFinite(price) || price <= 0) return null;
   const dollars = Number(trade['dollars']);
   const entry = Number(trade['entry_price']);
+  if (!Number.isFinite(entry) || entry <= 0) return null;
   const profit = dollars * (price / entry - 1);
   const kept = profit > 0 ? profit * keepPct : profit;
 
@@ -675,7 +679,7 @@ export async function runRacePass(
 
           const price = await researchMarketMark(ticker, target);
           if (price === null) {
-            await pendingResearchMark(String(trade.id));
+            await pendingResearchMark(String(trade.id), target);
             entry.held.push(ticker);
             entry.skipped = "Pending Market Mark — research exit awaits its exact-session close.";
             continue;
@@ -844,7 +848,7 @@ export async function safetyCloseStalePaper(
         const ticker = String(trade.ticker);
         const target = holdTarget(trade as unknown as Record<string, unknown>);
         const price = await researchMarketMark(ticker, target);
-        if (price === null) { await pendingResearchMark(String(trade.id)); continue; }
+        if (price === null) { await pendingResearchMark(String(trade.id), target); continue; }
         const why =
           holdTarget(trade as unknown as Record<string, unknown>) < day
             ? "paper safety close — the 3-day research hold had already ended"
@@ -1446,9 +1450,14 @@ export interface ResearcherEquityCurve {
 
 /**
  * Full mark-to-market equity curve for one researcher's paper book, per
- * FEATURES.md §8.1: realized P/L lands on exit dates, and every position
- * (historical or still open) contributes dollars * (close / entry - 1) for
- * every session it was held, priced from authentic cached daily closes.
+ * FEATURES.md §8.1: realized P/L lands on exit dates, and every position still
+ * held at a session's close contributes dollars * (close / entry - 1) as that
+ * session's open mark, priced from authentic cached daily closes.
+ *
+ * Equity on a date is therefore cumulative realized P/L through that date PLUS
+ * the marks of positions open at that date's close — a level, never a running
+ * sum of daily marks. A position's exit session is realized only (its mark
+ * stops the session before), so nothing is counted twice.
  *
  * Sessions with no bar for a held position are absent from the curve and
  * flagged via has_gaps — never interpolated or invented.
@@ -1463,19 +1472,27 @@ export async function researcherEquityCurve(
     coverage_to: null,
     has_gaps: false,
   };
-  const [openRows, closedRows] = await Promise.all([
-    slotOpenTrades(strategyId),
-    supabaseAdmin
+  const openRows = await slotOpenTrades(strategyId);
+  // Every closed row of the book, paged — a single page would cut the curve off
+  // at PostgREST's row cap and leave the chart ending years in the past.
+  const pageSize = 1000;
+  const closedRows: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabaseAdmin
       .from("trades")
       .select("ticker, entry_date, entry_price, dollars, exit_date, profit")
       .eq("strategy_id", strategyId)
       .eq("status", "closed")
       .order("exit_date", { ascending: true })
-      .limit(400),
-  ]);
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as unknown as Record<string, unknown>[];
+    closedRows.push(...page);
+    if (page.length < pageSize) break;
+  }
   const trades = [
     ...(openRows ?? []).map((t) => t as unknown as Record<string, unknown>),
-    ...((closedRows.data ?? []) as unknown as Record<string, unknown>[]),
+    ...closedRows,
   ];
   if (trades.length === 0) return empty;
 
@@ -1496,13 +1513,14 @@ export async function researcherEquityCurve(
 
   // Realized P/L per exit date.
   const realizedByDate = new Map<string, number>();
-  for (const trade of (closedRows.data ?? []) as Record<string, unknown>[]) {
+  for (const trade of closedRows) {
     const date = String(trade['exit_date'] ?? "");
     if (!date) continue;
     realizedByDate.set(date, (realizedByDate.get(date) ?? 0) + Number(trade['profit'] ?? 0));
   }
 
-  // Daily unrealized P/L for every held position on every session it was open.
+  // Open mark per session: unrealized P/L of every position still held at that
+  // session's close (a level for the date, not an increment to accumulate).
   const openByDate = new Map<string, number>();
   let coverageFrom: string | null = null;
   let coverageTo: string | null = null;
@@ -1532,6 +1550,9 @@ export async function researcherEquityCurve(
       (b) => b.date >= entryDate && (!exitDate || b.date <= exitDate),
     );
     const barDates = new Set(heldBars.map((b) => b.date));
+    // A closed position is marked only through the session before its exit; on
+    // the exit date its realized profit is what belongs in the curve.
+    const markBars = exitDate ? heldBars.filter((b) => b.date < exitDate) : heldBars;
     // For an open trade, only sessions up to its newest bar are expected —
     // today's bar may simply not be cached yet. For a closed trade, its exit
     // session must be covered too.
@@ -1546,7 +1567,7 @@ export async function researcherEquityCurve(
     } else {
       hasGaps = true; // held position with no bars at all
     }
-    for (const bar of heldBars) {
+    for (const bar of markBars) {
       const pl = dollars * (bar.close / entryPrice - 1);
       openByDate.set(bar.date, (openByDate.get(bar.date) ?? 0) + pl);
       if (coverageFrom === null || bar.date < coverageFrom) coverageFrom = bar.date;
@@ -1555,12 +1576,13 @@ export async function researcherEquityCurve(
   }
 
   const allDates = [...new Set([...realizedByDate.keys(), ...openByDate.keys()])].sort();
-  // Equity = cumulative realized P/L + that day's open-position snapshot.
-  // Unrealized P/L is a point-in-time mark, never accumulated across days.
-  let cumulativeRealized = 0;
+  // Realized P/L accumulates; the open mark is that session's level, added on
+  // top — never carried forward, or the same unrealized dollars would pile up
+  // once per held session.
+  let realizedToDate = 0;
   const points: EquityPoint[] = allDates.map((date) => {
-    cumulativeRealized += realizedByDate.get(date) ?? 0;
-    const equity = cumulativeRealized + (openByDate.get(date) ?? 0);
+    realizedToDate += realizedByDate.get(date) ?? 0;
+    const equity = realizedToDate + (openByDate.get(date) ?? 0);
     return { date, equity: Number(equity.toFixed(2)) };
   });
   return { strategy_id: strategyId, points, coverage_from: coverageFrom, coverage_to: coverageTo, has_gaps: hasGaps };

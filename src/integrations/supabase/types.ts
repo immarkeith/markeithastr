@@ -386,6 +386,72 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_repair_log: {
+        Row: {
+          id: string
+          checked_at: string
+          repair_type: string
+          target: string | null
+          before_status: Json
+          after_status: Json
+          verified: boolean
+          verification_note: string | null
+          source: string
+        }
+        Insert: {
+          id?: string
+          checked_at?: string
+          repair_type: string
+          target?: string | null
+          before_status?: Json
+          after_status?: Json
+          verified?: boolean
+          verification_note?: string | null
+          source?: string
+        }
+        Update: {
+          id?: string
+          checked_at?: string
+          repair_type?: string
+          target?: string | null
+          before_status?: Json
+          after_status?: Json
+          verified?: boolean
+          verification_note?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
+      audit_integrity_results: {
+        Row: {
+          id: string
+          checked_at: string
+          cadence: string
+          overall_verdict: string
+          pillars: Json
+          discrepancies: Json
+          summary: string | null
+        }
+        Insert: {
+          id?: string
+          checked_at?: string
+          cadence: string
+          overall_verdict: string
+          pillars?: Json
+          discrepancies?: Json
+          summary?: string | null
+        }
+        Update: {
+          id?: string
+          checked_at?: string
+          cadence?: string
+          overall_verdict?: string
+          pillars?: Json
+          discrepancies?: Json
+          summary?: string | null
+        }
+        Relationships: []
+      }
       lead_tests: {
         Row: {
           contributing_rules: Json
@@ -1776,6 +1842,321 @@ export type Database = {
         }
         Relationships: []
       }
+      engineer_settings: {
+        Row: {
+          id: number
+          llm_base_url: string | null
+          llm_model: string | null
+          llm_price_per_million_tokens: number
+          llm_monthly_budget_usd: number
+          target_branch: string
+          deploy_workflow: string | null
+          deployment_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          llm_base_url?: string | null
+          llm_model?: string | null
+          llm_price_per_million_tokens?: number
+          llm_monthly_budget_usd?: number
+          target_branch?: string
+          deploy_workflow?: string | null
+          deployment_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          llm_base_url?: string | null
+          llm_model?: string | null
+          llm_price_per_million_tokens?: number
+          llm_monthly_budget_usd?: number
+          target_branch?: string
+          deploy_workflow?: string | null
+          deployment_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      engineer_checkpoints: {
+        Row: {
+          id: string
+          git_tag: string
+          git_sha: string
+          summary: string
+          verified: boolean
+          trigger: string
+          task_id: string | null
+          files_affected: string[]
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          git_tag: string
+          git_sha: string
+          summary: string
+          verified?: boolean
+          trigger?: string
+          task_id?: string | null
+          files_affected?: string[]
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          git_tag?: string
+          git_sha?: string
+          summary?: string
+          verified?: boolean
+          trigger?: string
+          task_id?: string | null
+          files_affected?: string[]
+          created_at?: string
+        }
+        Relationships: []
+      }
+      engineer_change_log: {
+        Row: {
+          id: string
+          checkpoint_id: string | null
+          task_id: string | null
+          file_path: string
+          operation: string
+          before_sha: string | null
+          after_sha: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          checkpoint_id?: string | null
+          task_id?: string | null
+          file_path: string
+          operation: string
+          before_sha?: string | null
+          after_sha?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          checkpoint_id?: string | null
+          task_id?: string | null
+          file_path?: string
+          operation?: string
+          before_sha?: string | null
+          after_sha?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      engineer_tasks: {
+        Row: {
+          id: string
+          prompt: string
+          status: string
+          classification: string | null
+          classification_label: string | null
+          complexity: number | null
+          scope: Json | null
+          plan_summary: string | null
+          risk_notes: string | null
+          expected_files: string[] | null
+          tests_planned: string[] | null
+          scope_violations: Json | null
+          branch_name: string | null
+          base_sha: string | null
+          commit_sha: string | null
+          verified_sha: string | null
+          diff_content: string | null
+          diff_stats: Json | null
+          files_modified: string[] | null
+          has_migration: boolean
+          migration_sql: string | null
+          migration_approved: boolean
+          build_passed: boolean
+          verification: Json | null
+          firewall: Json | null
+          diagnosis: Json | null
+          retry_count: number
+          revision_feedback: string | null
+          tokens_used: number
+          cost_estimate_usd: number
+          cost_actual_usd: number | null
+          actions_minutes: number | null
+          duration_seconds: number | null
+          runner_id: string | null
+          locked_at: string | null
+          locked_by: string | null
+          heartbeat_at: string | null
+          checkpoint_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          deployment_status: string
+          deployment_note: string | null
+          archived: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          prompt: string
+          status?: string
+          classification?: string | null
+          classification_label?: string | null
+          complexity?: number | null
+          scope?: Json | null
+          plan_summary?: string | null
+          risk_notes?: string | null
+          expected_files?: string[] | null
+          tests_planned?: string[] | null
+          scope_violations?: Json | null
+          branch_name?: string | null
+          base_sha?: string | null
+          commit_sha?: string | null
+          verified_sha?: string | null
+          diff_content?: string | null
+          diff_stats?: Json | null
+          files_modified?: string[] | null
+          has_migration?: boolean
+          migration_sql?: string | null
+          migration_approved?: boolean
+          build_passed?: boolean
+          verification?: Json | null
+          firewall?: Json | null
+          diagnosis?: Json | null
+          retry_count?: number
+          revision_feedback?: string | null
+          tokens_used?: number
+          cost_estimate_usd?: number
+          cost_actual_usd?: number | null
+          actions_minutes?: number | null
+          duration_seconds?: number | null
+          runner_id?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          heartbeat_at?: string | null
+          checkpoint_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          deployment_status?: string
+          deployment_note?: string | null
+          archived?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          prompt?: string
+          status?: string
+          classification?: string | null
+          classification_label?: string | null
+          complexity?: number | null
+          scope?: Json | null
+          plan_summary?: string | null
+          risk_notes?: string | null
+          expected_files?: string[] | null
+          tests_planned?: string[] | null
+          scope_violations?: Json | null
+          branch_name?: string | null
+          base_sha?: string | null
+          commit_sha?: string | null
+          verified_sha?: string | null
+          diff_content?: string | null
+          diff_stats?: Json | null
+          files_modified?: string[] | null
+          has_migration?: boolean
+          migration_sql?: string | null
+          migration_approved?: boolean
+          build_passed?: boolean
+          verification?: Json | null
+          firewall?: Json | null
+          diagnosis?: Json | null
+          retry_count?: number
+          revision_feedback?: string | null
+          tokens_used?: number
+          cost_estimate_usd?: number
+          cost_actual_usd?: number | null
+          actions_minutes?: number | null
+          duration_seconds?: number | null
+          runner_id?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          heartbeat_at?: string | null
+          checkpoint_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          deployment_status?: string
+          deployment_note?: string | null
+          archived?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+        }
+        Relationships: []
+      }
+      engineer_logs: {
+        Row: {
+          id: string
+          task_id: string
+          step_name: string
+          log_text: string
+          level: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          step_name: string
+          log_text: string
+          level?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          step_name?: string
+          log_text?: string
+          level?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      engineer_health_events: {
+        Row: {
+          id: string
+          checked_at: string
+          component: string
+          state: string
+          detail: string | null
+          repaired: boolean
+          repair_note: string | null
+        }
+        Insert: {
+          id?: string
+          checked_at?: string
+          component: string
+          state: string
+          detail?: string | null
+          repaired?: boolean
+          repair_note?: string | null
+        }
+        Update: {
+          id?: string
+          checked_at?: string
+          component?: string
+          state?: string
+          detail?: string | null
+          repaired?: boolean
+          repair_note?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1801,6 +2182,18 @@ export type Database = {
           bars: Json
           ticker: string
         }[]
+      }
+      claim_next_engineer_task: {
+        Args: { p_runner_id: string }
+        Returns: Database["public"]["Tables"]["engineer_tasks"]["Row"][]
+      }
+      heartbeat_engineer_task: {
+        Args: { p_task_id: string; p_runner_id: string }
+        Returns: boolean
+      }
+      sweep_stalled_engineer_tasks: {
+        Args: never
+        Returns: number
       }
     }
     Enums: {

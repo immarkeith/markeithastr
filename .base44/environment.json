@@ -1,0 +1,47 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "description": "Service-role key of the ASTR Supabase project (server-side reads/writes). Supabase dashboard -> Project Settings -> API.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "SUPABASE_URL",
+      "description": "URL of the ASTR Supabase project, e.g. https://kkwgbjovbcbzsvbhcyhq.supabase.co. Supabase dashboard -> Project Settings -> API. Overrides the sandbox default.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "SUPABASE_PUBLISHABLE_KEY",
+      "description": "Publishable (anon) key of the same Supabase project \u2014 the browser client uses it. Supabase dashboard -> Project Settings -> API.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_LIVE_KEY_ID",
+      "description": "Alpaca live API key id: market data, scans and trading. app.alpaca.markets -> API keys.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ALPACA_LIVE_SECRET_KEY",
+      "description": "Alpaca live API secret. app.alpaca.markets -> API keys.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ENGINEER_LLM_API_KEY",
+      "description": "API key for the engineer's OpenAI-compatible provider (DeepSeek, OpenRouter, Anthropic-compatible, etc.). Server-side only; also add it as an ENGINEER_LLM_API_KEY secret in GitHub for the runner. Optional until the engineer is used.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "GITHUB_ENGINEER_TOKEN",
+      "description": "Fine-grained GitHub PAT for the engineer: contents read/write on engineer/* branches, pull requests, and Actions dispatch. No admin rights. Optional until the engineer is used.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "GITHUB_ENGINEER_REPO",
+      "description": "Repository the engineer works on, as owner/repo. Optional until the engineer is used.",
+      "requiredAtBoot": false
+    }
+  ]
+}
