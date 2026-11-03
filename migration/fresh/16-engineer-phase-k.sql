@@ -1,14 +1,19 @@
 -- ASTR Phase K / K.7 — Self-Development AI Engineer
--- Copy of supabase/migrations/20261103010000_engineer_phase_k.sql, kept here
--- so a fresh database can be rebuilt by pasting files 01 → 16 in order.
--- Additive only: new tables, new functions, no existing table touched.
-
--- ASTR Phase K / K.7 — Self-Development AI Engineer
+--
+-- Canonical copies, kept byte-identical:
+--   supabase/migrations/20261103010000_engineer_phase_k.sql
+--   migration/fresh/16-engineer-phase-k.sql   (the 01 → 16 rebuild path)
 --
 -- ADDITIVE ONLY. This migration creates new tables and functions; it never
--- touches existing trading, research, or market-data tables. Run it once in the
--- Supabase SQL editor (the app degrades gracefully — and says so in the UI —
--- until it has been applied).
+-- touches existing trading, research, or market-data tables. Run it once in
+-- your database's SQL console (the app degrades gracefully — and says so in the
+-- UI — until it has been applied).
+--
+-- PORTABILITY: standard PostgreSQL 13+ (gen_random_uuid() is core since 13).
+-- No extension is required and no vendor-specific role is assumed — the grants
+-- in section 7 are applied only to roles that already exist, so this file runs
+-- unchanged on Supabase or on a plain PostgreSQL server (see
+-- docs/phase-k-deployment.md).
 --
 -- Golden invariants encoded here:
 --   * Audit history is never cascade-deleted (change log holds RESTRICT to its
@@ -36,7 +41,6 @@ CREATE TABLE IF NOT EXISTS public.engineer_settings (
 );
 
 ALTER TABLE public.engineer_settings ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.engineer_settings FROM anon, authenticated;
 
 INSERT INTO public.engineer_settings (id) VALUES (1)
 ON CONFLICT (id) DO NOTHING;
@@ -58,7 +62,6 @@ CREATE INDEX IF NOT EXISTS idx_engineer_checkpoints_created
   ON public.engineer_checkpoints (created_at DESC);
 
 ALTER TABLE public.engineer_checkpoints ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.engineer_checkpoints FROM anon, authenticated;
 
 -- Immutable audit trail of which files a checkpoint covers. RESTRICT (not
 -- CASCADE) so archived history can never be silently deleted.
@@ -78,7 +81,6 @@ CREATE INDEX IF NOT EXISTS idx_engineer_change_log_checkpoint
   ON public.engineer_change_log (checkpoint_id, created_at ASC);
 
 ALTER TABLE public.engineer_change_log ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.engineer_change_log FROM anon, authenticated;
 
 -- --------------------------------------------------------------- 3. task queue
 CREATE TABLE IF NOT EXISTS public.engineer_tasks (
@@ -157,7 +159,6 @@ CREATE INDEX IF NOT EXISTS idx_engineer_tasks_created
   ON public.engineer_tasks (created_at DESC);
 
 ALTER TABLE public.engineer_tasks ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.engineer_tasks FROM anon, authenticated;
 
 -- ------------------------------------------------------------ 4. runner logs
 CREATE TABLE IF NOT EXISTS public.engineer_logs (
@@ -173,7 +174,6 @@ CREATE INDEX IF NOT EXISTS idx_engineer_logs_task
   ON public.engineer_logs (task_id, created_at ASC);
 
 ALTER TABLE public.engineer_logs ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.engineer_logs FROM anon, authenticated;
 
 -- ------------------------------------------------ 5. operational health events
 CREATE TABLE IF NOT EXISTS public.engineer_health_events (
@@ -190,7 +190,6 @@ CREATE INDEX IF NOT EXISTS idx_engineer_health_events_checked
   ON public.engineer_health_events (checked_at DESC);
 
 ALTER TABLE public.engineer_health_events ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.engineer_health_events FROM anon, authenticated;
 
 -- --------------------------------------------- 6. atomic FIFO lease + heartbeat
 CREATE OR REPLACE FUNCTION public.claim_next_engineer_task(p_runner_id text)
@@ -272,11 +271,58 @@ BEGIN
 END;
 $$;
 
--- Only the service role (trusted server code / the GitHub runner) may execute.
-REVOKE ALL ON FUNCTION public.claim_next_engineer_task(text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.heartbeat_engineer_task(uuid, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.sweep_stalled_engineer_tasks() FROM PUBLIC, anon, authenticated;
+-- ------------------------------------------------------------ 7. privileges
+-- Only trusted server code (the app's service-role connection / the GitHub
+-- runner) may lease, heartbeat or read engineering state.
+--
+-- Nothing is revoked from PUBLIC, because PUBLIC always exists: RLS is enabled
+-- on every table above and no policy grants access, so every other role is
+-- denied at the row level regardless of the database it runs on.
+--
+-- anon / authenticated / service_role are roles Supabase happens to provide.
+-- Plain PostgreSQL does not have them, so each grant is applied only when the
+-- role already exists — the file is a no-op on a vanilla server instead of
+-- failing. On non-Supabase infrastructure, grant EXECUTE on the three functions
+-- below to your own application role (see docs/phase-k-deployment.md).
+DO $priv$
+DECLARE
+  v_table text;
+  v_fn text;
+BEGIN
+  FOR v_table IN
+    SELECT unnest(ARRAY[
+      'engineer_settings',
+      'engineer_checkpoints',
+      'engineer_change_log',
+      'engineer_tasks',
+      'engineer_logs',
+      'engineer_health_events'
+    ])
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+      EXECUTE format('REVOKE ALL ON public.%I FROM anon', v_table);
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+      EXECUTE format('REVOKE ALL ON public.%I FROM authenticated', v_table);
+    END IF;
+  END LOOP;
 
-GRANT EXECUTE ON FUNCTION public.claim_next_engineer_task(text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.heartbeat_engineer_task(uuid, text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.sweep_stalled_engineer_tasks() TO service_role;
+  FOR v_fn IN
+    SELECT unnest(ARRAY[
+      'public.claim_next_engineer_task(text)',
+      'public.heartbeat_engineer_task(uuid, text)',
+      'public.sweep_stalled_engineer_tasks()'
+    ])
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+      EXECUTE format('REVOKE ALL ON FUNCTION %s FROM anon', v_fn);
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+      EXECUTE format('REVOKE ALL ON FUNCTION %s FROM authenticated', v_fn);
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', v_fn);
+    END IF;
+  END LOOP;
+END
+$priv$;

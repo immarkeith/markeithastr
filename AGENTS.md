@@ -48,13 +48,16 @@
 ## Phase 1 — Autonomous monitoring & safe repair
 
 - `migration/fresh/15-autonomous-audit.sql` creates two additive tables
-  (`audit_repair_log`, `audit_integrity_results`) and adjusts the pg_cron
-  health schedule from every 15 min to every 5 min during market hours, plus
-  daily (weekday 22:00 UTC) and weekly (Saturday 12:00 UTC) integrity audit
-  jobs. **This migration must be run once in the Supabase SQL editor** (replace
-  the `YOUR-APP.vercel.app` placeholder with the live app URL). Until it is run,
-  the health loop and integrity checks still work but repair logging and
-  integrity-result storage are silently skipped (graceful degradation).
+  (`audit_repair_log`, `audit_integrity_results`) and an **optional** schedule:
+  health every 5 min during market hours (13:00–20:59 UTC weekdays) and hourly
+  otherwise, daily integrity at 22:00 UTC, weekly deep audit Saturday 12:00 UTC.
+  **Run it once** (replace the `YOUR-APP.example.com` placeholder first). The
+  schedule half is portable-by-detection: it configures `pg_cron` jobs only when
+  pg_cron is installed and otherwise raises a NOTICE telling you to point any
+  external scheduler at the two hook URLs — no vendor extension is required, and
+  the tables use only core PostgreSQL 13+. Until it is run, the health loop and
+  integrity checks still work but repair logging and integrity-result storage
+  are silently skipped (graceful degradation).
 - `src/lib/repair-log.server.ts` — `logRepair()` records each allowlisted
   repair (backfill history, cache missing days, re-run scan, rescore empty
   scan, settle stale paper) to `audit_repair_log` with post-repair
@@ -154,23 +157,29 @@ verified commit. Nothing reaches the target branch without that approval.
 
 ### One-time setup (required before the queue works)
 
-1. Run `supabase/migrations/20261103010000_engineer_phase_k.sql` in the Supabase
-   SQL editor (the `migration/fresh/16-engineer-phase-k.sql` copy is identical).
-   It is additive: six tables (`engineer_settings`, `engineer_checkpoints`,
-   `engineer_change_log`, `engineer_tasks`, `engineer_logs`,
-   `engineer_health_events`) plus `claim_next_engineer_task`,
+1. Run `supabase/migrations/20261103010000_engineer_phase_k.sql` in your SQL
+   console (the `migration/fresh/16-engineer-phase-k.sql` copy is byte-identical
+   — keep them in sync). It is additive: six tables (`engineer_settings`,
+   `engineer_checkpoints`, `engineer_change_log`, `engineer_tasks`,
+   `engineer_logs`, `engineer_health_events`) plus `claim_next_engineer_task`,
    `heartbeat_engineer_task`, `sweep_stalled_engineer_tasks`. Until it is run the
    page shows a "schema is not installed" banner and the composer is disabled.
+   Portable: PostgreSQL 13+ only, no extension, and the `anon` /
+   `authenticated` / `service_role` grants apply only when those roles already
+   exist — on plain PostgreSQL grant `EXECUTE` on the three RPCs to your own app
+   role instead. Full deployment reference: `docs/phase-k-deployment.md`.
 2. Set the app secrets `GITHUB_ENGINEER_TOKEN`, `GITHUB_ENGINEER_REPO`
    (`owner/repo`) and `ENGINEER_LLM_API_KEY`. Without GitHub access, tasks queue
    but cannot run and nothing can merge — the UI says so instead of pretending.
 3. In `/engineer` → *Provider & deployment settings*, enter any OpenAI-compatible
    base URL and model (no provider is preselected). The API key itself is only
    ever the `ENGINEER_LLM_API_KEY` secret.
-4. The GitHub repo needs a secret `ENGINEER_LLM_API_KEY` (plus `SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_ENGINEER_TOKEN`) and the workflow
-   `.github/workflows/astr-engineer.yml`. It also needs a fine-grained PAT with
-   `contents: write` on `engineer/*` branches.
+4. The GitHub repo needs four Actions secrets — `ENGINEER_LLM_API_KEY`,
+   `GITHUB_ENGINEER_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — and
+   the workflow `.github/workflows/astr-engineer.yml`. `GITHUB_ENGINEER_REPO`
+   is app-side only (the workflow takes the repo from its checkout). Exact
+   scopes and the provider-neutral endpoint/model fields are documented in
+   `docs/phase-k-deployment.md`; no provider is preselected.
 
 ### How a task flows
 
@@ -223,7 +232,10 @@ run for that SHA is observed to succeed (`refreshDeploymentStatus`).
 - `docker compose -f docker-compose.base44.yml exec -T web bunx tsc --noEmit`
 - `docker compose -f docker-compose.base44.yml exec -T web bun run build`
 - The engineer logic is testable headlessly (classification, firewall, anchored
-  patching, scope lock) — see the checks in this file's history; the SQL was
-  validated against a throwaway `postgres:16` container with `anon` /
-  `authenticated` / `service_role` roles created first (vanilla Postgres has no
-  `service_role`).
+  patching, scope lock) — see the checks in this file's history.
+- The SQL is validated against throwaway `postgres:16` containers in both
+  configurations: with `anon` / `authenticated` / `service_role` created first
+  (grants applied, `service_role` gets `EXECUTE`, `anon` gets none), and on
+  vanilla PostgreSQL with no such roles and no `pg_cron` (must run clean and
+  skip scheduling with a NOTICE). Run both files twice — they are idempotent.
+  Then exercise the lease with the smoke test in `docs/phase-k-deployment.md`.

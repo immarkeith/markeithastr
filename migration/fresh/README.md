@@ -30,8 +30,20 @@ Each file is small enough to copy and paste on a phone.
      (keep a copy — it is only used by the scheduler, nothing to paste elsewhere)
  5. Then run `10-history-part1.sql` through `10-history-part5.sql` the same way,
     in order, to load the existing research history.
- 6. Finally run `11-long-term-research.sql` — it adds the long-term research
-    storage the Research Lab and Capital Analysis read from.
+ 6. Then run these in order — each is additive and safe to re-run:
+    - `11-long-term-research.sql` — long-term research storage the Research Lab
+      and Capital Analysis read from.
+    - `12-researcher-learning.sql` — researcher learning / beliefs.
+    - `13-event-intelligence.sql` — event intelligence tables.
+    - `14-key-check-schedule.sql` — key-check scheduling.
+    - `15-lab-refresh-schedule.sql` — Lab snapshot refresh job.
+    - `15-autonomous-audit.sql` — audit repair log + integrity results (replace
+      `YOUR-APP.example.com` with your app host). Plain PostgreSQL 13+; the
+      pg_cron part is skipped with a NOTICE when pg_cron is absent.
+    - `16-engineer-phase-k.sql` — the `/engineer` queue, RPCs and privileges.
+
+Nothing in files 11 → 16 needs a Supabase-only feature: they run unchanged on a
+vanilla PostgreSQL 13+ server (see `docs/phase-k-deployment.md`).
 
 ## 2. New app deployment
 Create a new Vercel project from the GitHub repo and add these Environment
