@@ -145,6 +145,7 @@ const NAV = [
   { to: "/analyze", label: "Analyze Strategy" },
   { to: "/scoreboard", label: "Scoreboard" },
   { to: "/trade-history", label: "Trade Log" },
+  { to: "/engineer", label: "AI Engineer" },
   { to: "/notifications", label: "Alerts" },
   { to: "/settings", label: "Settings" },
 ] as const;

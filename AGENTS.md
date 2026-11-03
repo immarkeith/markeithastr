@@ -145,3 +145,85 @@ repaired by swapping the exit mark alone — the P&L would be invented.
 - Cache ingestion upserts returned bars rather than deleting a session, so a partial provider response cannot erase stored history.
 - Secondary daily prices are research-only exact-session marks, never broker execution prices or scanner volume inputs; do not mix provider conventions in the shared cache.
 - Missing research marks stay pending without P&L or settlement; code recovery never deletes historical data.
+
+## Phase K — Self-Development AI Engineer (`/engineer`)
+
+Mobile mission control for ASTR's own code work: queue an instruction (text or
+browser voice), watch it plan, inspect, patch and verify, then approve the exact
+verified commit. Nothing reaches the target branch without that approval.
+
+### One-time setup (required before the queue works)
+
+1. Run `supabase/migrations/20261103010000_engineer_phase_k.sql` in the Supabase
+   SQL editor (the `migration/fresh/16-engineer-phase-k.sql` copy is identical).
+   It is additive: six tables (`engineer_settings`, `engineer_checkpoints`,
+   `engineer_change_log`, `engineer_tasks`, `engineer_logs`,
+   `engineer_health_events`) plus `claim_next_engineer_task`,
+   `heartbeat_engineer_task`, `sweep_stalled_engineer_tasks`. Until it is run the
+   page shows a "schema is not installed" banner and the composer is disabled.
+2. Set the app secrets `GITHUB_ENGINEER_TOKEN`, `GITHUB_ENGINEER_REPO`
+   (`owner/repo`) and `ENGINEER_LLM_API_KEY`. Without GitHub access, tasks queue
+   but cannot run and nothing can merge — the UI says so instead of pretending.
+3. In `/engineer` → *Provider & deployment settings*, enter any OpenAI-compatible
+   base URL and model (no provider is preselected). The API key itself is only
+   ever the `ENGINEER_LLM_API_KEY` secret.
+4. The GitHub repo needs a secret `ENGINEER_LLM_API_KEY` (plus `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_ENGINEER_TOKEN`) and the workflow
+   `.github/workflows/astr-engineer.yml`. It also needs a fine-grained PAT with
+   `contents: write` on `engineer/*` branches.
+
+### How a task flows
+
+- `createEngineerTask` classifies the instruction (level 1 minor → level 5
+  critical) and records a locked plan + scope. Levels 4-5 stop at
+  `scope_review` until the operator authorizes the scope.
+- `scripts/engineer-runner.ts` (GitHub Actions) leases one task through the
+  atomic RPC, refuses to run if live Alpaca keys are in its environment, reads
+  the repo map + relevant files, asks the model for anchored search/replace
+  hunks, applies them with a strict single-match assertion, runs the firewall,
+  then lint/build with up to three diagnosis-driven repair attempts. It pushes
+  `engineer/<slug>-<taskid8>` and never merges.
+- Lint is baseline-aware: the repository already carries thousands of
+  pre-existing Prettier errors, so only NEW lint errors fail a task (the count
+  on the untouched tree is captured first and logged).
+- `scripts/engineer-verify.ts` runs in a second, independent job that checks out
+  the EXACT commit SHA, re-runs typecheck/lint/build and only then sets
+  `verified_sha` + `review_ready`. Approve re-reads check-runs for that SHA and
+  refuses if the branch tip moved.
+- Approve merges that exact commit through the GitHub merges API, writes a
+  checkpoint + change-log rows, and only then considers deployment.
+
+### Deployment is gated, by design
+
+Deployment is only ever a repository workflow dispatch (`deploy_workflow` in
+`engineer_settings`, off by default). With no workflow configured the approval
+merges and reports `unavailable`; nothing is ever displayed as deployed until a
+run for that SHA is observed to succeed (`refreshDeploymentStatus`).
+
+### Safety invariants enforced in code
+
+- Firewall (`src/lib/engineer/firewall.ts`): path blocklist (`broker.server.ts`,
+  `.github/**`, `src/lib/engineer/**`, `scripts/engineer-runner.ts`, `.env*`),
+  live-trading/credential token scan, destructive-SQL scan (DROP/TRUNCATE/
+  unqualified DELETE/UPDATE, dynamic EXECUTE), plus scope-lock diffing.
+- Migrations are never executed by ASTR: the migration card is a separate
+  approval and you paste the SQL yourself.
+- Recovery (`/engineer/recovery`) writes file contents from a checkpoint back as
+  a FORWARD commit. It refuses SQL, `supabase/`, `migration/`,
+  `src/lib/broker.server.ts`, `.github/` and `src/lib/engineer/`, and never
+  touches a database.
+- `engineer_checkpoints → engineer_change_log` is `ON DELETE RESTRICT`, so audit
+  history cannot be cascade-deleted.
+- Health monitor (`src/lib/engineer/health.server.ts`) may only requeue a stalled
+  lease; credential/deployment/data/security issues are escalated, never
+  auto-repaired.
+
+### Verifying without credentials
+
+- `docker compose -f docker-compose.base44.yml exec -T web bunx tsc --noEmit`
+- `docker compose -f docker-compose.base44.yml exec -T web bun run build`
+- The engineer logic is testable headlessly (classification, firewall, anchored
+  patching, scope lock) — see the checks in this file's history; the SQL was
+  validated against a throwaway `postgres:16` container with `anon` /
+  `authenticated` / `service_role` roles created first (vanilla Postgres has no
+  `service_role`).
