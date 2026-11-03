@@ -6,7 +6,12 @@ import { ShieldCheck, AlertTriangle, XCircle, RefreshCw, Wrench, Clock } from "l
 
 import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
-import { getLeadAudit, runLeadAuditNow, getRepairLogs, getIntegrityHistory } from "@/lib/audit.functions";
+import {
+  getLeadAudit,
+  runLeadAuditNow,
+  getRepairLogs,
+  getIntegrityHistory,
+} from "@/lib/audit.functions";
 
 export const Route = createFileRoute("/audit")({
   head: () => ({
@@ -93,7 +98,8 @@ function AuditDeskPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Lead Quantitative Audit Desk</h1>
           <p className="text-sm text-muted-foreground">
-            Daily raw-bar trade reconstruction, immutable scoreboard recalculation, closed-loop balance reconciliation, and look-ahead bias validation.
+            Daily raw-bar trade reconstruction, immutable scoreboard recalculation, closed-loop
+            balance reconciliation, and look-ahead bias validation.
           </p>
         </div>
         <Button
@@ -112,7 +118,8 @@ function AuditDeskPage() {
         <div>
           <div className={`text-lg font-bold tracking-wide ${cfg.color}`}>{cfg.label}</div>
           <div className="text-xs text-muted-foreground">
-            Last verified: {report?.timestamp ? new Date(report.timestamp).toLocaleString() : "Running check…"}
+            Last verified:{" "}
+            {report?.timestamp ? new Date(report.timestamp).toLocaleString() : "Running check…"}
           </div>
         </div>
       </div>
@@ -165,7 +172,9 @@ function AuditDeskPage() {
               <tbody className="divide-y divide-border">
                 {report.discrepancies.map((d, i) => (
                   <tr key={i} className="hover:bg-muted/20">
-                    <td className="p-3 font-medium uppercase text-muted-foreground">{d.category.replace("_", " ")}</td>
+                    <td className="p-3 font-medium uppercase text-muted-foreground">
+                      {d.category.replace("_", " ")}
+                    </td>
                     <td className="p-3 font-mono">{d.identifier}</td>
                     <td className="p-3 text-muted-foreground">{String(d.expected)}</td>
                     <td className="p-3 text-destructive font-mono">{String(d.actual)}</td>
@@ -186,7 +195,8 @@ function AuditDeskPage() {
         </div>
         {!repairLogs || repairLogs.length === 0 ? (
           <div className="rounded-md border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-            No autonomous repairs logged yet. The health loop logs each allowlisted repair here with post-repair verification.
+            No autonomous repairs logged yet. The health loop logs each allowlisted repair here with
+            post-repair verification.
           </div>
         ) : (
           <div className="overflow-x-auto rounded-md border border-border">

@@ -56,7 +56,6 @@ export async function runHealthCheck(): Promise<HealthResult> {
       .slice(0, 4)
       .some((row) => asList(row.issues).some((i) => i.toLowerCase().includes(needle)));
 
-
   // 1. Data key.
   const key = await verifyProviderKey(settings.provider as "polygon" | "alpaca");
   if (!key.ok) issues.push(`Market data key: ${key.detail}`);
@@ -68,7 +67,9 @@ export async function runHealthCheck(): Promise<HealthResult> {
   let thin = false;
   try {
     const start = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10);
-    const coverage = await barCoverage(start, () => repairs.push("Recovered cached-history query after a transient timeout."));
+    const coverage = await barCoverage(start, () =>
+      repairs.push("Recovered cached-history query after a transient timeout."),
+    );
     // IEX does not print every tracked symbol every day. Judging the entire
     // cache by only the newest session caused a complete history rebuild every
     // 15 minutes, even when 150+ usable sessions were already present. Treat
@@ -106,7 +107,12 @@ export async function runHealthCheck(): Promise<HealthResult> {
             repair_type: "backfill_history",
             target: "price-history-cache",
             before_status: { missing_days: missingBeforeBackfill, thin: true },
-            after_status: { days_stored: back.days_stored, tickers: back.tickers, feed: back.feed, missing_after: missing.length },
+            after_status: {
+              days_stored: back.days_stored,
+              tickers: back.tickers,
+              feed: back.feed,
+              missing_after: missing.length,
+            },
             verified: back.days_stored > 0,
             verification_note: `${back.days_stored} sessions stored; ${missing.length} days still missing`,
           });
@@ -118,7 +124,6 @@ export async function runHealthCheck(): Promise<HealthResult> {
       }
     }
   }
-
 
   if (missing.length > 0) {
     if (key.ok) {
@@ -156,7 +161,6 @@ export async function runHealthCheck(): Promise<HealthResult> {
       issues.push(`${missing.length} days of price history missing and the data key is failing.`);
     }
   }
-
 
   // 3. Did today's scan run? Re-score if it did not and the market is open.
   const { data: run } = await supabaseAdmin
@@ -214,8 +218,6 @@ export async function runHealthCheck(): Promise<HealthResult> {
     }
   }
 
-
-
   // 4. Simulated positions that should have been closed already.
   const { data: stale } = await supabaseAdmin
     .from("trades")
@@ -271,7 +273,10 @@ export async function runHealthCheck(): Promise<HealthResult> {
         if (orphans.length > 0) {
           issues.push(
             `${orphans.length} broker order(s) today are not in the app's records: ${orphans
-              .map((o) => `${o.side} ${o.ticker} @ ${o.filled_price ?? "?"} (${o.submitted_at ?? "?"}, order ${o.order_id})`)
+              .map(
+                (o) =>
+                  `${o.side} ${o.ticker} @ ${o.filled_price ?? "?"} (${o.submitted_at ?? "?"}, order ${o.order_id})`,
+              )
               .join("; ")}.`,
           );
         }
@@ -307,7 +312,6 @@ export async function runHealthCheck(): Promise<HealthResult> {
       dedupe_key: `health:${issues[0]?.slice(0, 60)}:${status.nyDate}`,
     });
   }
-
 
   return { ok, issues, repairs, checked_at: checkedAt };
 }

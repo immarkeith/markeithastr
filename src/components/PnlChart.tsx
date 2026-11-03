@@ -63,6 +63,16 @@ function calendarStart(kind: "week" | "month" | "months3" | "ytd"): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Round a magnitude up to the next clean 1 / 2 / 5 × 10ⁿ step, so the axis
+ *  ticks land on readable numbers (3.4 → 5, 12 → 20). */
+export function niceCeil(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const normalised = value / magnitude;
+  const step = normalised <= 1 ? 1 : normalised <= 2 ? 2 : normalised <= 5 ? 5 : 10;
+  return Number((step * magnitude).toPrecision(12));
+}
+
 /**
  * Profit/loss over a chosen window: realised profit from closed trades, plus
  * the current open-position move so the line keeps updating before anything is

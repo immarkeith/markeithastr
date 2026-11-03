@@ -136,9 +136,7 @@ function heldOf(rows: Record<string, unknown>[] | null): CurveGuard["held"] {
   }));
 }
 
-async function buildCurveGuards(
-  equityCurves: ResearcherEquityCurve[],
-): Promise<CurveGuard[]> {
+async function buildCurveGuards(equityCurves: ResearcherEquityCurve[]): Promise<CurveGuard[]> {
   const { loadSlots } = await import("./race.server");
   const slots = await loadSlots();
   const out: CurveGuard[] = [];
@@ -370,8 +368,7 @@ async function appendCurves(
     // up once per day.
     const markLevel = (date: string): number | null => {
       const heldNow = positions.filter(
-        (p) =>
-          p.entry_date && p.entry_date <= date && (p.exit_date === null || p.exit_date > date),
+        (p) => p.entry_date && p.entry_date <= date && (p.exit_date === null || p.exit_date > date),
       );
       if (heldNow.length === 0) return 0;
       let level = 0;
@@ -475,9 +472,7 @@ function marketIsOpen(state: string): boolean {
 async function markQuotes(payload: LabGraphPayload): Promise<boolean> {
   const { marketStatus, nyParts } = await import("./market-calendar");
   if (!marketIsOpen(marketStatus().state)) return false;
-  const tickers = [
-    ...new Set(payload.entrants.flatMap((e) => e.holdings.map((h) => h.ticker))),
-  ];
+  const tickers = [...new Set(payload.entrants.flatMap((e) => e.holdings.map((h) => h.ticker)))];
   if (tickers.length === 0) return true;
   try {
     const { alpacaLatestPrices } = await import("./market-data.server");
@@ -504,10 +499,7 @@ async function markQuotes(payload: LabGraphPayload): Promise<boolean> {
     }
     return true;
   } catch (error) {
-    console.error(
-      "intraday quote refresh failed:",
-      error instanceof Error ? error.message : error,
-    );
+    console.error("intraday quote refresh failed:", error instanceof Error ? error.message : error);
     return false;
   }
 }

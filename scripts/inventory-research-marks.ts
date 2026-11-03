@@ -75,7 +75,9 @@ async function candidates(): Promise<Trade[]> {
   const rows = await pageAll((offset) =>
     supabaseAdmin
       .from("trades")
-      .select("id, ticker, entry_date, exit_date, entry_price, exit_price, dollars, strategy_id, status_note")
+      .select(
+        "id, ticker, entry_date, exit_date, entry_price, exit_price, dollars, strategy_id, status_note",
+      )
       .eq("status", "closed")
       .eq("profit", 0)
       .not("exit_date", "is", null)
@@ -83,15 +85,15 @@ async function candidates(): Promise<Trade[]> {
       .range(offset, offset + PAGE - 1),
   );
   return rows.map((r) => ({
-    id: String(r['id']),
-    ticker: String(r['ticker']),
-    entry_date: String(r['entry_date']),
-    exit_date: String(r['exit_date']),
-    entry_price: Number(r['entry_price']),
-    exit_price: r['exit_price'] === null ? null : Number(r['exit_price']),
-    dollars: Number(r['dollars']),
-    strategy_id: (r['strategy_id'] as string | null) ?? null,
-    status_note: (r['status_note'] as string | null) ?? null,
+    id: String(r["id"]),
+    ticker: String(r["ticker"]),
+    entry_date: String(r["entry_date"]),
+    exit_date: String(r["exit_date"]),
+    entry_price: Number(r["entry_price"]),
+    exit_price: r["exit_price"] === null ? null : Number(r["exit_price"]),
+    dollars: Number(r["dollars"]),
+    strategy_id: (r["strategy_id"] as string | null) ?? null,
+    status_note: (r["status_note"] as string | null) ?? null,
   }));
 }
 
@@ -110,7 +112,7 @@ async function exactBars(tickers: string[]): Promise<Map<string, number>> {
         .range(offset, offset + PAGE - 1),
     );
     for (const row of rows) {
-      map.set(`${String(row['ticker'])}|${String(row['bar_date'])}`, Number(row['close']));
+      map.set(`${String(row["ticker"])}|${String(row["bar_date"])}`, Number(row["close"]));
     }
   }
   return map;
@@ -123,7 +125,8 @@ function same(a: number, b: number): boolean {
 async function main(): Promise<void> {
   const rows = await candidates();
   const equalPriced = rows.filter(
-    (r) => r.exit_price !== null && Number.isFinite(r.entry_price) && same(r.exit_price, r.entry_price),
+    (r) =>
+      r.exit_price !== null && Number.isFinite(r.entry_price) && same(r.exit_price, r.entry_price),
   );
   const bars = await exactBars([...new Set(equalPriced.map((r) => r.ticker))]);
   const { researchMarketMark } = await import("../src/lib/research-market-mark.server");
@@ -170,9 +173,19 @@ async function main(): Promise<void> {
       verdicts.push({ ...base, klass: "missing_historical_price" });
     } else if (!same(mark, trade.entry_price)) {
       // Authentic close disagrees with what was booked: the mark was invented.
-      verdicts.push({ ...base, klass: "confirmed_contaminated", authentic_mark: mark, recovered_profit: profit });
+      verdicts.push({
+        ...base,
+        klass: "confirmed_contaminated",
+        authentic_mark: mark,
+        recovered_profit: profit,
+      });
     } else if (trade.entry_date === trade.exit_date) {
-      verdicts.push({ ...base, klass: "same_session_round_trip", authentic_mark: mark, recovered_profit: profit });
+      verdicts.push({
+        ...base,
+        klass: "same_session_round_trip",
+        authentic_mark: mark,
+        recovered_profit: profit,
+      });
     } else if (cached === null) {
       verdicts.push({
         ...base,
@@ -182,14 +195,21 @@ async function main(): Promise<void> {
       });
     } else {
       // A multi-session hold whose close genuinely landed on the entry price.
-      verdicts.push({ ...base, klass: "legitimate_breakeven", authentic_mark: mark, recovered_profit: profit });
+      verdicts.push({
+        ...base,
+        klass: "legitimate_breakeven",
+        authentic_mark: mark,
+        recovered_profit: profit,
+      });
     }
   }
 
   const tally = new Map<string, number>();
   for (const v of verdicts) tally.set(v.klass, (tally.get(v.klass) ?? 0) + 1);
 
-  console.log(`Research mark inventory — ${verdicts.length} closed $0 trades inspected (read-only)`);
+  console.log(
+    `Research mark inventory — ${verdicts.length} closed $0 trades inspected (read-only)`,
+  );
   console.log(`  equal entry/exit price: ${equalPriced.length}`);
   for (const [klass, count] of [...tally.entries()].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${klass.padEnd(26)} ${count}`);
@@ -203,11 +223,15 @@ async function main(): Promise<void> {
   }
   if (byMonth.size > 0) {
     console.log("  by month (contaminated + missing only):");
-    for (const [month, count] of [...byMonth.entries()].sort()) console.log(`    ${month}  ${count}`);
+    for (const [month, count] of [...byMonth.entries()].sort())
+      console.log(`    ${month}  ${count}`);
   }
 
   if (jsonPath) {
-    await Bun.write(jsonPath, JSON.stringify({ generated_at: new Date().toISOString(), verdicts }, null, 1));
+    await Bun.write(
+      jsonPath,
+      JSON.stringify({ generated_at: new Date().toISOString(), verdicts }, null, 1),
+    );
     console.log(`  detail written to ${jsonPath}`);
   }
 }
