@@ -558,6 +558,19 @@ export function PnlChart({
               />
             ) : null}
           </svg>
+          {/* Y-axis values, positioned to match the grid lines (5%–95% of height). */}
+          <div className="relative w-9 shrink-0 font-mono text-[8px] tabular-nums text-muted-foreground">
+            {ticks.map((t) => (
+              <span
+                key={t}
+                className={`absolute right-0 -translate-y-1/2 ${t === 0 ? "text-foreground/80" : ""}`}
+                style={{ top: `${(yOf(t) / height) * 100}%` }}
+              >
+                {fmtTick(t)}
+              </span>
+            ))}
+          </div>
+          </div>
           <p className="text-center text-[9px] uppercase tracking-wider text-muted-foreground">
             Date / time
           </p>
