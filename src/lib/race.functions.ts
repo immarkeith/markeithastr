@@ -171,3 +171,11 @@ export const refreshLabGraph = createServerFn({ method: "POST" })
     const { refreshLabGraphIntraday } = await import("./lab-graph.server");
     return refreshLabGraphIntraday();
   });
+
+/** The saved one-time historical reconstruction (2021 → present), or null. */
+export const fetchLabHistory = createServerFn({ method: "GET" })
+  .middleware([requireGate])
+  .handler(async () => {
+    const { readLabHistory } = await import("./history-reconstruction.server");
+    return readLabHistory();
+  });
