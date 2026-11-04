@@ -40,6 +40,19 @@
   populated. `migration/fresh/*.sql` is the manual rebuild path for a
   brand-new project, and `drizzle/` is unused at runtime
   (`LOVABLE_DB_MIGRATION_URL` is only for `drizzle-kit`).
+- Verified on 2026-11-04 against `kkwgbjovbcbzsvbhcyhq`: every schema
+  migration is already applied — `drizzle/0000`–`0007` (trades/paper_slots
+  columns, `research_horizon_predictions`, `researcher_examples`/
+  `researcher_beliefs`, `market_events`, `bar_dates_present_since`) and
+  `migration/fresh/11`–`17` (the six `engineer_*` tables plus the three lease
+  RPCs, `audit_repair_log`, `audit_integrity_results`). Checked by comparing
+  the live PostgREST schema with the migration files and with every table name
+  the code uses; both files were also re-run twice on throwaway `postgres:16`
+  instances (with and without `anon`/`authenticated`/`service_role`) and stay
+  idempotent. The `cron` schedules in `14`, `15` and the tail of `16` are the
+  only parts that still need a real app host — they cannot be pointed at an
+  unpublished preview. `public.hook_tokens` row `id = 1` exists, so they will
+  work once a host is set.
 - Quick checks: `curl -s -o /dev/null -w '%{http_code}' localhost:3000/unlock`
   (200 = SSR alive) and `docker compose -f docker-compose.base44.yml ps`
   (healthcheck renders `/unlock`). Then confirm the dashboard shows real
