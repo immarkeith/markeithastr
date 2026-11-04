@@ -275,9 +275,16 @@ $$;
 -- Only trusted server code (the app's service-role connection / the GitHub
 -- runner) may lease, heartbeat or read engineering state.
 --
--- Nothing is revoked from PUBLIC, because PUBLIC always exists: RLS is enabled
--- on every table above and no policy grants access, so every other role is
--- denied at the row level regardless of the database it runs on.
+-- Tables: nothing is revoked from PUBLIC, because PUBLIC always exists and RLS
+-- is enabled on every table above with no policy granting access, so every
+-- other role is denied at the row level on any PostgreSQL server.
+--
+-- Functions are different: PostgreSQL grants EXECUTE on a new function to
+-- PUBLIC by default, and these are SECURITY DEFINER, so the PUBLIC grant would
+-- let any role — including an unauthenticated browser client holding a
+-- publishable key — lease or requeue engineering tasks past RLS. The PUBLIC
+-- grant is therefore revoked first, and access is granted back only to the
+-- service role (or, on non-Supabase PostgreSQL, to the role you grant below).
 --
 -- anon / authenticated / service_role are roles Supabase happens to provide.
 -- Plain PostgreSQL does not have them, so each grant is applied only when the
@@ -314,6 +321,9 @@ BEGIN
       'public.sweep_stalled_engineer_tasks()'
     ])
   LOOP
+    -- Default PUBLIC EXECUTE first: revoking from a named role does not remove
+    -- a privilege that role inherits through PUBLIC.
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', v_fn);
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
       EXECUTE format('REVOKE ALL ON FUNCTION %s FROM anon', v_fn);
     END IF;

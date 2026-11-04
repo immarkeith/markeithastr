@@ -30,6 +30,11 @@ Both files are idempotent (`CREATE TABLE IF NOT EXISTS`,
 `CREATE OR REPLACE FUNCTION`) and additive: they never read, alter or delete
 existing trading, research or market-data tables. Re-running them is safe.
 
+If you already applied an earlier copy of the engineer migration, re-run it:
+it now also revokes PostgreSQL's default `EXECUTE ... TO PUBLIC` on the three
+lease RPCs, so an unauthenticated client holding only the publishable key can
+no longer lease or requeue tasks through them.
+
 Before running file 16, replace `YOUR-APP.example.com` with your app's host —
 it is only used by the scheduling block.
 
@@ -40,12 +45,13 @@ it is only used by the scheduling block.
 | `gen_random_uuid()` | Core PostgreSQL 13+. No `pgcrypto` install needed. |
 | RLS | `ENABLE ROW LEVEL SECURITY` with no policies = deny-all for every non-owner role on any PostgreSQL server. |
 | `anon` / `authenticated` / `service_role` | Supabase role names. The privilege block at the end of the migration applies `REVOKE`/`GRANT` only for roles that already exist, so the file is a no-op instead of an error on plain PostgreSQL. |
-| `pg_cron` / `pg_net` (Supabase scheduling) | Not required. File 15 detects them and configures the schedule only when present; otherwise it raises a `NOTICE` and tells you to use any external scheduler. |
+| `pg_cron` / `pg_net` (Supabase scheduling) | Not required. File 16 detects them and configures the schedule only when present; otherwise it raises a `NOTICE` and tells you to use any external scheduler. Files `14` and `15` are plain `cron.schedule` helpers — run them only where `pg_cron` exists, or skip them and use an external scheduler (see below). |
 | `SECURITY DEFINER` functions | Pin `search_path = public, pg_temp`, so a caller cannot hijack object resolution. |
 
 ### If you are not on Supabase
 
-Grant the three RPCs to your own application role after running migration 16:
+Grant the three RPCs to your own application role after running
+`supabase/migrations/20261103010000_engineer_phase_k.sql`:
 
 ```sql
 GRANT EXECUTE ON FUNCTION public.claim_next_engineer_task(text)         TO <app_role>;

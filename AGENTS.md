@@ -180,7 +180,11 @@ verified commit. Nothing reaches the target branch without that approval.
    Portable: PostgreSQL 13+ only, no extension, and the `anon` /
    `authenticated` / `service_role` grants apply only when those roles already
    exist — on plain PostgreSQL grant `EXECUTE` on the three RPCs to your own app
-   role instead. Full deployment reference: `docs/phase-k-deployment.md`.
+   role instead (the file revokes the default `PUBLIC` grant, so that step is
+   required, not optional). Full deployment reference: `docs/phase-k-deployment.md`.
+   The project this sandbox talks to still holds the old copy: until the file is
+   re-run there, an anon/publishable-key client can call `heartbeat_engineer_task`
+   (verified — it answers `200 false`) and therefore the other two RPCs as well.
 2. Set the app secrets `GITHUB_ENGINEER_TOKEN`, `GITHUB_ENGINEER_REPO`
    (`owner/repo`) and `ENGINEER_LLM_API_KEY`. Without GitHub access, tasks queue
    but cannot run and nothing can merge — the UI says so instead of pretending.
