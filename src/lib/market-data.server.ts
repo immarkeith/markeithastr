@@ -192,6 +192,27 @@ export async function alpacaUniverse(limit: number): Promise<string[]> {
 }
 
 /**
+ * Every listed US equity Alpaca knows about — active AND inactive (delisted,
+ * acquired, bankrupt). Used by the one-time historical reconstruction so the
+ * universe is not limited to the companies that survived to today.
+ */
+export async function alpacaAllListedEquities(): Promise<string[]> {
+  const out = new Set<string>();
+  for (const status of ["active", "inactive"]) {
+    const json = await getJson(
+      `https://api.alpaca.markets/v2/assets?status=${status}&asset_class=us_equity`,
+      alpacaHeaders(),
+    );
+    for (const a of Array.isArray(json) ? json : []) {
+      const symbol = String(a?.symbol ?? "").toUpperCase();
+      if (a?.exchange === "OTC" || a?.exchange === "CRYPTO") continue;
+      if (TICKER_OK.test(symbol)) out.add(symbol);
+    }
+  }
+  return [...out].sort();
+}
+
+/**
  * Daily bars for many symbols over a date range, batched + paginated.
  * Always ask for the whole range in one pass: one request per symbol batch
  * covers dozens of sessions, instead of one request per symbol batch per day.

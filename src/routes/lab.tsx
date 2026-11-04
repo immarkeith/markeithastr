@@ -8,6 +8,7 @@ import { marketStatus } from "@/lib/market-calendar";
 
 import { InfoDot } from "@/components/InfoDot";
 import { FutureCapitalAnalysis } from "@/components/FutureCapitalAnalysis";
+import { HistoricalReconstruction } from "@/components/HistoricalReconstruction";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import {
   ResearchDepartment,
@@ -302,6 +303,8 @@ function LabPage() {
           ))}
         </div>
       </div>
+
+      <HistoricalReconstruction />
 
       <ResearchDepartment />
 
