@@ -198,9 +198,9 @@ export function PnlChart({
     const until = active.endYesterday ? isoDaysAgo(1) : today;
     // Clamp long windows to the book's first activity so years before the
     // book existed don't flatten the line and cram real history into a spike.
-    let inception = null as string | null;
+    const seen: string[] = [];
     const consider = (d: string | null | undefined) => {
-      if (d && (inception === null || d < inception)) inception = d;
+      if (d) seen.push(d);
     };
     for (const r of rows) {
       consider((r as { entry_date?: string | null }).entry_date);
@@ -209,6 +209,7 @@ export function PnlChart({
     for (const r of compareRows ?? []) consider(r.exit_date);
     for (const r of secondaryRows ?? []) consider(r.exit_date);
     consider(equity?.points[0]?.date);
+    const inception = seen.length ? seen.reduce((a, b) => (a < b ? a : b)) : null;
     const from = inception && inception > rawFrom && inception < until ? inception : rawFrom;
     return { today, from, until };
   }, [active, rows, compareRows, secondaryRows, equity]);
