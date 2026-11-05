@@ -35,7 +35,7 @@ export async function runIntegrityCheck(
 
   // Store the result (graceful: table may not exist yet)
   try {
-    await supabaseAdmin.from("audit_integrity_results").insert({
+    await untypedDb().from("audit_integrity_results").insert({
       cadence,
       overall_verdict: report.overallVerdict,
       pillars: report.pillars as never,
@@ -79,7 +79,7 @@ export interface IntegrityHistoryRow {
 /** Fetch recent integrity results for the Audit Desk. */
 export async function recentIntegrityResults(limit = 10): Promise<IntegrityHistoryRow[]> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await untypedDb()
       .from("audit_integrity_results")
       .select("id, checked_at, cadence, overall_verdict, summary")
       .order("checked_at", { ascending: false })
@@ -89,4 +89,10 @@ export async function recentIntegrityResults(limit = 10): Promise<IntegrityHisto
   } catch {
     return [];
   }
+}
+
+// Phase K / audit tables are not in the generated types until their migrations run.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function untypedDb(): any {
+  return supabaseAdmin;
 }

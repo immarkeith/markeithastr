@@ -38,7 +38,7 @@ async function recordEvents(
         repaired: repairNotes.has(component.component),
         repair_note: repairNotes.get(component.component) ?? null,
       }));
-    if (rows.length > 0) await supabaseAdmin.from("engineer_health_events").insert(rows);
+    if (rows.length > 0) await untypedDb().from("engineer_health_events").insert(rows);
   } catch {
     // Health logging must never break the check.
   }
@@ -46,7 +46,7 @@ async function recordEvents(
 
 async function recentEvents(): Promise<EngineerHealthEvent[]> {
   try {
-    const { data } = await supabaseAdmin
+    const { data } = await untypedDb()
       .from("engineer_health_events")
       .select("*")
       .order("checked_at", { ascending: false })
@@ -82,7 +82,7 @@ export async function runEngineerHealth(force = false): Promise<EngineerHealthSn
     let stalled = stats.stalled;
     if (stalled > 0) {
       try {
-        const { data, error } = await supabaseAdmin.rpc("sweep_stalled_engineer_tasks");
+        const { data, error } = await untypedDb().rpc("sweep_stalled_engineer_tasks");
         if (error) throw new Error(error.message);
         const recovered = typeof data === "number" ? data : stalled;
         repairs.set("queue", `Requeued ${recovered} stalled lease(s) past the 5-minute heartbeat.`);
@@ -188,7 +188,7 @@ export async function runEngineerHealth(force = false): Promise<EngineerHealthSn
 
   // --- Checkpoint integrity
   try {
-    const { data } = await supabaseAdmin
+    const { data } = await untypedDb()
       .from("engineer_checkpoints")
       .select("git_tag, git_sha, created_at")
       .order("created_at", { ascending: false })
@@ -256,4 +256,10 @@ export async function probeProvider(): Promise<{ ok: boolean; detail: string }> 
   }
   const result = await testProviderConnection(config);
   return { ok: result.ok, detail: result.detail };
+}
+
+// Phase K / audit tables are not in the generated types until their migrations run.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function untypedDb(): any {
+  return supabaseAdmin;
 }

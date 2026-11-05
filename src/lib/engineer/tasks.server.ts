@@ -33,7 +33,7 @@ export async function engineerSchemaInstalled(force = false): Promise<boolean> {
   try {
     // A HEAD request answers 204 even for a missing table, so probe with a real
     // SELECT: PostgREST returns PGRST205 when the table is not in the schema.
-    const { error } = await supabaseAdmin.from("engineer_tasks").select("id").limit(1);
+    const { error } = await untypedDb().from("engineer_tasks").select("id").limit(1);
     const installed = !error;
     schemaCache = { at: Date.now(), installed };
     return installed;
@@ -152,7 +152,7 @@ export async function appendEngineerLog(input: {
   level?: "info" | "warn" | "error";
 }): Promise<void> {
   try {
-    await supabaseAdmin.from("engineer_logs").insert({
+    await untypedDb().from("engineer_logs").insert({
       task_id: input.taskId,
       step_name: input.step,
       log_text: input.text.slice(0, 8000),
@@ -197,7 +197,7 @@ export async function createEngineerTask(input: {
       ? "scope_review"
       : "queued";
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await untypedDb()
     .from("engineer_tasks")
     .insert({
       prompt,
@@ -256,7 +256,7 @@ export async function createEngineerTask(input: {
 
 export async function listEngineerTasks(limit = 25): Promise<EngineerTask[]> {
   if (!(await engineerSchemaInstalled())) return [];
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await untypedDb()
     .from("engineer_tasks")
     .select("*")
     .order("created_at", { ascending: false })
@@ -271,7 +271,7 @@ export async function getEngineerTask(id: string): Promise<{
   error?: string;
 }> {
   if (!(await engineerSchemaInstalled())) return { task: null, logs: [], error: "schema_missing" };
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await untypedDb()
     .from("engineer_tasks")
     .select("*")
     .eq("id", id)
@@ -279,7 +279,7 @@ export async function getEngineerTask(id: string): Promise<{
   if (error) return { task: null, logs: [], error: error.message };
   if (!data) return { task: null, logs: [] };
 
-  const { data: logRows } = await supabaseAdmin
+  const { data: logRows } = await untypedDb()
     .from("engineer_logs")
     .select("id, task_id, step_name, log_text, level, created_at")
     .eq("task_id", id)
@@ -294,7 +294,7 @@ export async function getEngineerTask(id: string): Promise<{
 
 export async function getEngineerSettings(): Promise<EngineerSettings | null> {
   if (!(await engineerSchemaInstalled())) return null;
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await untypedDb()
     .from("engineer_settings")
     .select("*")
     .eq("id", 1)
@@ -335,7 +335,7 @@ export async function saveEngineerSettings(input: {
     };
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await untypedDb()
     .from("engineer_settings")
     .update({
       llm_base_url: baseUrl,
@@ -360,7 +360,7 @@ export async function authorizeEngineerScope(id: string): Promise<{ ok: boolean;
   if (task.status !== "scope_review")
     return { ok: false, error: "This task is not waiting for scope approval." };
 
-  const { error } = await supabaseAdmin
+  const { error } = await untypedDb()
     .from("engineer_tasks")
     .update({ status: "queued", updated_at: new Date().toISOString() })
     .eq("id", id)
@@ -397,7 +397,7 @@ export async function requestEngineerRevision(
     return { ok: false, error: "A merged task cannot be revised — queue a new task." };
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await untypedDb()
     .from("engineer_tasks")
     .update({
       status: "queued",
@@ -439,7 +439,7 @@ export async function rejectEngineerTask(
     return { ok: false, error: "A merged task cannot be rejected — use code recovery instead." };
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await untypedDb()
     .from("engineer_tasks")
     .update({
       status: "rejected",
@@ -491,7 +491,7 @@ export async function approveEngineerMigration(
     };
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await untypedDb()
     .from("engineer_tasks")
     .update({ migration_approved: true, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -517,7 +517,7 @@ export async function resumeEngineerBudget(
   if (task.status !== "budget_paused")
     return { ok: false, error: "This task is not paused on budget." };
 
-  const { error } = await supabaseAdmin
+  const { error } = await untypedDb()
     .from("engineer_tasks")
     .update({ status: "queued", updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -556,25 +556,25 @@ export async function getQueueStats(): Promise<QueueStats | null> {
   monthStart.setUTCHours(0, 0, 0, 0);
 
   const [queued, active, review, recent, month] = await Promise.all([
-    supabaseAdmin
+    untypedDb()
       .from("engineer_tasks")
       .select("id", { head: true, count: "exact" })
       .eq("status", "queued"),
-    supabaseAdmin
+    untypedDb()
       .from("engineer_tasks")
       .select("id", { head: true, count: "exact" })
       .in("status", ACTIVE),
-    supabaseAdmin
+    untypedDb()
       .from("engineer_tasks")
       .select("id", { head: true, count: "exact" })
       .eq("status", "review_ready"),
-    supabaseAdmin
+    untypedDb()
       .from("engineer_tasks")
       .select("heartbeat_at")
       .in("status", ACTIVE)
       .order("heartbeat_at", { ascending: false })
       .limit(1),
-    supabaseAdmin
+    untypedDb()
       .from("engineer_tasks")
       .select("actions_minutes, cost_estimate_usd")
       .gte("created_at", monthStart.toISOString()),
@@ -583,11 +583,11 @@ export async function getQueueStats(): Promise<QueueStats | null> {
   const stalledCutoff = Date.now() - 5 * 60 * 1000;
   let stalled = 0;
   try {
-    const { data } = await supabaseAdmin
+    const { data } = await untypedDb()
       .from("engineer_tasks")
       .select("id, heartbeat_at")
       .in("status", ACTIVE);
-    stalled = (data ?? []).filter((row) => {
+    stalled = (data ?? []).filter((row: { id: string; heartbeat_at: string | null }) => {
       const beat = row.heartbeat_at ? new Date(row.heartbeat_at).getTime() : 0;
       return beat < stalledCutoff;
     }).length;
@@ -621,7 +621,7 @@ export async function updateTaskStatus(
   patch: Record<string, unknown> = {},
 ): Promise<void> {
   try {
-    await supabaseAdmin
+    await untypedDb()
       .from("engineer_tasks")
       .update({ status, updated_at: new Date().toISOString(), ...patch })
       .eq("id", id);
@@ -632,4 +632,10 @@ export async function updateTaskStatus(
 
 export function runnerDispatchAvailable(): boolean {
   return githubConfigured();
+}
+
+// Phase K / audit tables are not in the generated types until their migrations run.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function untypedDb(): any {
+  return supabaseAdmin;
 }

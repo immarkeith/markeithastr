@@ -52,7 +52,7 @@ const RECOVERY_BLOCKLIST: { rule: RegExp; reason: string }[] = [
 
 export async function listCheckpoints(limit = 30): Promise<EngineerCheckpointRow[]> {
   if (!(await engineerSchemaInstalled())) return [];
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await untypedDb()
     .from("engineer_checkpoints")
     .select("*")
     .order("created_at", { ascending: false })
@@ -63,7 +63,7 @@ export async function listCheckpoints(limit = 30): Promise<EngineerCheckpointRow
 
 export async function listChanges(limit = 100): Promise<EngineerChangeRow[]> {
   if (!(await engineerSchemaInstalled())) return [];
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await untypedDb()
     .from("engineer_change_log")
     .select("*")
     .order("created_at", { ascending: false })
@@ -113,7 +113,7 @@ export async function createCheckpoint(input: {
   const tag = tagSlug(input.trigger ?? "manual");
   const tagged = await createTag(tag, head.data);
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await untypedDb()
     .from("engineer_checkpoints")
     .insert({
       git_tag: tag,
@@ -132,7 +132,7 @@ export async function createCheckpoint(input: {
   const checkpoint = data as EngineerCheckpointRow;
 
   if ((input.files ?? []).length > 0) {
-    await supabaseAdmin.from("engineer_change_log").insert(
+    await untypedDb().from("engineer_change_log").insert(
       (input.files ?? []).map((file) => ({
         checkpoint_id: checkpoint.id,
         task_id: input.taskId ?? null,
@@ -182,7 +182,7 @@ export async function requestCodeRecovery(input: {
     return { ok: false, restored: [], error: "GitHub access is not configured." };
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await untypedDb()
     .from("engineer_checkpoints")
     .select("*")
     .eq("id", input.checkpointId)
@@ -247,7 +247,7 @@ export async function requestCodeRecovery(input: {
 
   const succeeded = restored.filter((entry) => entry.ok).map((entry) => entry.path);
   if (succeeded.length > 0) {
-    await supabaseAdmin.from("engineer_change_log").insert(
+    await untypedDb().from("engineer_change_log").insert(
       succeeded.map((file) => ({
         checkpoint_id: checkpoint.id,
         file_path: file,
@@ -256,7 +256,7 @@ export async function requestCodeRecovery(input: {
         note: `Recovered from ${checkpoint.git_tag} (code only)`,
       })),
     );
-    await supabaseAdmin.from("engineer_checkpoints").insert({
+    await untypedDb().from("engineer_checkpoints").insert({
       git_tag: tagSlug("recovery"),
       git_sha: checkpoint.git_sha,
       summary: `Code recovery to ${checkpoint.git_tag} — ${succeeded.length} file(s)`,
@@ -279,3 +279,9 @@ export function recoverableFiles(): string[] {
 }
 
 export const RECOVERY_CONFIRMATION = CONFIRMATION_PHRASE;
+
+// Phase K / audit tables are not in the generated types until their migrations run.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function untypedDb(): any {
+  return supabaseAdmin;
+}
