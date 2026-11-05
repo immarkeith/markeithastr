@@ -587,7 +587,7 @@ export async function getQueueStats(): Promise<QueueStats | null> {
       .from("engineer_tasks")
       .select("id, heartbeat_at")
       .in("status", ACTIVE);
-    stalled = (data ?? []).filter((row) => {
+    stalled = (data ?? []).filter((row: { id: string; heartbeat_at: string | null }) => {
       const beat = row.heartbeat_at ? new Date(row.heartbeat_at).getTime() : 0;
       return beat < stalledCutoff;
     }).length;
