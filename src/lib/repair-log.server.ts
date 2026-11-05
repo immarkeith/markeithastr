@@ -28,7 +28,7 @@ export interface RepairEntry {
 /** Log a repair to audit_repair_log. Never throws — table may not exist yet. */
 export async function logRepair(entry: RepairEntry): Promise<void> {
   try {
-    await supabaseAdmin.from("audit_repair_log").insert({
+    await untypedDb().from("audit_repair_log").insert({
       repair_type: entry.repair_type,
       target: entry.target ?? null,
       before_status: (entry.before_status ?? {}) as never,
@@ -55,7 +55,7 @@ export interface RepairLogRow {
 /** Fetch recent repair log entries for the Audit Desk. */
 export async function recentRepairs(limit = 20): Promise<RepairLogRow[]> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await untypedDb()
       .from("audit_repair_log")
       .select("id, checked_at, repair_type, target, verified, verification_note, source")
       .order("checked_at", { ascending: false })
@@ -65,4 +65,10 @@ export async function recentRepairs(limit = 20): Promise<RepairLogRow[]> {
   } catch {
     return [];
   }
+}
+
+// Phase K / audit tables are not in the generated types until their migrations run.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function untypedDb(): any {
+  return supabaseAdmin;
 }

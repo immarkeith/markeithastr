@@ -240,7 +240,7 @@ export async function approveAndMergeTask(id: string): Promise<ApprovalResult> {
   const finalStatus =
     deploymentStatus === "dispatched" || deploymentStatus === "failed" ? "deploying" : "merged";
 
-  await supabaseAdmin
+  await untypedDb()
     .from("engineer_tasks")
     .update({
       status: finalStatus,
@@ -302,7 +302,7 @@ export async function refreshDeploymentStatus(
     ? `Deployment workflow succeeded (${finished.html_url}).`
     : `Deployment workflow concluded ${finished.conclusion ?? "unknown"} (${finished.html_url}).`;
 
-  await supabaseAdmin
+  await untypedDb()
     .from("engineer_tasks")
     .update({
       deployment_status: status,
@@ -316,3 +316,9 @@ export async function refreshDeploymentStatus(
 }
 
 export { approveEngineerMigration };
+
+// Phase K / audit tables are not in the generated types until their migrations run.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function untypedDb(): any {
+  return supabaseAdmin;
+}
