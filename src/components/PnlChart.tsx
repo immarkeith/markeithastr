@@ -198,7 +198,7 @@ export function PnlChart({
     const until = active.endYesterday ? isoDaysAgo(1) : today;
     // Clamp long windows to the book's first activity so years before the
     // book existed don't flatten the line and cram real history into a spike.
-    let inception: string | null = null;
+    let inception = null as string | null;
     const consider = (d: string | null | undefined) => {
       if (d && (inception === null || d < inception)) inception = d;
     };
