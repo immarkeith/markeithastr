@@ -405,7 +405,7 @@ function SlotCard({
       {/* Main level: P/L and Win Rate only. */}
       <div className="grid grid-cols-2 gap-2">
         <Metric
-          label="Same-Day P&amp;L"
+          label="Same-Day P&amp;L (single session)"
           value={`${slot.same_day.total_pnl >= 0 ? "+" : ""}${money(slot.same_day.total_pnl)}`}
         />
         <Metric
@@ -422,7 +422,7 @@ function SlotCard({
         primaryLabel="Actual"
         ranges={LAB_RANGES}
         initialRange="month"
-        title="Today's Active"
+        title="Cumulative Holding Book"
         compact
         percent
         basis={slot.basis}

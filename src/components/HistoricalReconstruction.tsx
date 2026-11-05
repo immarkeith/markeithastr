@@ -16,7 +16,7 @@ const NAMES: Record<string, string> = {
 
 /** Historical replay of each researcher's formula on real past market data. */
 export function HistoricalReconstruction() {
-  const q = useQuery({ queryKey: ["lab-history"], queryFn: () => fetchLabHistory(), staleTime: 60 * 60_000 });
+  const q = useQuery({ queryKey: ["lab-history"], queryFn: () => fetchLabHistory(), staleTime: 0, refetchOnMount: "always", refetchInterval: (query) => (query.state.data ? false : 60_000) });
   const h = q.data;
   return (
     <div className="space-y-3">
