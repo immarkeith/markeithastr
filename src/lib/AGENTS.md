@@ -1,0 +1,1 @@
+- Research Lab graphs plot saved rows from `researcher_daily_ledger` (written by `runResearcherLedger` in the daily cycle); never rebuild researcher curves from trades at render time — graphs must reflect what researchers actually recorded.
