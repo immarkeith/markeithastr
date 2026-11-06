@@ -25,8 +25,12 @@ export const fetchRace = createServerFn({ method: "GET" })
       .select("research_auto")
       .eq("id", 1)
       .maybeSingle();
+    // Stage 3: graphs plot the researchers' saved daily ledger rows directly.
+    const { readLedgerCurves } = await import("./researcher-ledger.server");
+    const ledger = await readLedgerCurves().catch(() => []);
     return {
       ...snapshot.payload,
+      equity_curves: ledger.length > 0 ? ledger : snapshot.payload.equity_curves,
       research_running: settings?.research_auto !== false,
       generated_at: snapshot.guards.generated_at,
     };

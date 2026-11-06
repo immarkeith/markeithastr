@@ -58,6 +58,13 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
           // End of day: the full graph rebuild lands here, after the replay
           // step, so backfilled price history is folded in the same night —
           // realized P&L and new bars are computed once, not per visit.
+          // Stages 2+3: every researcher replays stored history and saves its daily rows.
+          try {
+            const { runResearcherLedger } = await import("@/lib/researcher-ledger.server");
+            await runResearcherLedger();
+          } catch (ledgerError) {
+            console.error("researcher ledger run failed:", ledgerError instanceof Error ? ledgerError.message : ledgerError);
+          }
           try {
             const { rebuildLabGraph } = await import("@/lib/lab-graph.server");
             await rebuildLabGraph();

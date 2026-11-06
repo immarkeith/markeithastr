@@ -425,7 +425,9 @@ function SlotCard({
         title="Cumulative Holding Book"
         compact
         percent
-        basis={slot.basis}
+        basis={
+          equity && "basis" in equity && typeof equity.basis === "number" ? equity.basis : slot.basis
+        }
         activeTicker={slot.holdings[0]?.ticker ?? null}
         equity={equity}
       />
