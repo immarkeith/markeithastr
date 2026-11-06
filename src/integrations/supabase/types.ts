@@ -1325,6 +1325,48 @@ export type Database = {
         }
         Relationships: []
       }
+      researcher_daily_ledger: {
+        Row: {
+          action: string | null
+          created_at: string
+          daily_return_pct: number
+          engine_version: string
+          equity: number
+          held_ticker: string | null
+          lane: string
+          pnl: number
+          pnl_pct: number
+          session_date: string
+          strategy_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          daily_return_pct: number
+          engine_version?: string
+          equity: number
+          held_ticker?: string | null
+          lane: string
+          pnl: number
+          pnl_pct: number
+          session_date: string
+          strategy_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          daily_return_pct?: number
+          engine_version?: string
+          equity?: number
+          held_ticker?: string | null
+          lane?: string
+          pnl?: number
+          pnl_pct?: number
+          session_date?: string
+          strategy_id?: string | null
+        }
+        Relationships: []
+      }
       researcher_examples: {
         Row: {
           benchmark_return_pct: number | null
