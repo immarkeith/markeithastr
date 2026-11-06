@@ -110,9 +110,9 @@ function toBars(raw: RawBars): Bar[] {
 
 // ---------------------------------------------------------------- the panel
 
-export async function buildPanel(universe: number, proxyTicker: string) {
+export async function buildPanel(universe: number, proxyTicker: string, days: number = HISTORY_DAYS) {
   const { data, error } = await supabaseAdmin.rpc("scan_input", {
-    p_days: HISTORY_DAYS,
+    p_days: days,
     p_limit: universe,
     p_offset: 0,
   });
