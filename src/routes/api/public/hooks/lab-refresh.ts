@@ -13,6 +13,10 @@ export const Route = createFileRoute("/api/public/hooks/lab-refresh")({
         const denied = await rejectUnauthorizedHook(request);
         if (denied) return denied;
         try {
+          const { latestLedgerDate, runResearcherLedger } = await import(
+            "@/lib/researcher-ledger.server"
+          );
+          if (!(await latestLedgerDate())) await runResearcherLedger();
           const { refreshLabGraphIntraday } = await import("@/lib/lab-graph.server");
           const result = await refreshLabGraphIntraday();
           return Response.json({
