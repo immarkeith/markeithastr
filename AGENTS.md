@@ -239,3 +239,5 @@ run for that SHA is observed to succeed (`refreshDeploymentStatus`).
   vanilla PostgreSQL with no such roles and no `pg_cron` (must run clean and
   skip scheduling with a NOTICE). Run both files twice — they are idempotent.
   Then exercise the lease with the smoke test in `docs/phase-k-deployment.md`.
+
+- Research Lab graphs plot saved rows from `researcher_daily_ledger` (written by `runResearcherLedger` in the daily cycle); never rebuild researcher curves from trades at render time — graphs must reflect what researchers actually recorded.
