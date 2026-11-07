@@ -19,6 +19,9 @@ on:
 
 permissions:
   contents: write
+  # Publish the verification verdict as a check run on the verified commit —
+  # that is what the app's approval gate re-reads before merging.
+  checks: write
 
 concurrency:
   group: astr-engineer-worker
@@ -153,6 +156,8 @@ jobs:
           TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
           LINT_OUTCOME: ${{ steps.lint.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: bun run scripts/engineer-verify.ts
 
       - name: Fail the job when verification failed

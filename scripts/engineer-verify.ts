@@ -104,4 +104,43 @@ await supabase.from("engineer_logs").insert({
     : `Independent verification failed for ${SHA.slice(0, 8)} (lint ${LINT}, build ${BUILD}).`,
 });
 
+/**
+ * Publish the verdict as a check run ON THE VERIFIED COMMIT. Without this, the
+ * app's approval gate sees zero checks for the engineer branch's commit (the
+ * workflow's own check runs belong to the commit it was dispatched from) and
+ * refuses to merge a perfectly verified task.
+ */
+const GITHUB_TOKEN = process.env["GITHUB_TOKEN"];
+const GITHUB_REPOSITORY = process.env["GITHUB_REPOSITORY"];
+if (GITHUB_TOKEN && GITHUB_REPOSITORY) {
+  const response = await fetch(
+    `https://api.github.com/repos/${GITHUB_REPOSITORY}/check-runs`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "engineer/independent-verify",
+        head_sha: SHA,
+        status: "completed",
+        conclusion: passed ? "success" : "failure",
+        output: {
+          title: passed ? "Exact commit verified" : "Verification failed",
+          summary: checks.map((check) => `${check.name}: ${check.status} (${check.detail})`).join("\n"),
+        },
+      }),
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+  if (!response.ok) {
+    console.log(`verify: could not publish the check run (${response.status}).`);
+  }
+} else {
+  console.log("verify: GITHUB_TOKEN / GITHUB_REPOSITORY absent — no check run published.");
+}
+
 console.log(`verify: recorded ${passed ? "review_ready" : "failed"} for ${SHA.slice(0, 8)}.`);

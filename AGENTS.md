@@ -191,12 +191,15 @@ verified commit. Nothing reaches the target branch without that approval.
 3. In `/engineer` → *Provider & deployment settings*, enter any OpenAI-compatible
    base URL and model (no provider is preselected). The API key itself is only
    ever the `ENGINEER_LLM_API_KEY` secret.
-4. The GitHub repo needs four Actions secrets — `ENGINEER_LLM_API_KEY`,
-   `GITHUB_ENGINEER_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — and
-   the workflow `.github/workflows/astr-engineer.yml`. `GITHUB_ENGINEER_REPO`
-   is app-side only (the workflow takes the repo from its checkout). Exact
-   scopes and the provider-neutral endpoint/model fields are documented in
-   `docs/phase-k-deployment.md`; no provider is preselected.
+4. The GitHub repo needs three Actions secrets — `ENGINEER_LLM_API_KEY`,
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — and the workflow
+   `.github/workflows/astr-engineer.yml`. The workflow itself runs on GitHub's
+   built-in `GITHUB_TOKEN` (contents: write, checks: write), so no PAT is
+   needed there; `GITHUB_ENGINEER_TOKEN` stays app-side for merge, check-run
+   reads and deploy dispatch. Until all three secrets exist every run dies in
+   the preflight step, which names them. Exact scopes and the provider-neutral
+   endpoint/model fields are documented in `docs/phase-k-deployment.md`; no
+   provider is preselected.
 
 ### How a task flows
 
@@ -209,13 +212,26 @@ verified commit. Nothing reaches the target branch without that approval.
   hunks, applies them with a strict single-match assertion, runs the firewall,
   then lint/build with up to three diagnosis-driven repair attempts. It pushes
   `engineer/<slug>-<taskid8>` and never merges.
-- Lint is baseline-aware: the repository already carries thousands of
-  pre-existing Prettier errors, so only NEW lint errors fail a task (the count
-  on the untouched tree is captured first and logged).
+- Lint and typecheck are baseline-aware (`src/lib/engineer/lint.ts`): the
+  repository already carries ~3,000 Prettier findings and ~23 real lint errors,
+  so counts on the untouched tree are captured first and only NEW problems fail
+  a task. `prettier/prettier` findings never count — they are style, not
+  correctness. The runner also typechecks (`bunx tsc --noEmit`) because
+  `vite build` does not: without it a patch can build and still ship broken
+  types.
+- An unusable model reply (empty body, invalid JSON, hunks that do not anchor)
+  costs one repair attempt, not the whole task — free providers return empty
+  completions often, so the loop retries while attempts remain.
+- A task that fails verification keeps its attempted diff in `diff_content`
+  (nothing is pushed); the failure message says so instead of claiming the
+  branch was preserved.
 - `scripts/engineer-verify.ts` runs in a second, independent job that checks out
   the EXACT commit SHA, re-runs typecheck/lint/build and only then sets
-  `verified_sha` + `review_ready`. Approve re-reads check-runs for that SHA and
-  refuses if the branch tip moved.
+  `verified_sha` + `review_ready`. It also publishes the
+  `engineer/independent-verify` **check run on that commit** — the app's
+  approval gate reads check-runs for the verified SHA, and without that row it
+  refuses to merge a verified task. Approve re-reads those checks and refuses if
+  the branch tip moved.
 - Approve merges that exact commit through the GitHub merges API, writes a
   checkpoint + change-log rows, and only then considers deployment.
 
@@ -243,6 +259,38 @@ run for that SHA is observed to succeed (`refreshDeploymentStatus`).
 - Health monitor (`src/lib/engineer/health.server.ts`) may only requeue a stalled
   lease; credential/deployment/data/security issues are escalated, never
   auto-repaired.
+
+### Provider configured in the sandbox (2026-11-07)
+
+`engineer_settings` now holds `llm_base_url = https://openrouter.ai/api/v1` and
+`llm_model = nvidia/nemotron-3-ultra-550b-a55b:free` — the configured
+`ENGINEER_LLM_API_KEY` is an OpenRouter key with **0 credits**, so only `:free`
+models answer (paid slugs return 402/404 "unavailable for free"). Free models
+are slow (12–25 s) and occasionally return an empty completion, which is why the
+repair loop treats an unusable reply as one spent attempt. Swap in a paid model
+in `/engineer` → *Provider & deployment settings* once the account is funded.
+
+### Verifying the whole loop headlessly (no GitHub Actions)
+
+The Actions run cannot be exercised from the sandbox, but the runner itself can,
+against a scratch clone with a local bare remote so nothing reaches GitHub:
+
+```sh
+docker compose -f docker-compose.base44.yml exec -T web sh -lc '
+  command -v git >/dev/null || (apt-get update -qq && apt-get install -y -qq git)
+  rm -rf /tmp/e2e /tmp/remote.git
+  git clone -q --bare /app /tmp/remote.git
+  git clone -q /tmp/remote.git /tmp/e2e
+  ln -sfn /app/node_modules /tmp/e2e/node_modules
+  cd /tmp/e2e && env -u ALPACA_LIVE_KEY_ID -u ALPACA_LIVE_SECRET_KEY \
+    GITHUB_RUN_ID=local bun run scripts/engineer-runner.ts'
+```
+
+Insert a `queued` row in `engineer_tasks` first (the runner leases one task),
+then run `scripts/engineer-verify.ts` with the task id, the pushed SHA and the
+three outcomes. Delete the test rows and `/tmp/e2e` afterwards. The runner
+refuses to start while `ALPACA_LIVE_*` is in its environment — that is why the
+container's keys are unset for the run.
 
 ### Verifying without credentials
 
