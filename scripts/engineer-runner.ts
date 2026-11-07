@@ -35,6 +35,7 @@ import {
   migrationFromDiff,
   type PatchHunk,
 } from "../src/lib/engineer/patch";
+import { lintErrorCount, typeErrorCount } from "../src/lib/engineer/lint";
 import { chatCompletion, estimateCostUsd, resolveProvider } from "../src/lib/engineer/provider";
 import { repoBrief, suggestFiles } from "../src/lib/engineer/repo-map";
 import type { TaskScope } from "../src/lib/engineer/types";
@@ -76,12 +77,6 @@ function writeOutputs(values: Record<string, string>): void {
 function fail(message: string): never {
   console.error(`engineer: ${message}`);
   process.exit(1);
-}
-
-function lintErrorCount(output: string): number {
-  const summary = /(\d+)\s+problems?\s+\(([0-9]+)\s+errors?/.exec(output);
-  if (summary?.[2]) return Number(summary[2]);
-  return output.split("\n").filter((line) => /^\s+\d+:\d+\s+error\s/.test(line)).length;
 }
 
 function run(command: string, timeout = 480_000): { ok: boolean; output: string } {
@@ -287,6 +282,13 @@ try {
       `Lint baseline on the untouched tree: ${lintBaseline} pre-existing error(s).`,
     );
   }
+  // Same rule for the type checker: the build does not run it, so without this
+  // a change can compile and still ship broken types.
+  const typecheckBaseline = typeErrorCount(run("bunx tsc --noEmit", 300_000).output);
+  await log(
+    "inspecting",
+    `Typecheck baseline on the untouched tree: ${typecheckBaseline} pre-existing error(s).`,
+  );
 
   await log("inspecting", `Context files: ${candidates.join(", ") || "none matched"}.`);
 
@@ -431,6 +433,16 @@ try {
     } else {
       results.push({ name: "lint", status: "skipped", detail: "no lint script" });
     }
+    const typecheck = run("bunx tsc --noEmit", 600_000);
+    const typeErrors = typeErrorCount(typecheck.output);
+    results.push({
+      name: "typecheck",
+      status: typeErrors > typecheckBaseline ? "fail" : "pass",
+      detail:
+        typeErrors > typecheckBaseline
+          ? `${typeErrors} type error(s), up from a baseline of ${typecheckBaseline}. ${typecheck.output.slice(-1500)}`
+          : `${typeErrors} type error(s), baseline ${typecheckBaseline} — no new errors.`,
+    });
     if (available["build"]) {
       const build = run("bun run build", 600_000);
       results.push({
@@ -481,13 +493,17 @@ try {
     );
     tokensUsed += repair.tokens;
 
+    // An unusable reply is a wasted attempt, not the end of the budget: free
+    // providers occasionally return an empty body, so try again while attempts
+    // remain instead of failing a task a later reply could have repaired.
     if (!repair.ok) {
       repairAttempts.push({
         attempt,
         summary: diagnosis.message,
         outcome: `model call failed: ${repair.error}`,
       });
-      break;
+      await log("diagnosing", `Attempt ${attempt}: unusable reply — ${repair.error}`, "warn");
+      continue;
     }
 
     let repairPlan: ModelPlan;
@@ -499,7 +515,8 @@ try {
         summary: diagnosis.message,
         outcome: "invalid JSON from model",
       });
-      break;
+      await log("diagnosing", `Attempt ${attempt}: the model did not return valid JSON.`, "warn");
+      continue;
     }
 
     const repairHunks = (repairPlan.edits ?? []).filter(
@@ -520,7 +537,12 @@ try {
         summary: diagnosis.message,
         outcome: repaired.errors.map((error) => `${error.path}: ${error.reason}`).join("; "),
       });
-      break;
+      await log(
+        "diagnosing",
+        `Attempt ${attempt}: repair hunks did not apply — ${repaired.errors.map((error) => `${error.path}: ${error.reason}`).join("; ")}`,
+        "warn",
+      );
+      continue;
     }
     for (const [path, content] of repaired.files) writeFileSync(path, content);
 
@@ -535,6 +557,7 @@ try {
 
   const buildPassed =
     checks.every((check) => check.status !== "fail") &&
+    checks.some((check) => check.name === "typecheck" && check.status === "pass") &&
     checks.some((check) => check.name === "build" && check.status === "pass");
   const costEstimate = estimateCostUsd(tokensUsed, provider.price_per_million_tokens);
 
@@ -543,10 +566,14 @@ try {
       .filter((check) => check.status === "fail")
       .map((check) => check.name)
       .join(", ");
+    const failedDiff = run("git diff").output;
     await failTask(
-      `Verification failed after ${attempt} repair attempt(s)${summary ? ` (${summary})` : ""}. The branch and diff were preserved for review; the application is untouched.`,
+      `Verification failed after ${attempt} repair attempt(s)${summary ? ` (${summary})` : ""}. Nothing was pushed; the attempted diff is kept on this task for review.`,
       {
         build_passed: false,
+        diff_content: failedDiff.slice(0, 200_000),
+        diff_stats: diffStats(failedDiff),
+        files_modified: filesFromDiff(failedDiff),
         verification: { checks, build_passed: false },
         diagnosis: {
           category: diagnoseFailure(checks.map((c) => c.detail).join("\n")).category,
@@ -609,7 +636,7 @@ try {
     ARTIFACT_PATH,
     JSON.stringify({ task_id: task.id, branch, sha, status: "pushed" }, null, 2),
   );
-  writeOutputs({ status: "pushed", task_id: task.id, branch, sha });
+  writeOutputs({ status: "pushed", task_id: task.id, branch, sha, base_sha: baseSha });
   console.log(`ENGINEER_RESULT=${ARTIFACT_PATH}`);
   clearInterval(heartbeat);
 } catch (error) {

@@ -11,7 +11,12 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-import { githubConfigured, getRepoInfo, getWorkflowFile } from "./github.server";
+import {
+  getLatestWorkflowRun,
+  getRepoInfo,
+  getWorkflowFile,
+  githubConfigured,
+} from "./github.server";
 import { providerReadiness, resolveProvider, testProviderConnection } from "./provider";
 import { engineerSchemaInstalled, getEngineerSettings, getQueueStats } from "./tasks.server";
 import type { EngineerHealthEvent, EngineerHealthSnapshot } from "./types";
@@ -164,6 +169,21 @@ export async function runEngineerHealth(force = false): Promise<EngineerHealthSn
               verifyWorkflow.error ?? "astr-engineer.yml missing — the runner cannot verify work.",
           },
     );
+
+    // A runner that never starts leaves tasks queued forever — surface the last
+    // run's outcome instead of silence.
+    const latestRun = await getLatestWorkflowRun("astr-engineer.yml");
+    if (latestRun.ok && latestRun.data) {
+      const run = latestRun.data;
+      const failed = run.status === "completed" && run.conclusion !== "success";
+      components.push({
+        component: "runner_workflow",
+        state: failed ? "fail" : "ok",
+        detail: failed
+          ? `Last runner run finished ${run.conclusion} at ${run.created_at.slice(0, 16).replace("T", " ")} UTC — open ${run.html_url} for the reason (a missing Actions secret is reported there).`
+          : `Last runner run ${run.conclusion ?? run.status} at ${run.created_at.slice(0, 16).replace("T", " ")} UTC.`,
+      });
+    }
 
     if (!settings?.deploy_workflow || !settings.deployment_enabled) {
       deploymentReason = settings?.deploy_workflow

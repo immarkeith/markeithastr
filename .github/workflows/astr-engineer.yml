@@ -19,6 +19,9 @@ on:
 
 permissions:
   contents: write
+  # Publish the verification verdict as a check run on the verified commit —
+  # that is what the app's approval gate re-reads before merging.
+  checks: write
 
 concurrency:
   group: astr-engineer-worker
@@ -34,12 +37,33 @@ jobs:
       task_id: ${{ steps.runner.outputs.task_id }}
       branch: ${{ steps.runner.outputs.branch }}
       sha: ${{ steps.runner.outputs.sha }}
+      base_sha: ${{ steps.runner.outputs.base_sha }}
     steps:
+      # Fail with the exact names instead of a bare "Input required and not
+      # supplied: token" from actions/checkout.
+      - name: Preflight — required Actions secrets
+        env:
+          SUPABASE_URL_SET: ${{ secrets.SUPABASE_URL != '' }}
+          SUPABASE_SERVICE_ROLE_KEY_SET: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+          ENGINEER_LLM_API_KEY_SET: ${{ secrets.ENGINEER_LLM_API_KEY != '' }}
+        run: |
+          missing=""
+          [ "$SUPABASE_URL_SET" = "true" ] || missing="$missing SUPABASE_URL"
+          [ "$SUPABASE_SERVICE_ROLE_KEY_SET" = "true" ] || missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          [ "$ENGINEER_LLM_API_KEY_SET" = "true" ] || missing="$ENGINEER_LLM_API_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository Actions secrets:$missing. Add them in Settings → Secrets and variables → Actions (docs/phase-k-deployment.md §2)."
+            exit 1
+          fi
+          echo "All required Actions secrets are present."
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_ENGINEER_TOKEN }}
+          # The Actions token can push engineer/* branches because this job asks
+          # for contents: write. GITHUB_ENGINEER_TOKEN stays optional.
+          token: ${{ secrets.GITHUB_ENGINEER_TOKEN || github.token }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -55,7 +79,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ENGINEER_LLM_API_KEY: ${{ secrets.ENGINEER_LLM_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_ENGINEER_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_ENGINEER_TOKEN || github.token }}
         run: bun run scripts/engineer-runner.ts
 
   independent-verify:
@@ -71,7 +95,7 @@ jobs:
         with:
           ref: ${{ needs.run-task.outputs.sha }}
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_ENGINEER_TOKEN }}
+          token: ${{ secrets.GITHUB_ENGINEER_TOKEN || github.token }}
 
       - name: Assert exact commit
         run: |
@@ -93,10 +117,31 @@ jobs:
         continue-on-error: true
         run: bunx tsc --noEmit
 
+      # The repository carries thousands of pre-existing lint errors, so only
+      # NEW errors may fail a task: count them at the task's base commit, then
+      # at the verified commit, on this same machine and toolchain.
+      - name: Lint errors at base commit
+        id: lint_base
+        continue-on-error: true
+        run: |
+          set -e
+          git checkout -q "${{ needs.run-task.outputs.base_sha }}"
+          COUNT=$(bun run scripts/engineer-lint-count.ts)
+          git checkout -q "${{ needs.run-task.outputs.sha }}"
+          echo "errors=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "base commit has $COUNT lint error(s)"
+
       - name: Lint
         id: lint
         continue-on-error: true
-        run: bun run lint
+        run: |
+          COUNT=$(bun run scripts/engineer-lint-count.ts)
+          BASE="${{ steps.lint_base.outputs.errors }}"
+          echo "errors=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "verified commit has $COUNT lint error(s), base had ${BASE:-0}"
+          # No baseline means the base commit could not be measured — do not
+          # pretend the gate passed.
+          test -n "$BASE" && test "$COUNT" -le "$BASE"
 
       - name: Production build
         id: build
@@ -113,8 +158,10 @@ jobs:
           TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
           LINT_OUTCOME: ${{ steps.lint.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: bun run scripts/engineer-verify.ts
 
       - name: Fail the job when verification failed
-        if: steps.lint.outcome == 'failure' || steps.build.outcome == 'failure'
+        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure' || steps.build.outcome == 'failure'
         run: exit 1
