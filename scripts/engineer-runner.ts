@@ -84,6 +84,10 @@ function lintErrorCount(output: string): number {
   return output.split("\n").filter((line) => /^\s+\d+:\d+\s+error\s/.test(line)).length;
 }
 
+function typeErrorCount(output: string): number {
+  return output.split("\n").filter((line) => /\berror TS\d+/.test(line)).length;
+}
+
 function run(command: string, timeout = 480_000): { ok: boolean; output: string } {
   try {
     const output = execSync(command, {
@@ -287,6 +291,13 @@ try {
       `Lint baseline on the untouched tree: ${lintBaseline} pre-existing error(s).`,
     );
   }
+  // Same rule for the type checker: the build does not run it, so without this
+  // a change can compile and still ship broken types.
+  const typecheckBaseline = typeErrorCount(run("bunx tsc --noEmit", 300_000).output);
+  await log(
+    "inspecting",
+    `Typecheck baseline on the untouched tree: ${typecheckBaseline} pre-existing error(s).`,
+  );
 
   await log("inspecting", `Context files: ${candidates.join(", ") || "none matched"}.`);
 
@@ -431,6 +442,16 @@ try {
     } else {
       results.push({ name: "lint", status: "skipped", detail: "no lint script" });
     }
+    const typecheck = run("bunx tsc --noEmit", 600_000);
+    const typeErrors = typeErrorCount(typecheck.output);
+    results.push({
+      name: "typecheck",
+      status: typeErrors > typecheckBaseline ? "fail" : "pass",
+      detail:
+        typeErrors > typecheckBaseline
+          ? `${typeErrors} type error(s), up from a baseline of ${typecheckBaseline}. ${typecheck.output.slice(-1500)}`
+          : `${typeErrors} type error(s), baseline ${typecheckBaseline} — no new errors.`,
+    });
     if (available["build"]) {
       const build = run("bun run build", 600_000);
       results.push({
@@ -535,6 +556,7 @@ try {
 
   const buildPassed =
     checks.every((check) => check.status !== "fail") &&
+    checks.some((check) => check.name === "typecheck" && check.status === "pass") &&
     checks.some((check) => check.name === "build" && check.status === "pass");
   const costEstimate = estimateCostUsd(tokensUsed, provider.price_per_million_tokens);
 
@@ -609,7 +631,7 @@ try {
     ARTIFACT_PATH,
     JSON.stringify({ task_id: task.id, branch, sha, status: "pushed" }, null, 2),
   );
-  writeOutputs({ status: "pushed", task_id: task.id, branch, sha });
+  writeOutputs({ status: "pushed", task_id: task.id, branch, sha, base_sha: baseSha });
   console.log(`ENGINEER_RESULT=${ARTIFACT_PATH}`);
   clearInterval(heartbeat);
 } catch (error) {

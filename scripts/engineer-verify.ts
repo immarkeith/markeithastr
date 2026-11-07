@@ -54,7 +54,7 @@ if (BRANCH && task.branch_name && BRANCH !== task.branch_name) {
   exit(`branch mismatch (expected ${task.branch_name}, got ${BRANCH}) — not recorded.`, 0);
 }
 
-const passed = LINT !== "failure" && BUILD === "success";
+const passed = LINT !== "failure" && TYPE !== "failure" && BUILD === "success";
 
 const checks = [
   {

@@ -205,6 +205,45 @@ export async function mergeVerifiedSha(input: {
   return { ok: true, sha: merged.data?.sha ?? input.sha };
 }
 
+export interface WorkflowRunInfo {
+  status: string;
+  conclusion: string | null;
+  html_url: string;
+  created_at: string;
+}
+
+/**
+ * Most recent run of one workflow. The runner only reports through this
+ * workflow, so a run that never started (missing Actions secrets, for example)
+ * otherwise leaves tasks queued with no explanation anywhere in the app.
+ */
+export async function getLatestWorkflowRun(
+  workflow: string,
+): Promise<GhResult<WorkflowRunInfo | null>> {
+  const config = githubConfig();
+  if (!config) return { ok: false, error: "GitHub access is not configured." };
+  const result = await gh<{
+    workflow_runs?: {
+      status?: string;
+      conclusion?: string | null;
+      html_url?: string;
+      created_at?: string;
+    }[];
+  }>(`/repos/${config.repo}/actions/workflows/${encodeURIComponent(workflow)}/runs?per_page=1`);
+  if (!result.ok) return { ok: false, ...(result.error ? { error: result.error } : {}) };
+  const run = result.data?.workflow_runs?.[0];
+  if (!run) return { ok: true, data: null };
+  return {
+    ok: true,
+    data: {
+      status: run.status ?? "unknown",
+      conclusion: run.conclusion ?? null,
+      html_url: run.html_url ?? "",
+      created_at: run.created_at ?? "",
+    },
+  };
+}
+
 export async function getWorkflowFile(workflow: string): Promise<GhResult<boolean>> {
   const config = githubConfig();
   if (!config) return { ok: false, error: "GitHub access is not configured." };

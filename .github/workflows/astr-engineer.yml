@@ -34,6 +34,7 @@ jobs:
       task_id: ${{ steps.runner.outputs.task_id }}
       branch: ${{ steps.runner.outputs.branch }}
       sha: ${{ steps.runner.outputs.sha }}
+      base_sha: ${{ steps.runner.outputs.base_sha }}
     steps:
       # Fail with the exact names instead of a bare "Input required and not
       # supplied: token" from actions/checkout.
@@ -113,10 +114,29 @@ jobs:
         continue-on-error: true
         run: bunx tsc --noEmit
 
+      # The repository carries thousands of pre-existing lint errors, so only
+      # NEW errors may fail a task: count them at the task's base commit, then
+      # at the verified commit, on this same machine and toolchain.
+      - name: Lint errors at base commit
+        id: lint_base
+        continue-on-error: true
+        run: |
+          set -e
+          git checkout -q "${{ needs.run-task.outputs.base_sha }}"
+          COUNT=$(bun run scripts/engineer-lint-count.ts)
+          git checkout -q "${{ needs.run-task.outputs.sha }}"
+          echo "errors=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "base commit has $COUNT lint error(s)"
+
       - name: Lint
         id: lint
         continue-on-error: true
-        run: bun run lint
+        run: |
+          COUNT=$(bun run scripts/engineer-lint-count.ts)
+          BASE="${{ steps.lint_base.outputs.errors }}"
+          echo "errors=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "verified commit has $COUNT lint error(s), base had ${BASE:-0}"
+          test -z "$BASE" || test "$COUNT" -le "$BASE"
 
       - name: Production build
         id: build
@@ -136,5 +156,5 @@ jobs:
         run: bun run scripts/engineer-verify.ts
 
       - name: Fail the job when verification failed
-        if: steps.lint.outcome == 'failure' || steps.build.outcome == 'failure'
+        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure' || steps.build.outcome == 'failure'
         run: exit 1
