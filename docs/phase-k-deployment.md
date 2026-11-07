@@ -91,9 +91,14 @@ simply not passed to the job.
 | Secret | Required by | Scope / value |
 | --- | --- | --- |
 | `ENGINEER_LLM_API_KEY` | runner + verifier | Key for your OpenAI-compatible provider. Sent as `Authorization: Bearer`. Not a GitHub credential. |
-| `GITHUB_ENGINEER_TOKEN` | runner + verifier (checkout, push) | Fine-grained PAT, limited to the one repository: **Contents: Read and write** (push `engineer/*` branches), **Pull requests: Read and write**, **Actions: Read** (check-run status), **Metadata: Read** (always on). Add **Actions: Write** only if you want the app to dispatch the deploy workflow. No admin rights, no org-wide scope. |
+| `GITHUB_ENGINEER_TOKEN` | *optional* | Not needed by the workflow any more: checkout, push and the verification check run use GitHub's built-in `GITHUB_TOKEN`. Add it only if your branch protection requires a different identity. The app-side copy of this PAT is still what merges, reads check runs and dispatches deployment; scope: **Contents: Read and write**, **Pull requests: Read and write**, **Checks: Read**, **Actions: Read**, **Metadata: Read** (always on), plus **Actions: Write** for deploy dispatch. |
 | `SUPABASE_URL` | runner + verifier | Database REST endpoint, e.g. `https://<project-ref>.supabase.co`. |
 | `SUPABASE_SERVICE_ROLE_KEY` | runner + verifier | Server credential that may call the lease RPCs. Use a secret, never a publishable key. |
+
+Three secrets are mandatory (`ENGINEER_LLM_API_KEY`, `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`). The first workflow step checks them and fails with
+their names in the error if any is missing — without it the job dies inside
+`actions/checkout` with an opaque `Input required and not supplied: token`.
 
 Deliberately **not** present: `ALPACA_LIVE_KEY_ID` / `ALPACA_LIVE_SECRET_KEY`.
 `scripts/engineer-runner.ts` and `engineer-verify.ts` abort if either appears in
@@ -173,7 +178,11 @@ idempotency.
 1. The runner pushes `engineer/<slug>-<taskid8>` and never merges.
 2. `independent-verify` checks out the **exact commit SHA**, asserts
    `git rev-parse HEAD` equals it, re-runs typecheck/lint/build and records the
-   result against that SHA.
+   result against that SHA. Lint is baseline-aware (errors counted at the task's
+   base commit are allowed; only new ones fail) and ignores `prettier/prettier`
+   style findings, which the repository already carries by the thousand. The
+   verdict is published as the `engineer/independent-verify` check run **on that
+   commit** — the check run the approval gate re-reads before merging.
 3. Approving in `/engineer` re-reads check-runs for that SHA and refuses if the
    branch tip has moved — fail closed, never "close enough".
 4. Only then does the app merge that commit and, if `deployment_enabled` and
