@@ -139,7 +139,9 @@ jobs:
           BASE="${{ steps.lint_base.outputs.errors }}"
           echo "errors=$COUNT" >> "$GITHUB_OUTPUT"
           echo "verified commit has $COUNT lint error(s), base had ${BASE:-0}"
-          test -z "$BASE" || test "$COUNT" -le "$BASE"
+          # No baseline means the base commit could not be measured — do not
+          # pretend the gate passed.
+          test -n "$BASE" && test "$COUNT" -le "$BASE"
 
       - name: Production build
         id: build

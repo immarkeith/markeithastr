@@ -6,10 +6,21 @@
  * pre-existing style errors never fails an engineer task. The job counts errors
  * at the task's base commit and at the verified commit and fails only when the
  * number grew — the same rule the runner applies, measured independently.
+ *
+ * The counting lives here rather than in `src/lib/engineer/lint.ts` because this
+ * script also runs at the task's BASE commit, where that shared module may not
+ * exist yet.
  */
 import { execSync } from "node:child_process";
 
-import { lintErrorCount } from "../src/lib/engineer/lint";
+function lintErrorCount(output: string): number {
+  const details = output.split("\n").filter((line) => /^\s+\d+:\d+\s+error\s/.test(line));
+  if (details.length > 0) {
+    return details.filter((line) => !/prettier\/prettier\s*$/.test(line)).length;
+  }
+  const summary = /(\d+)\s+problems?\s+\(([0-9]+)\s+errors?/.exec(output);
+  return summary?.[2] ? Number(summary[2]) : 0;
+}
 
 try {
   const output = execSync("bun run lint", {
