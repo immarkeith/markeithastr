@@ -40,6 +40,19 @@
   populated. `migration/fresh/*.sql` is the manual rebuild path for a
   brand-new project, and `drizzle/` is unused at runtime
   (`LOVABLE_DB_MIGRATION_URL` is only for `drizzle-kit`).
+- Verified on 2026-11-04 against `kkwgbjovbcbzsvbhcyhq`: every schema
+  migration is already applied — `drizzle/0000`–`0007` (trades/paper_slots
+  columns, `research_horizon_predictions`, `researcher_examples`/
+  `researcher_beliefs`, `market_events`, `bar_dates_present_since`) and
+  `migration/fresh/11`–`17` (the six `engineer_*` tables plus the three lease
+  RPCs, `audit_repair_log`, `audit_integrity_results`). Checked by comparing
+  the live PostgREST schema with the migration files and with every table name
+  the code uses; both files were also re-run twice on throwaway `postgres:16`
+  instances (with and without `anon`/`authenticated`/`service_role`) and stay
+  idempotent. The `cron` schedules in `14`, `15` and the tail of `16` are the
+  only parts that still need a real app host — they cannot be pointed at an
+  unpublished preview. `public.hook_tokens` row `id = 1` exists, so they will
+  work once a host is set.
 - Quick checks: `curl -s -o /dev/null -w '%{http_code}' localhost:3000/unlock`
   (200 = SSR alive) and `docker compose -f docker-compose.base44.yml ps`
   (healthcheck renders `/unlock`). Then confirm the dashboard shows real
@@ -167,7 +180,11 @@ verified commit. Nothing reaches the target branch without that approval.
    Portable: PostgreSQL 13+ only, no extension, and the `anon` /
    `authenticated` / `service_role` grants apply only when those roles already
    exist — on plain PostgreSQL grant `EXECUTE` on the three RPCs to your own app
-   role instead. Full deployment reference: `docs/phase-k-deployment.md`.
+   role instead (the file revokes the default `PUBLIC` grant, so that step is
+   required, not optional). Full deployment reference: `docs/phase-k-deployment.md`.
+   The project this sandbox talks to still holds the old copy: until the file is
+   re-run there, an anon/publishable-key client can call `heartbeat_engineer_task`
+   (verified — it answers `200 false`) and therefore the other two RPCs as well.
 2. Set the app secrets `GITHUB_ENGINEER_TOKEN`, `GITHUB_ENGINEER_REPO`
    (`owner/repo`) and `ENGINEER_LLM_API_KEY`. Without GitHub access, tasks queue
    but cannot run and nothing can merge — the UI says so instead of pretending.
