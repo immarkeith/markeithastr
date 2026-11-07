@@ -1,5 +1,6 @@
 /**
- * Prints the ESLint error count of the current working tree as a single integer.
+ * Prints the ESLint error count of the current working tree as a single integer
+ * (style-only `prettier/prettier` findings excluded).
  *
  * Used by the `independent-verify` job so the repository's large pile of
  * pre-existing style errors never fails an engineer task. The job counts errors
@@ -8,11 +9,7 @@
  */
 import { execSync } from "node:child_process";
 
-function count(output: string): number {
-  const summary = /(\d+)\s+problems?\s+\(([0-9]+)\s+errors?/.exec(output);
-  if (summary?.[2]) return Number(summary[2]);
-  return output.split("\n").filter((line) => /^\s+\d+:\d+\s+error\s/.test(line)).length;
-}
+import { lintErrorCount } from "../src/lib/engineer/lint";
 
 try {
   const output = execSync("bun run lint", {
@@ -20,8 +17,8 @@ try {
     stdio: ["ignore", "pipe", "pipe"],
     timeout: 600_000,
   });
-  console.log(count(output));
+  console.log(lintErrorCount(output));
 } catch (error) {
   const failure = error as { stdout?: string };
-  console.log(count(failure.stdout ?? ""));
+  console.log(lintErrorCount(failure.stdout ?? ""));
 }
