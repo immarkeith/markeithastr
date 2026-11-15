@@ -193,3 +193,10 @@
 - [ ] **Empirical Holding Horizon Calibration**: Determine the specific holding horizon (1 to 21 trading days) that maximizes risk-adjusted expectancy for that specific ticker.
 - [ ] **Out-of-Sample Validation**: Require candidate models to clear at least 10 historical test trades across two unseen market regimes with positive net expectancy after 0.1% modeled costs.
 - [ ] **Analyze Desk Integration**: Surface validated stock-specific BYOB findings on the Analyze tab alongside standard specialists without altering live execution rules.
+
+## Phase K finish (2026-11-15)
+- [x] Engineer storage installed, task queue locked to server only (verified 401 for public key)
+- [x] App keys: GitHub token, repo, AI key saved and verified
+- [x] Free AI model set in Engineer settings
+- [ ] GitHub Actions secrets (ENGINEER_LLM_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) — waits on user
+- [ ] Pilot Level 1 task + safety drills — waits on Actions secrets
