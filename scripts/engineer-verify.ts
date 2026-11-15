@@ -6,7 +6,7 @@
  * is still the task's proposed commit, so a branch that moved after verification
  * can never be approved.
  */
-import { createClient } from "@supabase/supabase-js";
+import { createEngineerDb } from "./engineer-db";
 
 const TASK_ID = process.env["TASK_ID"] ?? "";
 const SHA = process.env["SHA"] ?? "";
@@ -23,17 +23,15 @@ function exit(message: string, code = 0): never {
   process.exit(code);
 }
 
-if (!SUPABASE_URL || !SUPABASE_KEY)
-  exit("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing — nothing recorded.", 1);
+if (!(SUPABASE_URL && SUPABASE_KEY) && !process.env["ENGINEER_BRIDGE_SECRET"])
+  exit("no database access configured (bridge or direct) — nothing recorded.", 1);
 if (!TASK_ID || !SHA) exit("TASK_ID / SHA missing — nothing recorded.", 1);
 
 if (process.env["ALPACA_LIVE_KEY_ID"] || process.env["ALPACA_LIVE_SECRET_KEY"]) {
   exit("credential isolation violated: live trading keys are present in the verification job.", 1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const supabase = createEngineerDb();
 
 const { data: task, error } = await supabase
   .from("engineer_tasks")

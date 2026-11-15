@@ -43,14 +43,13 @@ jobs:
       # supplied: token" from actions/checkout.
       - name: Preflight — required Actions secrets
         env:
-          SUPABASE_URL_SET: ${{ secrets.SUPABASE_URL != '' }}
-          SUPABASE_SERVICE_ROLE_KEY_SET: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+          DIRECT_DB_SET: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+          BRIDGE_SET: ${{ secrets.ENGINEER_BRIDGE_URL != '' && secrets.ENGINEER_BRIDGE_SECRET != '' }}
           ENGINEER_LLM_API_KEY_SET: ${{ secrets.ENGINEER_LLM_API_KEY != '' }}
         run: |
           missing=""
-          [ "$SUPABASE_URL_SET" = "true" ] || missing="$missing SUPABASE_URL"
-          [ "$SUPABASE_SERVICE_ROLE_KEY_SET" = "true" ] || missing="$missing SUPABASE_SERVICE_ROLE_KEY"
-          [ "$ENGINEER_LLM_API_KEY_SET" = "true" ] || missing="$ENGINEER_LLM_API_KEY"
+          [ "$BRIDGE_SET" = "true" ] || [ "$DIRECT_DB_SET" = "true" ] || missing="$missing ENGINEER_BRIDGE_URL+ENGINEER_BRIDGE_SECRET"
+          [ "$ENGINEER_LLM_API_KEY_SET" = "true" ] || missing="$missing ENGINEER_LLM_API_KEY"
           if [ -n "$missing" ]; then
             echo "::error::Missing repository Actions secrets:$missing. Add them in Settings → Secrets and variables → Actions (docs/phase-k-deployment.md §2)."
             exit 1
@@ -78,6 +77,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ENGINEER_BRIDGE_URL: ${{ secrets.ENGINEER_BRIDGE_URL }}
+          ENGINEER_BRIDGE_SECRET: ${{ secrets.ENGINEER_BRIDGE_SECRET }}
           ENGINEER_LLM_API_KEY: ${{ secrets.ENGINEER_LLM_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_ENGINEER_TOKEN || github.token }}
         run: bun run scripts/engineer-runner.ts
@@ -152,6 +153,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ENGINEER_BRIDGE_URL: ${{ secrets.ENGINEER_BRIDGE_URL }}
+          ENGINEER_BRIDGE_SECRET: ${{ secrets.ENGINEER_BRIDGE_SECRET }}
           TASK_ID: ${{ needs.run-task.outputs.task_id }}
           SHA: ${{ needs.run-task.outputs.sha }}
           BRANCH: ${{ needs.run-task.outputs.branch }}

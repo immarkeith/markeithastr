@@ -27,6 +27,7 @@ import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as EngineerIndexRouteImport } from './routes/engineer.index'
 import { Route as EngineerRecoveryRouteImport } from './routes/engineer.recovery'
+import { Route as ApiPublicEngineerBridgeRouteImport } from './routes/api/public/engineer-bridge'
 import { Route as ApiPublicHooksDailyCycleRouteImport } from './routes/api/public/hooks/daily-cycle'
 import { Route as ApiPublicHooksDeepenHistoryRouteImport } from './routes/api/public/hooks/deepen-history'
 import { Route as ApiPublicHooksDiscoverRouteImport } from './routes/api/public/hooks/discover'
@@ -128,6 +129,11 @@ const EngineerRecoveryRoute = EngineerRecoveryRouteImport.update({
   path: '/recovery',
   getParentRoute: () => EngineerRoute,
 } as any)
+const ApiPublicEngineerBridgeRoute = ApiPublicEngineerBridgeRouteImport.update({
+  id: '/api/public/engineer-bridge',
+  path: '/api/public/engineer-bridge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksDailyCycleRoute =
   ApiPublicHooksDailyCycleRouteImport.update({
     id: '/api/public/hooks/daily-cycle',
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof WatchlistRoute
   '/engineer/recovery': typeof EngineerRecoveryRoute
   '/engineer/': typeof EngineerIndexRoute
+  '/api/public/engineer-bridge': typeof ApiPublicEngineerBridgeRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/watchlist': typeof WatchlistRoute
   '/engineer/recovery': typeof EngineerRecoveryRoute
   '/engineer': typeof EngineerIndexRoute
+  '/api/public/engineer-bridge': typeof ApiPublicEngineerBridgeRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
@@ -261,6 +269,7 @@ export interface FileRoutesById {
   '/watchlist': typeof WatchlistRoute
   '/engineer/recovery': typeof EngineerRecoveryRoute
   '/engineer/': typeof EngineerIndexRoute
+  '/api/public/engineer-bridge': typeof ApiPublicEngineerBridgeRoute
   '/api/public/hooks/daily-cycle': typeof ApiPublicHooksDailyCycleRoute
   '/api/public/hooks/deepen-history': typeof ApiPublicHooksDeepenHistoryRoute
   '/api/public/hooks/discover': typeof ApiPublicHooksDiscoverRoute
@@ -293,6 +302,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/engineer/recovery'
     | '/engineer/'
+    | '/api/public/engineer-bridge'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
     | '/api/public/hooks/discover'
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/engineer/recovery'
     | '/engineer'
+    | '/api/public/engineer-bridge'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
     | '/api/public/hooks/discover'
@@ -352,6 +363,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/engineer/recovery'
     | '/engineer/'
+    | '/api/public/engineer-bridge'
     | '/api/public/hooks/daily-cycle'
     | '/api/public/hooks/deepen-history'
     | '/api/public/hooks/discover'
@@ -381,6 +393,7 @@ export interface RootRouteChildren {
   UnlockRoute: typeof UnlockRoute
   VerificationRoute: typeof VerificationRoute
   WatchlistRoute: typeof WatchlistRoute
+  ApiPublicEngineerBridgeRoute: typeof ApiPublicEngineerBridgeRoute
   ApiPublicHooksDailyCycleRoute: typeof ApiPublicHooksDailyCycleRoute
   ApiPublicHooksDeepenHistoryRoute: typeof ApiPublicHooksDeepenHistoryRoute
   ApiPublicHooksDiscoverRoute: typeof ApiPublicHooksDiscoverRoute
@@ -521,6 +534,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngineerRecoveryRouteImport
       parentRoute: typeof EngineerRoute
     }
+    '/api/public/engineer-bridge': {
+      id: '/api/public/engineer-bridge'
+      path: '/api/public/engineer-bridge'
+      fullPath: '/api/public/engineer-bridge'
+      preLoaderRoute: typeof ApiPublicEngineerBridgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/daily-cycle': {
       id: '/api/public/hooks/daily-cycle'
       path: '/api/public/hooks/daily-cycle'
@@ -625,6 +645,7 @@ const rootRouteChildren: RootRouteChildren = {
   UnlockRoute: UnlockRoute,
   VerificationRoute: VerificationRoute,
   WatchlistRoute: WatchlistRoute,
+  ApiPublicEngineerBridgeRoute: ApiPublicEngineerBridgeRoute,
   ApiPublicHooksDailyCycleRoute: ApiPublicHooksDailyCycleRoute,
   ApiPublicHooksDeepenHistoryRoute: ApiPublicHooksDeepenHistoryRoute,
   ApiPublicHooksDiscoverRoute: ApiPublicHooksDiscoverRoute,

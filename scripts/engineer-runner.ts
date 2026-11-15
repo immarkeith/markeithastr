@@ -19,7 +19,7 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdtempSync } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createClient } from "@supabase/supabase-js";
+import { createEngineerDb } from "./engineer-db";
 
 import {
   scanChangedPaths,
@@ -111,11 +111,10 @@ for (const name of FORBIDDEN_ENV) {
 const SUPABASE_URL = process.env["SUPABASE_URL"];
 const SUPABASE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 const RUNNER_ID = `gha-${process.env["GITHUB_RUN_ID"] ?? Date.now()}`;
-if (!SUPABASE_URL || !SUPABASE_KEY) fail("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are required.");
+if (!(SUPABASE_URL && SUPABASE_KEY) && !process.env["ENGINEER_BRIDGE_SECRET"])
+  fail("ENGINEER_BRIDGE_URL + ENGINEER_BRIDGE_SECRET (or SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY) are required.");
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const supabase = createEngineerDb();
 
 let currentTaskId: string | null = null;
 
