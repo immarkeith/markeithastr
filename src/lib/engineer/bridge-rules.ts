@@ -60,7 +60,8 @@ export function checkBridgeRequest(req: BridgeRequest): string | null {
       return BRIDGE_INSERT_TABLES.includes(req.table) ? null : `insert into ${req.table} not allowed`;
     case "update": {
       if (!BRIDGE_UPDATE_TABLES.includes(req.table)) return `update of ${req.table} not allowed`;
-      const byId = req.filters.length === 1 && req.filters[0][0] === "id" && req.filters[0][1] === "eq";
+      const f0 = req.filters[0];
+      const byId = req.filters.length === 1 && f0?.[0] === "id" && f0?.[1] === "eq";
       if (!byId) return "updates must target one task by id";
       const cols = Object.keys(req.values);
       if (cols.some((c) => !IDENT.test(c))) return "invalid column";
