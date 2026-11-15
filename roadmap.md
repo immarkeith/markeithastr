@@ -199,6 +199,6 @@
 - [x] App keys: GitHub token, repo, AI key saved and verified
 - [x] Free AI model set in Engineer settings
 - [x] Secure bridge so GitHub needs no database key (tested: allowed calls work, trades/approvals refused)
-- [ ] Publish app so the bridge is live — waits on user
+- [x] Published; bridge live and answering on the real site
 - [ ] GitHub Actions secrets ENGINEER_LLM_API_KEY, ENGINEER_BRIDGE_SECRET, ENGINEER_BRIDGE_URL — waits on user
 - [ ] Pilot Level 1 task + safety drills — waits on Actions secrets
