@@ -305,3 +305,4 @@ container's keys are unset for the run.
   skip scheduling with a NOTICE). Run both files twice — they are idempotent.
   Then exercise the lease with the smoke test in `docs/phase-k-deployment.md`.
 
+- The GitHub Engineer runner reaches the database only through `/api/public/engineer-bridge` (shared `ENGINEER_BRIDGE_SECRET`, allowlist in `src/lib/engineer/bridge-rules.ts`) unless a direct DB key is supplied — Lovable Cloud never exposes a service key, and the allowlist keeps approvals and trading tables out of the runner's reach.
