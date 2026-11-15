@@ -341,6 +341,337 @@ export type Database = {
         }
         Relationships: []
       }
+      engineer_change_log: {
+        Row: {
+          after_sha: string | null
+          before_sha: string | null
+          checkpoint_id: string | null
+          created_at: string
+          file_path: string
+          id: string
+          note: string | null
+          operation: string
+          task_id: string | null
+        }
+        Insert: {
+          after_sha?: string | null
+          before_sha?: string | null
+          checkpoint_id?: string | null
+          created_at?: string
+          file_path: string
+          id?: string
+          note?: string | null
+          operation: string
+          task_id?: string | null
+        }
+        Update: {
+          after_sha?: string | null
+          before_sha?: string | null
+          checkpoint_id?: string | null
+          created_at?: string
+          file_path?: string
+          id?: string
+          note?: string | null
+          operation?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engineer_change_log_checkpoint_id_fkey"
+            columns: ["checkpoint_id"]
+            isOneToOne: false
+            referencedRelation: "engineer_checkpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engineer_checkpoints: {
+        Row: {
+          created_at: string
+          files_affected: string[]
+          git_sha: string
+          git_tag: string
+          id: string
+          summary: string
+          task_id: string | null
+          trigger: string
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          files_affected?: string[]
+          git_sha: string
+          git_tag: string
+          id?: string
+          summary: string
+          task_id?: string | null
+          trigger?: string
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          files_affected?: string[]
+          git_sha?: string
+          git_tag?: string
+          id?: string
+          summary?: string
+          task_id?: string | null
+          trigger?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
+      engineer_health_events: {
+        Row: {
+          checked_at: string
+          component: string
+          detail: string | null
+          id: string
+          repair_note: string | null
+          repaired: boolean
+          state: string
+        }
+        Insert: {
+          checked_at?: string
+          component: string
+          detail?: string | null
+          id?: string
+          repair_note?: string | null
+          repaired?: boolean
+          state: string
+        }
+        Update: {
+          checked_at?: string
+          component?: string
+          detail?: string | null
+          id?: string
+          repair_note?: string | null
+          repaired?: boolean
+          state?: string
+        }
+        Relationships: []
+      }
+      engineer_logs: {
+        Row: {
+          created_at: string
+          id: string
+          level: string
+          log_text: string
+          step_name: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: string
+          log_text: string
+          step_name: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string
+          log_text?: string
+          step_name?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engineer_logs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "engineer_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engineer_settings: {
+        Row: {
+          deploy_workflow: string | null
+          deployment_enabled: boolean
+          id: number
+          llm_base_url: string | null
+          llm_model: string | null
+          llm_monthly_budget_usd: number
+          llm_price_per_million_tokens: number
+          target_branch: string
+          updated_at: string
+        }
+        Insert: {
+          deploy_workflow?: string | null
+          deployment_enabled?: boolean
+          id?: number
+          llm_base_url?: string | null
+          llm_model?: string | null
+          llm_monthly_budget_usd?: number
+          llm_price_per_million_tokens?: number
+          target_branch?: string
+          updated_at?: string
+        }
+        Update: {
+          deploy_workflow?: string | null
+          deployment_enabled?: boolean
+          id?: number
+          llm_base_url?: string | null
+          llm_model?: string | null
+          llm_monthly_budget_usd?: number
+          llm_price_per_million_tokens?: number
+          target_branch?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      engineer_tasks: {
+        Row: {
+          actions_minutes: number | null
+          approved_at: string | null
+          approved_by: string | null
+          archived: boolean
+          base_sha: string | null
+          branch_name: string | null
+          build_passed: boolean
+          checkpoint_id: string | null
+          classification: string | null
+          classification_label: string | null
+          commit_sha: string | null
+          completed_at: string | null
+          complexity: number | null
+          cost_actual_usd: number | null
+          cost_estimate_usd: number
+          created_at: string
+          created_by: string | null
+          deployment_note: string | null
+          deployment_status: string
+          diagnosis: Json | null
+          diff_content: string | null
+          diff_stats: Json | null
+          duration_seconds: number | null
+          expected_files: string[] | null
+          files_modified: string[] | null
+          firewall: Json | null
+          has_migration: boolean
+          heartbeat_at: string | null
+          id: string
+          locked_at: string | null
+          locked_by: string | null
+          migration_approved: boolean
+          migration_sql: string | null
+          plan_summary: string | null
+          prompt: string
+          retry_count: number
+          revision_feedback: string | null
+          risk_notes: string | null
+          runner_id: string | null
+          scope: Json | null
+          scope_violations: Json | null
+          status: string
+          tests_planned: string[] | null
+          tokens_used: number
+          updated_at: string
+          verification: Json | null
+          verified_sha: string | null
+        }
+        Insert: {
+          actions_minutes?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archived?: boolean
+          base_sha?: string | null
+          branch_name?: string | null
+          build_passed?: boolean
+          checkpoint_id?: string | null
+          classification?: string | null
+          classification_label?: string | null
+          commit_sha?: string | null
+          completed_at?: string | null
+          complexity?: number | null
+          cost_actual_usd?: number | null
+          cost_estimate_usd?: number
+          created_at?: string
+          created_by?: string | null
+          deployment_note?: string | null
+          deployment_status?: string
+          diagnosis?: Json | null
+          diff_content?: string | null
+          diff_stats?: Json | null
+          duration_seconds?: number | null
+          expected_files?: string[] | null
+          files_modified?: string[] | null
+          firewall?: Json | null
+          has_migration?: boolean
+          heartbeat_at?: string | null
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          migration_approved?: boolean
+          migration_sql?: string | null
+          plan_summary?: string | null
+          prompt: string
+          retry_count?: number
+          revision_feedback?: string | null
+          risk_notes?: string | null
+          runner_id?: string | null
+          scope?: Json | null
+          scope_violations?: Json | null
+          status?: string
+          tests_planned?: string[] | null
+          tokens_used?: number
+          updated_at?: string
+          verification?: Json | null
+          verified_sha?: string | null
+        }
+        Update: {
+          actions_minutes?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archived?: boolean
+          base_sha?: string | null
+          branch_name?: string | null
+          build_passed?: boolean
+          checkpoint_id?: string | null
+          classification?: string | null
+          classification_label?: string | null
+          commit_sha?: string | null
+          completed_at?: string | null
+          complexity?: number | null
+          cost_actual_usd?: number | null
+          cost_estimate_usd?: number
+          created_at?: string
+          created_by?: string | null
+          deployment_note?: string | null
+          deployment_status?: string
+          diagnosis?: Json | null
+          diff_content?: string | null
+          diff_stats?: Json | null
+          duration_seconds?: number | null
+          expected_files?: string[] | null
+          files_modified?: string[] | null
+          firewall?: Json | null
+          has_migration?: boolean
+          heartbeat_at?: string | null
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          migration_approved?: boolean
+          migration_sql?: string | null
+          plan_summary?: string | null
+          prompt?: string
+          retry_count?: number
+          revision_feedback?: string | null
+          risk_notes?: string | null
+          runner_id?: string | null
+          scope?: Json | null
+          scope_violations?: Json | null
+          status?: string
+          tests_planned?: string[] | null
+          tokens_used?: number
+          updated_at?: string
+          verification?: Json | null
+          verified_sha?: string | null
+        }
+        Relationships: []
+      }
       health_checks: {
         Row: {
           checked_at: string
@@ -1837,6 +2168,68 @@ export type Database = {
           ticker_count: number
         }[]
       }
+      claim_next_engineer_task: {
+        Args: { p_runner_id: string }
+        Returns: {
+          actions_minutes: number | null
+          approved_at: string | null
+          approved_by: string | null
+          archived: boolean
+          base_sha: string | null
+          branch_name: string | null
+          build_passed: boolean
+          checkpoint_id: string | null
+          classification: string | null
+          classification_label: string | null
+          commit_sha: string | null
+          completed_at: string | null
+          complexity: number | null
+          cost_actual_usd: number | null
+          cost_estimate_usd: number
+          created_at: string
+          created_by: string | null
+          deployment_note: string | null
+          deployment_status: string
+          diagnosis: Json | null
+          diff_content: string | null
+          diff_stats: Json | null
+          duration_seconds: number | null
+          expected_files: string[] | null
+          files_modified: string[] | null
+          firewall: Json | null
+          has_migration: boolean
+          heartbeat_at: string | null
+          id: string
+          locked_at: string | null
+          locked_by: string | null
+          migration_approved: boolean
+          migration_sql: string | null
+          plan_summary: string | null
+          prompt: string
+          retry_count: number
+          revision_feedback: string | null
+          risk_notes: string | null
+          runner_id: string | null
+          scope: Json | null
+          scope_violations: Json | null
+          status: string
+          tests_planned: string[] | null
+          tokens_used: number
+          updated_at: string
+          verification: Json | null
+          verified_sha: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "engineer_tasks"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      heartbeat_engineer_task: {
+        Args: { p_runner_id: string; p_task_id: string }
+        Returns: boolean
+      }
       scan_input: {
         Args: { p_days: number; p_limit: number; p_offset: number }
         Returns: {
@@ -1844,6 +2237,7 @@ export type Database = {
           ticker: string
         }[]
       }
+      sweep_stalled_engineer_tasks: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
