@@ -30,6 +30,8 @@ export const Route = createFileRoute("/research")({
         content:
           "Alternative rules tested on days they were never tuned on, with robustness scores and plain-English warnings.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ResearchPage,

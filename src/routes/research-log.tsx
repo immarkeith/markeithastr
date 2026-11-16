@@ -20,6 +20,8 @@ export const Route = createFileRoute("/research-log")({
         property: "og:description",
         content: "Full paper trade history for each strategy being tested against the live one.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ResearchLogPage,

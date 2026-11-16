@@ -26,6 +26,7 @@ import {
 import { HISTORY_DAYS, loadSettings, scoreConfig, volumeShare, type Settings } from "./scan.server";
 import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
 import { researchMarketMark, pendingResearchMark } from "./research-market-mark.server";
+import { paperSettlementDate, paperBuyCapacity, requirePaperCash, trancheOf, paperCash } from "./settlement-rules";
 
 export interface RaceSlot {
   id: number;
@@ -323,88 +324,30 @@ interface LedgerRow {
   amount: number;
   available_on: string;
   kind: string;
+  note?: string | null;
 }
 
 async function slotLedger(strategyId: string): Promise<LedgerRow[]> {
-  const { data, error } = await supabaseAdmin
-    .from("ledger_entries")
-    .select("amount, available_on, kind")
-    .eq("strategy_id", strategyId);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => ({
-    amount: Number(r.amount),
-    available_on: String(r.available_on),
-    kind: String(r.kind),
-  }));
-}
-
-/**
- * Keep a research slot funded. Paper money is a measuring stick, not a real
- * account: if a slot cannot cover today's planned positions (drawdown, saved
- * paper profit, cash still "settling"), release the saved profit first and then
- * add whatever is still missing. Recorded as a deposit so return percentages
- * still divide by all the test money the slot has been given.
- */
-async function ensureTestCash(slot: RaceSlot, needed: number): Promise<void> {
-  if (needed <= 0) return;
-  const rows = await slotLedger(slot.strategy_id);
-  const cash = cashOf(rows);
-  if (cash.available >= needed) return;
-
-  // Saved paper profit goes back to work before any new test money.
-  if (cash.saved > 0.01) {
-    await supabaseAdmin.from("ledger_entries").insert({
-      strategy_id: slot.strategy_id,
-      kind: "deposit",
-      amount: Number(cash.saved.toFixed(2)),
-      available_on: today(),
-      note: "Released saved paper profit back into the test",
-    });
-    await supabaseAdmin.from("ledger_entries").insert({
-      strategy_id: slot.strategy_id,
-      kind: "reserve",
-      amount: Number((-cash.saved).toFixed(2)),
-      available_on: today(),
-      note: "Released saved paper profit back into the test",
-    });
-  }
-
-  const shortfall = Number((needed - cash.available - Math.max(0, cash.saved)).toFixed(2));
-  if (shortfall > 0.01) {
-    await supabaseAdmin.from("ledger_entries").insert({
-      strategy_id: slot.strategy_id,
-      kind: "deposit",
-      amount: shortfall,
-      available_on: today(),
-      note: "Auto top-up — simulated research capital (never real money)",
-    });
+  const rows: LedgerRow[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabaseAdmin.from("ledger_entries")
+      .select("amount, available_on, kind, note")
+      .eq("strategy_id", strategyId).order("created_at").order("id")
+      .range(offset, offset + 999);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []).map(r => ({ amount: Number(r.amount), available_on: String(r.available_on), kind: String(r.kind), note: r.note }));
+    rows.push(...page);
+    if (page.length < 1000) return rows;
   }
 }
-
 
 export function cashOf(rows: LedgerRow[]): {
-  available: number;
-  pending: number;
-  saved: number;
-  capital: number;
+  available: number; pending: number; saved: number; capital: number;
 } {
-  const day = today();
-  let available = 0;
-  let pending = 0;
-  let saved = 0;
-  for (const row of rows) {
-    if (row.kind === "reserve") {
-      saved += row.amount;
-      continue;
-    }
-    if (row.available_on <= day) available += row.amount;
-    else pending += row.amount;
-  }
+  const cash = paperCash(rows, today());
   return {
-    available: Number(available.toFixed(2)),
-    pending: Number(pending.toFixed(2)),
-    saved: Number(saved.toFixed(2)),
-    capital: Number((available + pending + saved).toFixed(2)),
+    available: cash.settled, pending: cash.inFlight, saved: cash.reserved,
+    capital: Number((cash.settled + cash.inFlight + cash.reserved).toFixed(2)),
   };
 }
 
@@ -437,6 +380,11 @@ async function openSlotTrade(
   dollars: number,
 ): Promise<void> {
   const day = today();
+  if (!isTradingDay(day)) throw new Error("Paper buys require an open trading session");
+  if (!Number.isFinite(price) || price <= 0) throw new Error("Paper price must be positive");
+  const capacity = paperBuyCapacity(await slotLedger(slot.strategy_id), day, researcherHoldDays(slot) <= 2);
+  requirePaperCash(capacity.available, dollars);
+  const poolTag = capacity.tranche ? ` [Tranche ${capacity.tranche}]` : "";
   const { data, error } = await supabaseAdmin
     .from("trades")
     .insert({
@@ -449,6 +397,7 @@ async function openSlotTrade(
       status: "open",
       mode: "paper",
       strategy_id: slot.strategy_id,
+      status_note: poolTag.trim() || null,
       // The 3-trading-day research hold: entry day counts as day 1, so the
       // exit lands two further trading days later (weekends/holidays skipped).
       hold_days: researcherHoldDays(slot),
@@ -457,13 +406,17 @@ async function openSlotTrade(
     .select("id")
     .single();
   if (error) throw new Error(error.message);
-  await supabaseAdmin.from("ledger_entries").insert({
+  if (!data) throw new Error("Paper buy was not recorded");
+  const { error: ledgerError } = await supabaseAdmin.from("ledger_entries").insert({
     kind: "deploy",
     amount: -Math.abs(dollars),
-    trade_id: data!.id,
+    trade_id: data.id,
+    entry_date: day,
+    available_on: day,
     strategy_id: slot.strategy_id,
-    note: `[${slot.name}] paper buy ${ticker} @ ${price.toFixed(2)}`,
+    note: `[${slot.name}]${poolTag} paper buy ${ticker} @ ${price.toFixed(2)}`,
   });
+  if (ledgerError) throw new Error(ledgerError.message);
 }
 
 /** The trading day this paper position is due to be sold. */
@@ -515,7 +468,6 @@ async function closeSlotTrade(
   trade: Record<string, unknown>,
   price: number,
   why: string,
-  settlementDays: number,
   keepPct: number,
   markDate = today(),
 ): Promise<number | null> {
@@ -537,7 +489,7 @@ async function closeSlotTrade(
       profit: Number(profit.toFixed(2)),
       kept: Number(kept.toFixed(2)),
       status: "closed",
-      status_note: why,
+      status_note: `${why}${trancheOf(String(trade['status_note'] ?? "")) ? ` [Tranche ${trancheOf(String(trade['status_note'] ?? ""))}]` : ""}`,
     })
     .eq("id", trade['id'] as string)
     .eq("status", "open")
@@ -548,7 +500,9 @@ async function closeSlotTrade(
 
   // Cash settles on the trading calendar (T+1 skips weekends and holidays).
   // This affects when the money is spendable — never whether the stock closed.
-  const availableOn = settlementDate(markDate, settlementDays);
+  const availableOn = paperSettlementDate(markDate);
+  const tranche = trancheOf(String(trade['status_note'] ?? ""));
+  const poolTag = tranche ? ` [Tranche ${tranche}]` : "";
 
   const rows: Record<string, unknown>[] = [
     {
@@ -558,7 +512,7 @@ async function closeSlotTrade(
       available_on: availableOn,
       trade_id: trade['id'],
       strategy_id: slot.strategy_id,
-      note: `[${slot.name}] paper sell ${trade['ticker']} @ ${price.toFixed(2)} (P&L ${profit.toFixed(2)})`,
+      note: `[${slot.name}]${poolTag} paper sell ${trade['ticker']} @ ${price.toFixed(2)} (P&L ${profit.toFixed(2)})`,
     },
   ];
   if (profit > 0) {
@@ -569,7 +523,7 @@ async function closeSlotTrade(
       available_on: availableOn,
       trade_id: trade['id'],
       strategy_id: slot.strategy_id,
-      note: `[${slot.name}] saved profit`,
+      note: `[${slot.name}]${poolTag} saved profit`,
     });
     const rest = profit - kept;
     if (rest > 0.004) {
@@ -580,7 +534,7 @@ async function closeSlotTrade(
         available_on: availableOn,
         trade_id: trade['id'],
         strategy_id: slot.strategy_id,
-        note: `[${slot.name}] profit returned to the stake pool`,
+        note: `[${slot.name}]${poolTag} profit returned to the stake pool`,
       });
     }
   }
@@ -627,7 +581,6 @@ export async function runRacePass(
   if (slots.length === 0) return result;
 
   const rankings = await rankSlots(slots);
-  const settlementDays = Number(base.settlement_days);
   const keepPct = Number(base.profit_keep_pct);
 
   for (const slot of slots) {
@@ -691,7 +644,6 @@ export async function runRacePass(
             row,
             price,
             why,
-            settlementDays,
             keepPct,
             target,
           );
@@ -720,20 +672,18 @@ export async function runRacePass(
         // open paper positions per researcher (paper money only).
         const free = Math.max(0, MAX_OPEN_PER_RESEARCHER - stillOpen.size);
         const stake = Number(slot.position_dollars);
-        // Research capital is imaginary, so a shortfall must never stop the
-        // testing. Top the slot up to whatever today's plan needs (saved paper
-        // profit counts first) and record it as a deposit so the return figures
-        // stay honest about how much test money was used.
-        await ensureTestCash(slot, stake * Math.max(0, free));
-        const cash = cashOf(await slotLedger(slot.strategy_id));
-        let cashLeft = cash.available;
+        const ledger = await slotLedger(slot.strategy_id);
+        const cash = paperCash(ledger, today());
+        let cashLeft = cash.settled;
         const plan = ranked
           .filter((r) => r.tradeable && !stillOpen.has(r.ticker))
           .slice(0, free);
         if (plan.length === 0 && free > 0) entry.skipped = "nothing met this strategy's score bar";
         for (const row of plan) {
+          const capacity = paperBuyCapacity(await slotLedger(slot.strategy_id), today(), researcherHoldDays(slot) <= 2);
+          cashLeft = capacity.available;
           if (cashLeft < stake) {
-            entry.skipped = `waiting on test cash to clear ($${cashLeft.toFixed(2)} of $${stake.toFixed(2)})`;
+            entry.skipped = `Settled Cash $${cashLeft.toFixed(2)}; In-Flight Cash $${cash.inFlight.toFixed(2)}${cash.nextClearing ? ` clears ${cash.nextClearing}` : ""}. Needs $${stake.toFixed(2)}; no automatic top-up.`;
             break;
           }
 
@@ -816,7 +766,6 @@ export async function safetyCloseStalePaper(
   const sessionOver =
     !isTradingDay(day, parts.weekday) || parts.minutes >= sessionCloseMinutes(day);
   const base = await loadSettings();
-  const settlementDays = Number(base.settlement_days);
   const keepPct = Number(base.profit_keep_pct);
   const out: SafetyCloseResult = { closed: [], checked: 0 };
 
@@ -858,7 +807,6 @@ export async function safetyCloseStalePaper(
           trade as unknown as Record<string, unknown>,
           price,
           why,
-          settlementDays,
           keepPct,
           target,
         );
@@ -1415,7 +1363,7 @@ export async function runPaperTesting(
  * book, held for its own hold length. Never touches Alpaca or live money.
  */
 export async function researcherPaperBuy(ticker: string, researcher: string) {
-  const lane = researcher.split(" ")[0]!.toLowerCase();
+  const lane = (researcher.split(" ")[0] ?? "").toLowerCase();
   const slot = (await loadSlots()).find((s) => s.lane === lane);
   if (!slot) throw new Error(`${researcher} has no paper book yet.`);
   const sym = ticker.toUpperCase();
@@ -1424,7 +1372,6 @@ export async function researcherPaperBuy(ticker: string, researcher: string) {
   const price = (await latestCloses([sym])).get(sym);
   if (!price) throw new Error(`No recorded price for ${sym} yet.`);
   const stake = Number(slot.position_dollars);
-  await ensureTestCash(slot, stake);
   await openSlotTrade(slot, sym, price, stake);
   return { ticker: sym, price, researcher, hold_days: researcherHoldDays(slot) };
 }

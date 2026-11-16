@@ -11,16 +11,18 @@ export const getScoreboard = createServerFn({ method: "GET" })
       { verificationOverview },
       { masterFormulaOverview },
       { supabaseAdmin },
+      { paperCashBooks },
     ] = await Promise.all([
       import("./department.server"),
       import("./research-boards.server"),
       import("./verification.server"),
       import("./master-formula.server"),
       import("@/integrations/supabase/client.server"),
+      import("./paper-cash.server"),
     ]);
 
 
-    const [department, boards, verification, master, latestRun, watchlist, settings] =
+    const [department, boards, verification, master, latestRun, watchlist, settings, paperCash] =
       await Promise.all([
         departmentOverview(),
         researchBoards(),
@@ -29,6 +31,7 @@ export const getScoreboard = createServerFn({ method: "GET" })
         supabaseAdmin.from("scan_runs").select("id, run_date").order("created_at", { ascending: false }).limit(1).maybeSingle(),
         supabaseAdmin.from("watchlist_candidates").select("ticker, streak_days, status, best_pick_ever"),
         supabaseAdmin.from("app_settings").select("active_strategy_id").eq("id", 1).maybeSingle(),
+        paperCashBooks(),
       ]);
 
 
@@ -108,6 +111,7 @@ export const getScoreboard = createServerFn({ method: "GET" })
 
     return {
       sources,
+      paperCash,
       watchlist: watchlist.data ?? [],
       assistants: verification.latest,
       lead: department.last_run?.summary?.balanced ?? null,

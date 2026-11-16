@@ -30,7 +30,7 @@ import { loadSlots, researcherHoldDays, type ResearcherEquityCurve } from "./rac
 import { loadSettings, volumeShare } from "./scan.server";
 import { simulateLane } from "./researcher-ledger";
 
-export const LEDGER_ENGINE_VERSION = "v1";
+export const LEDGER_ENGINE_VERSION = "v2-t1";
 export const LEDGER_BASE_EQUITY = 100;
 const LEDGER_UNIVERSE = 300;
 const LEDGER_HISTORY_DAYS = 2000;
@@ -99,8 +99,20 @@ export async function runResearcherLedger(): Promise<{ lanes: number; rows: numb
         .sort((a, b) => b.score - a.score);
       return { date, closes, pick: ranked[0]?.ticker ?? null };
     });
-    const points = simulateLane(days, hold, LEDGER_BASE_EQUITY);
-    const out = points.map((p) => ({
+    // Append only: never overwrite historical research records with new cash rules.
+    const saved: { session_date: string; engine_version: string }[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabaseAdmin.from("researcher_daily_ledger")
+        .select("session_date, engine_version").eq("lane", l.lane).order("session_date").range(offset, offset + 999);
+      if (error) throw new Error(error.message);
+      saved.push(...(data ?? []));
+      if ((data ?? []).length < 1000) break;
+    }
+    const legacyEnd = saved.filter(r => r.engine_version !== LEDGER_ENGINE_VERSION).at(-1)?.session_date;
+    const cutover = legacyEnd ? sessions.find(date => date > legacyEnd) ?? "9999-12-31" : undefined;
+    const lastSaved = saved.at(-1)?.session_date;
+    const points = simulateLane(days, hold, LEDGER_BASE_EQUITY, cutover);
+    const out = points.filter(p => !lastSaved || p.date > lastSaved).map((p) => ({
       lane: l.lane,
       session_date: p.date,
       strategy_id: slot?.strategy_id ?? null,
@@ -115,7 +127,7 @@ export async function runResearcherLedger(): Promise<{ lanes: number; rows: numb
     for (let i = 0; i < out.length; i += 500) {
       const { error } = await supabaseAdmin
         .from("researcher_daily_ledger")
-        .upsert(out.slice(i, i + 500), { onConflict: "lane,session_date" });
+        .upsert(out.slice(i, i + 500), { onConflict: "lane,session_date", ignoreDuplicates: true });
       if (error) throw new Error(error.message);
     }
     total += out.length;

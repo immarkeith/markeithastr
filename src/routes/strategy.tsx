@@ -25,6 +25,8 @@ export const Route = createFileRoute("/strategy")({
         property: "og:description",
         content: "Turn strategies on or off and switch back to an older formula in one tap.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: StrategyPage,

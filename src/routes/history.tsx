@@ -10,6 +10,8 @@ export const Route = createFileRoute("/history")({
       { name: "description", content: "Every past scan run with its top ten ranked picks." },
       { property: "og:title", content: "Scan history — ASTR Daily Rotation Desk" },
       { property: "og:description", content: "Past rotation scans and their top ten picks." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: HistoryPage,

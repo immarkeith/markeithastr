@@ -6,6 +6,7 @@ import { LongTermBuyDialog } from "@/components/LongTermBuyDialog";
 import { AssignResearcherDialog } from "@/components/AssignResearcherDialog";
 import { getLongTermBoard } from "@/lib/long-term-research.functions";
 import { getScoreboard } from "@/lib/scoreboard.functions";
+import { InfoDot } from "@/components/InfoDot";
 
 export const Route = createFileRoute("/scoreboard")({
   head: () => ({
@@ -40,6 +41,7 @@ function ScoreboardPage() {
     (board.data?.watchlist ?? []).map((row) => [String(row.ticker), row]),
   );
   const lt = longTerm.data;
+  const cash = board.data?.paperCash.find(book => `research:${book.lane}` === selected?.id);
 
   return (
     <div className="space-y-5">
@@ -65,6 +67,30 @@ function ScoreboardPage() {
       </label>
 
       {board.isLoading ? <p className="text-sm text-muted-foreground">Loading rankings…</p> : null}
+      {board.isError ? <p className="text-sm text-destructive">The scoreboard could not load. Please try again.</p> : null}
+      {cash ? (
+        <section className="space-y-3 border-y border-border py-4" aria-label="Paper cash book">
+          <h2 className="text-xs font-semibold uppercase text-muted-foreground">Paper cash book</h2>
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              ["Settled Cash", `$${cash.settled.toFixed(2)}`],
+              ["In-Flight Cash", `$${cash.inFlight.toFixed(2)}`],
+              ["Total Book Equity", cash.equity === null ? "Pending mark" : `$${cash.equity.toFixed(2)}`],
+            ].map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-lg font-semibold tabular-nums">{value}</dd></div>)}
+            <div>
+              <dt className="flex items-center gap-1 text-xs text-muted-foreground">Capital efficiency
+                <InfoDot title="Turnaround-adjusted capital efficiency">Realized paper return percentage ÷ (elapsed holding sessions + 1 settlement session). Same-day = 0 holding sessions; overnight = 1. An efficiency indicator, not portfolio return or a ranking input.</InfoDot>
+              </dt>
+              <dd className="text-lg font-semibold tabular-nums">{cash.efficiency === null ? "—" : `${cash.efficiency.toFixed(2)}%/session`}</dd>
+            </div>
+          </dl>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+            {cash.nextClearing ? <span>Next clearing: {cash.nextClearing}</span> : null}
+            <span>Reserved profit: ${cash.reserved.toFixed(2)}</span>
+            {cash.nextTranche ? <span>Next pool: Tranche {cash.nextTranche} · ${cash.trancheAvailable.toFixed(2)} settled</span> : null}
+          </div>
+        </section>
+      ) : null}
 
       {selected ? (
         <>

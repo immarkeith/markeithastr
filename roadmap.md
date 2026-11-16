@@ -109,12 +109,13 @@
 - [ ] Review first audit findings before any data repair: 119 fill violations, two scoreboard discrepancies and eight balance discrepancies; no automatic changes authorized.
 - [ ] Apply portable audit-history setup (`migration/fresh/19-phase-e-integrity-history.sql`) to the separate Vercel database; only preview application is verified.
 
-### Phase F — T+1 Settlement & Cash Account Realism
+### Phase F — T+1 Settlement & Cash Account Realism [IMPLEMENTED — SESSION CHECK PENDING]
 *Target: 2–3 credits*
-- [ ] Strict T+1 cash gating on exits (`available_on = exit_date + 1 trading session` in paper ledgers).
-- [ ] Disable simulated auto top-ups; log pending settlement balances.
-- [ ] Capital tranching (Tranche A / B) for same-day and 1-day specialists to prevent simulated Good Faith Violations.
-- [ ] Turnaround-adjusted capital efficiency ranking (`Return % / [Hold Days + 1]`).
+- [x] New paper sales settle next eligible session; all paper entry paths check settled cash. Historical rows preserved.
+- [x] Disable automatic top-ups and reserve-release deposits; display settled, in-flight and marked equity balances.
+- [x] Alternate A/B pools for rapid paper slots and historical simulation; 65 tests pass, real cash display verified desktop/phone.
+- [x] Separate capital-efficiency indicator, not ranking: realized Return % / (elapsed holding sessions + 1 settlement session).
+- [ ] Observe the first scheduled paper-session execution after independent-host deployment (waiting for deployment/open market); no live orders used for verification. See `docs/phase-f-settlement.md` for limitations.
 
 ### Phase G — Central Calibration Layer & Adaptive Capital Allocation
 *Target: 4–5 credits*
