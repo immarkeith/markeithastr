@@ -258,7 +258,12 @@ try {
   );
 
   const candidates = [
-    ...new Set([...(task.expected_files ?? []), ...suggestFiles(task.prompt, MAX_CONTEXT_FILES)]),
+    ...new Set([
+      // Paths the instruction names outright always come first.
+      ...(task.prompt.match(/[\w.-]+(?:\/[\w.-]+)*\.[a-z0-9]{1,5}\b/gi) ?? []).filter((p) => p.includes("/") || p.includes(".")),
+      ...(task.expected_files ?? []),
+      ...suggestFiles(task.prompt, MAX_CONTEXT_FILES),
+    ]),
   ]
     .filter((path) => existsSync(path))
     .slice(0, MAX_CONTEXT_FILES);
