@@ -33,6 +33,7 @@ export function simulateLane(days: LedgerDay[], holdDays: number, base: number):
     if (pos) {
       const c = day.closes.get(pos.ticker);
       if (c !== undefined) pos.mark = c;
+      else actions.push(`pending mark ${pos.ticker}`);
       pos.held += 1;
       if (pos.held >= holdDays && c !== undefined) {
         cash = pos.shares * c;

@@ -34,12 +34,12 @@ export const Route = createFileRoute("/lab")({
       {
         name: "description",
         content:
-          "Three scoring formulas trade a simulated book side by side with the live strategy on the same $20 stake, so a clear winner can be seen before anything changes.",
+          "Seven researchers evaluate stored market history and record chronological paper results, displayed directly from their saved daily sessions.",
       },
       { property: "og:title", content: "Research Lab — ASTR Strategy Race" },
       {
         property: "og:description",
-        content: "Paper-test scoring formulas in parallel with live trading on identical stakes.",
+        content: "Saved researcher results and historical paper evaluations, isolated from live trading.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -90,11 +90,8 @@ function LabPage() {
         const fresh = await refreshFn();
         if (alive && fresh.guards.generated_at !== appliedRef.current) {
           appliedRef.current = fresh.guards.generated_at;
-          qc.setQueryData(["race"], {
-            ...fresh.payload,
-            research_running: race.data?.research_running ?? true,
-            generated_at: fresh.guards.generated_at,
-          });
+          // Refresh bookkeeping, then read saved researcher rows through fetchRace.
+          await qc.invalidateQueries({ queryKey: ["race"] });
         }
       } catch {
         // Keep showing the previously rendered snapshot.
@@ -416,9 +413,8 @@ function SlotCard({
 
 
       <PnlChart
-        rows={slot.closed}
-        unrealized={slot.unrealized}
-        unrealizedToday={slot.unrealized_today}
+        rows={[]}
+        ledgerOnly
         primaryLabel="Actual"
         ranges={LAB_RANGES}
         initialRange="month"
@@ -428,7 +424,6 @@ function SlotCard({
         basis={
           equity && "basis" in equity && typeof equity.basis === "number" ? equity.basis : slot.basis
         }
-        activeTicker={slot.holdings[0]?.ticker ?? null}
         equity={equity}
       />
 

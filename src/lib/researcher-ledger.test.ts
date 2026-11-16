@@ -30,5 +30,6 @@ describe("researcher ledger simulator", () => {
   test("a missing bar keeps the last real mark instead of inventing movement", () => {
     const pts = simulateLane([day("d1", { A: 10 }, "A"), day("d2", {}, null)], 5, 100);
     expect(pts[1]!.equity).toBe(100);
+    expect(pts[1]?.action).toBe("pending mark A");
   });
 });

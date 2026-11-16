@@ -1,5 +1,11 @@
 # ASTR Master Roadmap
 
+## Approved Research Lab backfill (2026-11-16)
+- [x] Backfill the existing 300-stock research universe from January 2024 through November 13, 2026; existing bars preserved (301 symbols including SPY).
+- [x] Replay seven researchers chronologically: 4,627 saved rows across 661 sessions, March 28, 2024–November 13, 2026; trades and live settings untouched.
+- [x] Remove chart fallback to trade reconstruction; desktop and 390×710 phone checks confirm 1M, 3M, 1Y, All and Today use saved rows, without overflow.
+- [x] Verify stored coverage and all 32 tests; newest preview validation passed. Historical replay uses current formulas and the existing alphabetically selected universe, not historical formula versions or a survivorship-free full-market backtest. Vercel's separate database has not been backfilled by this preview run; use the portable maintenance script there.
+
 ## Standing Core Rules
 1. Research is strictly paper-only; live trading, broker accounts, Alpaca state, and P&L are isolated and protected.
 2. All external integrations must be $0 cost with no paid subscriptions or platform fees.

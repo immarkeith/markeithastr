@@ -139,12 +139,13 @@ export async function latestLedgerDate(): Promise<string | null> {
  * one point per saved row, P/L in dollars on the $100 base.
  */
 export async function readLedgerCurves(): Promise<(ResearcherEquityCurve & { lane: string; source: "ledger"; basis: number })[]> {
-  const rows: { lane: string; strategy_id: string | null; session_date: string; pnl: number }[] = [];
+  const rows: { lane: string; strategy_id: string | null; session_date: string; pnl: number; action: string | null }[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabaseAdmin
       .from("researcher_daily_ledger")
-      .select("lane, strategy_id, session_date, pnl")
+      .select("lane, strategy_id, session_date, pnl, action")
       .order("session_date", { ascending: true })
+      .order("lane", { ascending: true })
       .range(from, from + 999);
     if (error) throw new Error(error.message);
     const page = (data ?? []) as typeof rows;
@@ -164,7 +165,7 @@ export async function readLedgerCurves(): Promise<(ResearcherEquityCurve & { lan
     points: list.map((r) => ({ date: r.session_date, equity: Number(r.pnl) })),
     coverage_from: list[0]?.session_date ?? null,
     coverage_to: list[list.length - 1]?.session_date ?? null,
-    has_gaps: false,
+    has_gaps: list.some(r => r.action?.includes("pending mark")),
     source: "ledger" as const,
     basis: LEDGER_BASE_EQUITY,
   }));

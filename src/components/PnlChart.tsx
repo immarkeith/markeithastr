@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { money } from "@/lib/queries";
 import { marketStatus } from "@/lib/market-calendar";
+import { ledgerSeries, ledgerWindow } from "@/lib/ledger-chart";
+import { Button } from "@/components/ui/button";
 
 export interface PnlRange {
   key: string;
@@ -100,8 +102,10 @@ export function PnlChart({
   liveTicker,
   activeTicker,
   equity,
+  ledgerOnly = false,
 }: {
   rows: { exit_date: string | null; profit: number }[];
+  ledgerOnly?: boolean;
   ranges?: PnlRange[];
   initialRange?: string;
   title?: string;
@@ -151,7 +155,7 @@ export function PnlChart({
     has_gaps: boolean;
   } | null;
 }) {
-  const [range, setRange] = useState(initialRange ?? ranges[0]!.key);
+  const [range, setRange] = useState(initialRange ?? ranges[0]?.key ?? "month");
   const [marketOpen, setMarketOpen] = useState(() => {
     const state = marketStatus().state;
     return state === "open" || state === "closing";
@@ -171,14 +175,14 @@ export function PnlChart({
       globalThis.removeEventListener?.("visibilitychange", update);
     };
   }, []);
-  const active = ranges.find((r) => r.key === range) ?? ranges[0]!;
+  const active = ranges.find((r) => r.key === range) ?? ranges[0] ?? HOME_RANGES[0] ?? { key: "month", label: "1M", days: 31 };
   const activeLiveTicker = active.live && marketOpen && liveTicker ? liveTicker : null;
   const showsLiveHolding = liveTicker !== undefined;
   const todayActiveTicker = marketOpen && liveTicker ? liveTicker.toUpperCase() : "—";
   // Same-day only: never show a held ticker outside the regular session.
   const shownActiveTicker = marketOpen ? (activeTicker ?? null) : null;
 
-  const window = useMemo(() => {
+  const requestedWindow = useMemo(() => {
     const today = isoDaysAgo(0);
     if (active.calendar) {
       return { today, from: calendarStart(active.calendar), until: today };
@@ -213,6 +217,9 @@ export function PnlChart({
     const from = inception && inception > rawFrom && inception < until ? inception : rawFrom;
     return { today, from, until };
   }, [active, rows, compareRows, secondaryRows, equity]);
+  const window = ledgerOnly
+    ? { today: requestedWindow.today, ...ledgerWindow(equity?.points ?? [], requestedWindow.from, requestedWindow.until, Boolean(active.live)) }
+    : requestedWindow;
 
   const daily = useMemo(() => {
     // Long ranges group by week so the line stays readable on a phone.
@@ -311,6 +318,7 @@ export function PnlChart({
    * re-based so it starts at zero. Used INSTEAD of the realized-only builder.
    */
   const equitySeries = useMemo(() => {
+    if (ledgerOnly) return ledgerSeries(equity?.points ?? [], window.from, window.until, percent && basis > 0 ? 100 / basis : 1, Boolean(active.weekly));
     if (!equity || equity.points.length === 0) return null;
     const inWindow = equity.points.filter(
       (p) => p.date >= window.from && p.date <= window.until,
@@ -354,9 +362,9 @@ export function PnlChart({
       prev = p.equity;
       return { day: p.date, daily, cumulative };
     });
-  }, [equity, window, percent, basis, active.weekly]);
+  }, [equity, window, percent, basis, active.weekly, ledgerOnly]);
 
-  const series = equitySeries ?? cumulate(daily.primary) ?? [];
+  const series = ledgerOnly ? equitySeries ?? [] : equitySeries ?? cumulate(daily.primary) ?? [];
   const compareSeries = cumulate(daily.compare);
   const secondarySeries = cumulate(daily.secondary);
 
@@ -404,6 +412,10 @@ export function PnlChart({
     return ((t - from) / Math.max(1, to - from)) * width;
   };
   const pathOf = (points: { day: string; cumulative: number }[]) => {
+    if (ledgerOnly && points.length === 1) {
+      const point = points[0];
+      return point ? `M0,${yOf(point.cumulative)} L${width},${yOf(point.cumulative)}` : "";
+    }
     const list = points.length === 1 ? [...points, ...points] : points;
     return list
       .map((point, i) => {
@@ -597,13 +609,13 @@ export function PnlChart({
           </div>
           </div>
           <p className="text-center text-[9px] uppercase tracking-wider text-muted-foreground">
-            Date / time
+            {ledgerOnly ? `${window.from} → ${window.until}` : "Date / time"}
           </p>
         </div>
       </div>
       {series.length === 0 && (compareSeries?.length ?? 0) === 0 ? (
         <p className="text-xs text-muted-foreground">
-          Flat for this window — no price movement or profit recorded in this period; the line moves once a position is open or sold.
+          {ledgerOnly ? "No saved researcher results for this period." : "No profit recorded in this period."}
         </p>
       ) : null}
 
@@ -642,28 +654,30 @@ export function PnlChart({
 
       <div className="flex flex-wrap gap-1">
         {ranges.map((r) => (
-          <button
+          <Button
             key={r.key}
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setRange(r.key)}
-            className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
+            className={`h-6 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
               r.key === range
                 ? `bg-foreground/10 ${twoLine ? "text-foreground" : tone}`
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {r.label}
-          </button>
+          </Button>
         ))}
       </div>
 
       {equity && equity.points.length > 0 && equity.coverage_from ? (
         <p className="text-[10px] text-muted-foreground">
-          Marked to real daily closes {equity.coverage_from} → {equity.coverage_to ?? "now"}
-          {equity.coverage_to && equity.coverage_to < isoDaysAgo(0)
+          {ledgerOnly ? "Saved researcher sessions" : "Marked to real daily closes"} {equity.coverage_from} → {equity.coverage_to ?? "now"}
+          {!ledgerOnly && equity.coverage_to && equity.coverage_to < isoDaysAgo(0)
             ? " — no newer bars cached yet, later dates show no movement"
             : ""}
-          {equity.has_gaps ? " — some sessions lack cached bars and show no movement there" : ""}
+          {equity.has_gaps ? " — incomplete price coverage" : ""}
         </p>
       ) : null}
 
