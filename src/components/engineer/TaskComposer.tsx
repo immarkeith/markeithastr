@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Send } from "lucide-react";
+import { Mic, MicOff, SendHorizonal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 interface SpeechAlternative {
@@ -49,8 +48,9 @@ export interface TaskComposerProps {
 }
 
 /**
- * Text + mobile voice entry. Voice uses the browser's own Web Speech API —
- * free, no third-party voice service, transcript shown before submission.
+ * iMessage-style pinned composer bar: rounded input with mic and send buttons.
+ * Voice uses the browser's own Web Speech API — free, no third-party voice
+ * service, transcript shown in the input before anything is sent.
  */
 export function TaskComposer({ onSubmit, pending, disabled, placeholder }: TaskComposerProps) {
   const [prompt, setPrompt] = useState("");
@@ -110,51 +110,55 @@ export function TaskComposer({ onSubmit, pending, disabled, placeholder }: TaskC
   };
 
   return (
-    <div className="space-y-2">
-      <Textarea
-        value={prompt}
-        onChange={(event) => setPrompt(event.target.value)}
-        onKeyDown={(event) => {
-          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit();
-        }}
-        placeholder={
-          placeholder ?? "Describe the change you want, e.g. “Add a build timestamp to Settings”"
-        }
-        rows={4}
-        disabled={disabled}
-        aria-label="Engineering instruction"
-        className={cn("resize-y bg-background/60", listening && "ring-1 ring-primary")}
-      />
-      <div className="flex items-center gap-2">
+    <div className="space-y-1">
+      <div
+        className={cn(
+          "flex items-end gap-1.5 rounded-3xl border border-border bg-card p-1.5 shadow-sm",
+          listening && "ring-1 ring-primary",
+        )}
+      >
         <Button
           type="button"
-          variant={listening ? "destructive" : "secondary"}
-          size="sm"
+          variant={listening ? "destructive" : "ghost"}
+          size="icon"
+          className="h-9 w-9 shrink-0 rounded-full"
           onClick={() => (listening ? stop() : start())}
           aria-pressed={listening}
+          aria-label={listening ? "Stop voice input" : "Start voice input"}
           disabled={disabled}
         >
-          {listening ? <MicOff className="mr-1.5 h-4 w-4" /> : <Mic className="mr-1.5 h-4 w-4" />}
-          {listening ? "Stop" : "Speak"}
+          {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
         </Button>
+        <textarea
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit();
+          }}
+          placeholder={placeholder ?? "Message ASTR Engineer…"}
+          rows={Math.min(4, Math.max(1, prompt.split("\n").length))}
+          disabled={disabled}
+          aria-label="Engineering instruction"
+          className="max-h-32 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+        />
         <Button
           type="button"
-          size="sm"
+          size="icon"
+          className="h-9 w-9 shrink-0 rounded-full"
           onClick={() => void submit()}
           disabled={pending || disabled || prompt.trim().length < 8}
-          className="ml-auto"
+          aria-label={pending ? "Queueing task" : "Send instruction"}
         >
-          <Send className="mr-1.5 h-4 w-4" />
-          {pending ? "Queueing…" : "Queue task"}
+          <SendHorizonal className="h-4 w-4" />
         </Button>
       </div>
       {listening && (
-        <p className="text-xs text-muted-foreground" aria-live="polite">
-          Listening — your words appear above before anything is sent.
+        <p className="px-3 text-[11px] text-muted-foreground" aria-live="polite">
+          Listening — your words appear in the box before anything is sent.
         </p>
       )}
       {voiceError && (
-        <p className="text-xs text-destructive" role="status">
+        <p className="px-3 text-[11px] text-destructive" role="status">
           {voiceError}
         </p>
       )}

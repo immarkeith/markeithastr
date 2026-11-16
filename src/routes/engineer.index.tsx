@@ -1,15 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, FlaskConical, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronLeft, FlaskConical, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { HealthPanel } from "@/components/engineer/HealthPanel";
 import { ProviderSettings, type ProviderFormValues } from "@/components/engineer/ProviderSettings";
 import { TaskComposer } from "@/components/engineer/TaskComposer";
-import { TaskDetail } from "@/components/engineer/TaskDetail";
+import { ConversationList } from "@/components/engineer/ConversationList";
+import { TaskThread } from "@/components/engineer/TaskThread";
 import { cn } from "@/lib/utils";
 import { ACTIVE_STATUSES, type EngineerTask } from "@/lib/engineer/types";
 import {
@@ -35,22 +42,6 @@ export const Route = createFileRoute("/engineer/")({
 const PILOT_PROMPT =
   "Add a small build timestamp line under the Settings page heading that shows when the app bundle was built. Keep the existing layout and styling.";
 
-const STATUS_TONE: Record<string, string> = {
-  queued: "bg-secondary text-foreground",
-  planning: "bg-primary/15 text-primary",
-  scope_review: "bg-amber-500/15 text-amber-300",
-  inspecting: "bg-primary/15 text-primary",
-  coding: "bg-primary/15 text-primary",
-  testing: "bg-primary/15 text-primary",
-  review_ready: "bg-emerald-500/15 text-emerald-300",
-  budget_paused: "bg-amber-500/15 text-amber-300",
-  merged: "bg-emerald-500/15 text-emerald-300",
-  deploying: "bg-live/15 text-live",
-  deployed: "bg-emerald-500/15 text-emerald-300",
-  rejected: "bg-rose-500/15 text-rose-300",
-  failed: "bg-rose-500/15 text-rose-300",
-};
-
 function EngineerMissionControl() {
   const queryClient = useQueryClient();
   const loadOverview = useServerFn(engineerOverview);
@@ -68,6 +59,8 @@ function EngineerMissionControl() {
   const runHealth = useServerFn(engineerRunHealth);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const threadEndRef = useRef<HTMLDivElement | null>(null);
 
   const overview = useQuery({
     queryKey: ["engineer-overview"],
@@ -85,9 +78,18 @@ function EngineerMissionControl() {
     refetchInterval: hasActive ? 3_000 : 15_000,
   });
 
+  // On wider screens, keep the newest conversation open by default.
   useEffect(() => {
-    if (!selectedId && tasks.length > 0) setSelectedId(tasks[0]?.id ?? null);
+    if (selectedId || tasks.length === 0) return;
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
+      setSelectedId(tasks[0]?.id ?? null);
+    }
   }, [selectedId, tasks]);
+
+  // Keep the thread pinned to the newest reply while it updates.
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [detail.data?.task?.updated_at, detail.data?.logs?.length, selectedId]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["engineer-overview"] });
@@ -118,45 +120,62 @@ function EngineerMissionControl() {
   const capabilities = overview.data?.capabilities;
   const selectedTask = detail.data?.task ?? tasks.find((task) => task.id === selectedId) ?? null;
 
+  const runnerDot =
+    health?.runner_state === "active"
+      ? "bg-primary"
+      : health?.runner_state === "stalled"
+        ? "bg-amber-400"
+        : health?.runner_state === "idle"
+          ? "bg-success"
+          : "bg-muted-foreground";
+
+  const submitPrompt = async (prompt: string) => {
+    await run("Task queued", async () => {
+      const result = await createTask({ data: { prompt } });
+      if (result.ok && result.task) setSelectedId(result.task.id);
+      return result;
+    });
+  };
+
   return (
-    <div className="space-y-3">
-      {/* ------------------------------------------------------- status bar */}
-      <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3 text-xs sm:grid-cols-4">
-        <div>
-          <p className="text-muted-foreground">Runner</p>
-          <p
-            className={cn(
-              "font-semibold capitalize",
-              health?.runner_state === "active" && "text-primary",
-              health?.runner_state === "stalled" && "text-amber-300",
-              health?.runner_state === "idle" && "text-success",
-            )}
+    <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
+      {/* ---------------------------------------------------------- header */}
+      <div className="flex items-center gap-2 border-b border-border pb-2">
+        {selectedId && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 md:hidden"
+            onClick={() => setSelectedId(null)}
+            aria-label="Back to conversations"
           >
-            {health?.runner_state ?? "unknown"}
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            ASTR Engineer
+            <span className={cn("h-2 w-2 rounded-full", runnerDot)} aria-hidden />
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {health
+              ? `${health.runner_state} · ${health.queued} queued · ${health.review_ready} to review · $${health.spend_this_month_usd.toFixed(2)} this month`
+              : "Checking status…"}
           </p>
         </div>
-        <div>
-          <p className="text-muted-foreground">Queue</p>
-          <p className="font-semibold text-foreground">
-            {health?.queued ?? 0} queued · {health?.review_ready ?? 0} review
-          </p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Actions minutes</p>
-          <p className="font-semibold text-foreground">
-            {(health?.minutes_this_month ?? 0).toFixed(0)}
-          </p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Spend (month)</p>
-          <p className="font-semibold text-foreground">
-            ${(health?.spend_this_month_usd ?? 0).toFixed(2)}
-          </p>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Engineer settings and health"
+        >
+          <Settings2 className="h-4 w-4" />
+        </Button>
       </div>
 
       {capabilities && !capabilities.schema_installed && (
-        <div className="flex gap-2 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-200">
+        <div className="mt-2 flex gap-2 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             The Phase K schema is not installed, so the queue is disabled. Run{" "}
@@ -168,163 +187,139 @@ function EngineerMissionControl() {
         </div>
       )}
 
-      {/* ----------------------------------------------------------- composer */}
-      <div className="rounded-xl border border-border bg-card p-3">
-        <p className="text-sm font-medium text-foreground">New engineering task</p>
-        <p className="mb-2 text-[11px] text-muted-foreground">
-          Type or speak the change. ASTR inspects this repository, classifies the work and drafts it
-          on its own branch — nothing reaches the target branch without your approval.
-        </p>
+      {/* ------------------------------------------- conversations + thread */}
+      <div className="min-h-0 flex-1 md:grid md:grid-cols-[320px_1fr] md:gap-3">
+        <div
+          className={cn(
+            "overflow-y-auto rounded-xl border border-border bg-card/40",
+            selectedId ? "hidden md:block" : "block",
+          )}
+        >
+          <ConversationList
+            tasks={tasks}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            loading={overview.isLoading}
+          />
+        </div>
+
+        <div
+          className={cn(
+            "overflow-y-auto rounded-xl border border-border bg-card/20",
+            selectedId ? "block" : "hidden md:block",
+          )}
+        >
+          {selectedTask ? (
+            <>
+              {detail.isLoading && (
+                <p className="px-3 pt-3 text-xs text-muted-foreground">Loading conversation…</p>
+              )}
+              <TaskThread
+                task={detail.data?.task ?? selectedTask}
+                logs={detail.data?.logs ?? []}
+                deploymentAvailable={capabilities?.deployment_available ?? false}
+                deploymentReason={capabilities?.deployment_reason ?? "Deployment is not configured."}
+                busy={pending}
+                onAuthorize={() =>
+                  run("Scope authorized", () => authorize({ data: { id: selectedTask.id } }))
+                }
+                onApprove={() => run("Approved", () => approve({ data: { id: selectedTask.id } }))}
+                onRevise={(feedback) =>
+                  run("Revision requested", () =>
+                    revise({ data: { id: selectedTask.id, feedback } }),
+                  )
+                }
+                onReject={(reason) =>
+                  run("Task rejected", () => reject({ data: { id: selectedTask.id, reason } }))
+                }
+                onApproveMigration={() =>
+                  run("Migration approved", () =>
+                    approveMigration({ data: { id: selectedTask.id } }),
+                  )
+                }
+                onResumeBudget={() =>
+                  run("Budget approved", () => resumeBudget({ data: { id: selectedTask.id } }))
+                }
+                onRefreshDeployment={() =>
+                  run("Deployment re-checked", async () => {
+                    const result = await refreshDeployment({ data: { id: selectedTask.id } });
+                    return { ok: true, note: `${result.status}: ${result.note}` };
+                  })
+                }
+              />
+              <div ref={threadEndRef} />
+            </>
+          ) : (
+            <p className="px-4 py-10 text-center text-xs text-muted-foreground">
+              Pick a conversation, or send a new instruction below.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ------------------------------------------------- pinned composer */}
+      <div className="sticky bottom-0 z-10 -mx-1 bg-background/95 px-1 pb-1 pt-2 backdrop-blur">
         <TaskComposer
           pending={pending}
           disabled={!capabilities?.schema_installed}
-          onSubmit={async (prompt) => {
-            await run("Task queued", async () => {
-              const result = await createTask({ data: { prompt } });
-              if (result.ok && result.task) setSelectedId(result.task.id);
-              return result;
-            });
-          }}
+          onSubmit={submitPrompt}
         />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-1 px-0 text-[11px] text-muted-foreground"
-          disabled={pending || !capabilities?.schema_installed}
-          onClick={async () => {
-            await run("Pilot task queued", async () => {
-              const result = await createTask({ data: { prompt: PILOT_PROMPT } });
-              if (result.ok && result.task) setSelectedId(result.task.id);
-              return result;
-            });
-          }}
-        >
-          <FlaskConical className="mr-1.5 h-3.5 w-3.5" /> Queue the safe pilot task instead
-        </Button>
       </div>
 
-      {/* ------------------------------------------------------------- panels */}
-      {health && (
-        <HealthPanel
-          health={health}
-          busy={pending}
-          onRun={async () => {
-            await run("Health check", async () => {
-              await runHealth();
-              await invalidate();
-              return { ok: true, note: "Health check complete" };
-            });
-          }}
-        />
-      )}
-
-      <ProviderSettings
-        settings={overview.data?.settings ?? null}
-        busy={pending}
-        onSave={async (values: ProviderFormValues) => {
-          await run("Settings saved", async () => {
-            const result = await saveProvider({ data: values });
-            return result;
-          });
-        }}
-        onTest={async () => {
-          await run("Provider test", async () => {
-            const result = await testProvider();
-            return {
-              ok: result.ok,
-              note: result.detail,
-              ...(result.ok ? {} : { error: result.detail }),
-            };
-          });
-        }}
-      />
-
-      {/* -------------------------------------------------------- task history */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">Tasks</p>
-        {overview.isLoading ? (
-          <p className="text-xs text-muted-foreground">Loading tasks…</p>
-        ) : tasks.length === 0 ? (
-          <p className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
-            No engineering tasks yet. Queue one above — or start with the pilot task to prove the
-            whole loop.
-          </p>
-        ) : (
-          <ul className="space-y-1.5">
-            {tasks.map((task) => (
-              <li key={task.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(task.id)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
-                    task.id === selectedId
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border bg-card hover:bg-secondary/40",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                      STATUS_TONE[task.status] ?? "bg-secondary text-foreground",
-                    )}
-                  >
-                    {task.status.replace(/_/g, " ")}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs text-foreground">{task.prompt}</span>
-                    <span className="block text-[10px] text-muted-foreground">
-                      {task.classification_label ?? "unclassified"} ·{" "}
-                      {new Date(task.created_at).toLocaleString("en-US", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })}
-                    </span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {selectedTask && (
-        <div>
-          {detail.isLoading && (
-            <p className="mb-2 text-xs text-muted-foreground">Loading task detail…</p>
-          )}
-          <TaskDetail
-            task={detail.data?.task ?? selectedTask}
-            logs={detail.data?.logs ?? []}
-            deploymentAvailable={capabilities?.deployment_available ?? false}
-            deploymentReason={capabilities?.deployment_reason ?? "Deployment is not configured."}
-            busy={pending}
-            onAuthorize={() =>
-              run("Scope authorized", () => authorize({ data: { id: selectedTask.id } }))
-            }
-            onApprove={() => run("Approved", () => approve({ data: { id: selectedTask.id } }))}
-            onRevise={(feedback) =>
-              run("Revision requested", () => revise({ data: { id: selectedTask.id, feedback } }))
-            }
-            onReject={(reason) =>
-              run("Task rejected", () => reject({ data: { id: selectedTask.id, reason } }))
-            }
-            onApproveMigration={() =>
-              run("Migration approved", () => approveMigration({ data: { id: selectedTask.id } }))
-            }
-            onResumeBudget={() =>
-              run("Budget approved", () => resumeBudget({ data: { id: selectedTask.id } }))
-            }
-            onRefreshDeployment={() =>
-              run("Deployment re-checked", async () => {
-                const result = await refreshDeployment({ data: { id: selectedTask.id } });
-                return { ok: true, note: `${result.status}: ${result.note}` };
-              })
-            }
-          />
-        </div>
-      )}
+      {/* -------------------------------------------------- settings sheet */}
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Engineer settings &amp; health</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-3 px-4 pb-6">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={pending || !capabilities?.schema_installed}
+              onClick={async () => {
+                setSettingsOpen(false);
+                await run("Pilot task queued", () => createTask({ data: { prompt: PILOT_PROMPT } }));
+              }}
+            >
+              <FlaskConical className="mr-1.5 h-3.5 w-3.5" /> Queue the safe pilot task
+            </Button>
+            {health && (
+              <HealthPanel
+                health={health}
+                busy={pending}
+                onRun={async () => {
+                  await run("Health check", async () => {
+                    await runHealth();
+                    await invalidate();
+                    return { ok: true, note: "Health check complete" };
+                  });
+                }}
+              />
+            )}
+            <ProviderSettings
+              settings={overview.data?.settings ?? null}
+              busy={pending}
+              onSave={async (values: ProviderFormValues) => {
+                await run("Settings saved", async () => {
+                  const result = await saveProvider({ data: values });
+                  return result;
+                });
+              }}
+              onTest={async () => {
+                await run("Provider test", async () => {
+                  const result = await testProvider();
+                  return {
+                    ok: result.ok,
+                    note: result.detail,
+                    ...(result.ok ? {} : { error: result.detail }),
+                  };
+                });
+              }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
