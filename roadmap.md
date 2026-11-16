@@ -202,3 +202,6 @@
 - [x] Published; bridge live and answering on the real site
 - [ ] GitHub Actions secrets ENGINEER_LLM_API_KEY, ENGINEER_BRIDGE_SECRET, ENGINEER_BRIDGE_URL — waits on user
 - [ ] Pilot Level 1 task + safety drills — waits on Actions secrets
+- [x] Pilot run 1: lease, bridge, AI model, baselines all worked; failed only because the named file wasn't read (fixed)
+- [ ] Move bridge to Vercel: add ENGINEER_BRIDGE_SECRET on Vercel + redeploy, set GitHub ENGINEER_BRIDGE_URL to Vercel — waits on user
+- [ ] Pilot run 2 + safety drills
