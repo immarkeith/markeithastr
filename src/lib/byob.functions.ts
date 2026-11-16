@@ -9,6 +9,6 @@ export const trainByobModel=createServerFn({method:'POST'}).middleware([requireG
   const {gateConfigured}=await import('./gate.server');
   if(!gateConfigured()) throw new Error('Configure the app passcode before starting research from the browser.');
   const {prepareByob,trainByob}=await import('./byob.server');
-  try{await prepareByob(data.ticker);}catch{throw new Error('Historical market data is unavailable. Existing research remains unchanged.');}
+  try{await prepareByob('SPY');await prepareByob(data.ticker);}catch{throw new Error('Historical market data is unavailable. Existing research remains unchanged.');}
   return trainByob(data.ticker);
 });

@@ -1,6 +1,12 @@
 # ASTR Master Roadmap
 
-## Approved Phase 2g implementation
+## Approved corrected BYOB revision (2026-11-16)
+- [x] Implement indicator toolkit, horizon-aware partitions, holdout-only regime qualification, marked drawdown and exact scoring.
+- [x] Add immutable research records, durable test-exposure tracking and a transactional single active-model pointer; preserve all 30 legacy rows.
+- [x] Verify 15 seeds: 12 provisional, 3 integrity-blocked; no active models. 107 tests pass; signed-in NVDA update reads back v3, desktop/phone verified.
+- [ ] Independent-host deployment (`21-byob-corrected-research.sql`), new untouched future holdout and verified corporate-action/point-in-time source evidence (external prerequisites); authentic missing-session review for DELL/SHOP/ANET.
+
+## Legacy Phase 2g implementation (superseded qualification; rows preserved)
 - [x] Build isolated BYOB discovery, frozen holdout validation, versioned research records and fast evaluation.
 - [x] Prepare and research all 15 seed stocks: 971 sessions each; 5 qualified, 6 provisional, 4 disqualified. Initial calendar-rejected records preserved as version 1, corrected historical-calendar evaluations saved as version 2.
 - [x] Integrate advisory Analyze presentation; 79 tests pass, preview validation clean, authorized NVDA update reads back unchanged version 2, desktop/390px checks show no overflow or page errors.
@@ -158,7 +164,7 @@
 *Goal: Evolve from static universal scoring to stock-specific quantitative modeling across the seed universe (NVDA, AMD, MU, DELL, LRCX, SHOP, AVGO, ASML, ANET, etc.).*
 - [x] **Stock-Specific Formula Exploration**: Independent momentum-breakout, trend-pullback and mean-reversion parameter discovery, with recorded trial counts.
 - [x] **Empirical Holding Horizon Calibration**: Validation selects from the approved 11 horizons spanning 1–90 trading days; holdout never selects a model.
-- [x] **Out-of-Sample Validation**: 10 training / 5 validation / 5 holdout trades, 20 total, positive validation and holdout expectancy and two positive known regimes after 0.10% round-trip friction.
+- [x] **Corrected Out-of-Sample Validation**: 10/5/5 trades, >=0.50% holdout expectancy, positive PF, two positive known holdout-only regimes, <=25% marked drawdown and verified source evidence. Legacy qualification superseded; no corrected active models yet.
 - [x] **Analyze Desk Integration**: Separate paper-only advisory BYOB section, independent score/quality/confidence, chronological metrics, saved outcomes and model history; standard specialists and execution unchanged. See `docs/phase-2g-byob.md` for limits.
 
 ## Open setup items

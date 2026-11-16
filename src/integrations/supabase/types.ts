@@ -278,16 +278,51 @@ export type Database = {
         }
         Relationships: []
       }
+      byob_activation_events: {
+        Row: {
+          created_at: string
+          id: string
+          model_id: string
+          revision: number
+          ticker: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model_id: string
+          revision: number
+          ticker: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model_id?: string
+          revision?: number
+          ticker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "byob_activation_events_ticker_model_id_fkey"
+            columns: ["ticker", "model_id"]
+            isOneToOne: false
+            referencedRelation: "byob_models"
+            referencedColumns: ["ticker", "id"]
+          },
+        ]
+      }
       byob_models: {
         Row: {
           best_horizon_days: number | null
           created_at: string
           data_fingerprint: string
+          evidence_state: string | null
           formula_type: string | null
           holdout_metrics: Json
           id: string
           is_active: boolean
+          methodology: string | null
           parameters: Json
+          provenance: Json | null
           qualification_reason: string
           regime_metrics: Json
           result: Json
@@ -301,11 +336,14 @@ export type Database = {
           best_horizon_days?: number | null
           created_at?: string
           data_fingerprint: string
+          evidence_state?: string | null
           formula_type?: string | null
           holdout_metrics?: Json
           id?: string
           is_active?: boolean
+          methodology?: string | null
           parameters?: Json
+          provenance?: Json | null
           qualification_reason: string
           regime_metrics?: Json
           result: Json
@@ -319,11 +357,14 @@ export type Database = {
           best_horizon_days?: number | null
           created_at?: string
           data_fingerprint?: string
+          evidence_state?: string | null
           formula_type?: string | null
           holdout_metrics?: Json
           id?: string
           is_active?: boolean
+          methodology?: string | null
           parameters?: Json
+          provenance?: Json | null
           qualification_reason?: string
           regime_metrics?: Json
           result?: Json
@@ -332,6 +373,88 @@ export type Database = {
           training_metrics?: Json
           validation_metrics?: Json
           version?: number
+        }
+        Relationships: []
+      }
+      byob_registry: {
+        Row: {
+          active_model_id: string | null
+          revision: number
+          ticker: string
+        }
+        Insert: {
+          active_model_id?: string | null
+          revision?: number
+          ticker: string
+        }
+        Update: {
+          active_model_id?: string | null
+          revision?: number
+          ticker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "byob_registry_ticker_active_model_id_fkey"
+            columns: ["ticker", "active_model_id"]
+            isOneToOne: false
+            referencedRelation: "byob_models"
+            referencedColumns: ["ticker", "id"]
+          },
+        ]
+      }
+      byob_research_events: {
+        Row: {
+          created_at: string
+          event: string
+          evidence: Json
+          id: string
+          run_id: string
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          evidence?: Json
+          id?: string
+          run_id: string
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          evidence?: Json
+          id?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "byob_research_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "byob_research_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      byob_research_runs: {
+        Row: {
+          created_at: string
+          fingerprint: string
+          id: string
+          methodology: string
+          ticker: string
+        }
+        Insert: {
+          created_at?: string
+          fingerprint: string
+          id?: string
+          methodology: string
+          ticker: string
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string
+          id?: string
+          methodology?: string
+          ticker?: string
         }
         Relationships: []
       }
@@ -2278,6 +2401,10 @@ export type Database = {
           bar_date: string
           ticker_count: number
         }[]
+      }
+      byob_activate: {
+        Args: { p_model: string; p_revision: number; p_ticker: string }
+        Returns: boolean
       }
       claim_next_engineer_task: {
         Args: { p_runner_id: string }

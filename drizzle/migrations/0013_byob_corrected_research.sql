@@ -1,0 +1,38 @@
+ALTER TABLE public.byob_models ADD COLUMN IF NOT EXISTS methodology text;
+ALTER TABLE public.byob_models ADD COLUMN IF NOT EXISTS provenance jsonb;
+ALTER TABLE public.byob_models ADD COLUMN IF NOT EXISTS evidence_state text;
+ALTER TABLE public.byob_models ADD CONSTRAINT byob_ticker_id_unique UNIQUE (ticker,id);
+COMMENT ON COLUMN public.byob_models.is_active IS 'DEPRECATED: active model selected by byob_registry.active_model_id; legacy values preserved';
+CREATE TABLE public.byob_registry (ticker text PRIMARY KEY, active_model_id uuid, revision integer NOT NULL DEFAULT 0, FOREIGN KEY(ticker,active_model_id) REFERENCES public.byob_models(ticker,id) ON DELETE RESTRICT);
+GRANT ALL ON public.byob_registry TO service_role;
+ALTER TABLE public.byob_registry ENABLE ROW LEVEL SECURITY;
+CREATE TABLE public.byob_research_runs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),ticker text NOT NULL,methodology text NOT NULL,fingerprint text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(ticker,methodology,fingerprint));
+GRANT SELECT,INSERT ON public.byob_research_runs TO service_role;
+ALTER TABLE public.byob_research_runs ENABLE ROW LEVEL SECURITY;
+CREATE TABLE public.byob_research_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),run_id uuid NOT NULL REFERENCES public.byob_research_runs(id) ON DELETE RESTRICT,event text NOT NULL CHECK(event IN ('started','frozen','holdout_exposed','completed','failed')),evidence jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT,INSERT ON public.byob_research_events TO service_role;
+ALTER TABLE public.byob_research_events ENABLE ROW LEVEL SECURITY;
+CREATE TABLE public.byob_activation_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),ticker text NOT NULL,model_id uuid NOT NULL,revision integer NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),FOREIGN KEY(ticker,model_id) REFERENCES public.byob_models(ticker,id) ON DELETE RESTRICT);
+GRANT SELECT,INSERT ON public.byob_activation_events TO service_role;
+ALTER TABLE public.byob_activation_events ENABLE ROW LEVEL SECURITY;
+CREATE FUNCTION public.byob_reject_mutation() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$ BEGIN RAISE EXCEPTION 'BYOB research evidence is append-only'; END $$;
+CREATE TRIGGER byob_models_immutable BEFORE UPDATE OR DELETE ON public.byob_models FOR EACH ROW EXECUTE FUNCTION public.byob_reject_mutation();
+CREATE TRIGGER byob_runs_immutable BEFORE UPDATE OR DELETE ON public.byob_research_runs FOR EACH ROW EXECUTE FUNCTION public.byob_reject_mutation();
+CREATE TRIGGER byob_events_immutable BEFORE UPDATE OR DELETE ON public.byob_research_events FOR EACH ROW EXECUTE FUNCTION public.byob_reject_mutation();
+CREATE TRIGGER byob_activation_immutable BEFORE UPDATE OR DELETE ON public.byob_activation_events FOR EACH ROW EXECUTE FUNCTION public.byob_reject_mutation();
+CREATE FUNCTION public.byob_activate(p_ticker text,p_model uuid,p_revision integer) RETURNS boolean LANGUAGE plpgsql SET search_path=public AS $$
+DECLARE m public.byob_models; changed integer;
+BEGIN
+ SELECT * INTO m FROM public.byob_models WHERE id=p_model AND ticker=p_ticker;
+ IF NOT FOUND OR m.methodology IS DISTINCT FROM 'byob-v3-holdout-regimes' OR m.evidence_state IS DISTINCT FROM 'qualified' OR coalesce((m.provenance->>'qualified_integrity')::boolean,false)=false THEN RETURN false; END IF;
+ INSERT INTO public.byob_registry(ticker) VALUES(p_ticker) ON CONFLICT DO NOTHING;
+ UPDATE public.byob_registry SET active_model_id=p_model, revision=revision+1 WHERE ticker=p_ticker AND revision=p_revision;
+ GET DIAGNOSTICS changed=ROW_COUNT;
+ IF changed=0 THEN RETURN false; END IF;
+ INSERT INTO public.byob_activation_events(ticker,model_id,revision) VALUES(p_ticker,p_model,p_revision+1);
+ RETURN true;
+END $$;
+REVOKE ALL ON FUNCTION public.byob_activate(text,uuid,integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.byob_activate(text,uuid,integer) TO service_role;
+REVOKE ALL ON FUNCTION public.byob_reject_mutation() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.byob_reject_mutation() TO service_role;
