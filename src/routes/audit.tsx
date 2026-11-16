@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -38,30 +39,32 @@ export const Route = createFileRoute("/audit")({
 const VERDICT_CONFIG = {
   PASS: {
     icon: ShieldCheck,
-    color: "text-emerald-500",
-    bg: "border-emerald-500/30 bg-emerald-500/10",
+    color: "text-success",
+    bg: "border-success/30 bg-success/10",
     label: "ALL PILLARS VERIFIED (PASS)",
   },
   WARNING: {
     icon: AlertTriangle,
-    color: "text-amber-500",
-    bg: "border-amber-500/30 bg-amber-500/10",
+    color: "text-primary",
+    bg: "border-primary/30 bg-primary/10",
     label: "ADVISORY WARNINGS DETECTED",
   },
   FAIL: {
     icon: XCircle,
-    color: "text-rose-500",
-    bg: "border-rose-500/30 bg-rose-500/10",
+    color: "text-destructive",
+    bg: "border-destructive/30 bg-destructive/10",
     label: "MATHEMATICAL VIOLATIONS DETECTED (FAIL)",
   },
 };
 
 function AuditDeskPage() {
   const qc = useQueryClient();
+  const [category, setCategory] = useState("all");
+  const [severity, setSeverity] = useState("all");
   const load = useServerFn(getLeadAudit);
   const runNow = useServerFn(runLeadAuditNow);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["lead-audit"],
     queryFn: () => load(),
   });
@@ -81,26 +84,25 @@ function AuditDeskPage() {
   const auditMutation = useMutation({
     mutationFn: () => runNow(),
     onSuccess: (res) => {
-      toast.success(`Audit completed with verdict: ${res.overallVerdict}`);
-      qc.invalidateQueries({ queryKey: ["lead-audit"] });
+      qc.setQueryData(["lead-audit"], res.report);
+      qc.invalidateQueries({ queryKey: ["integrity-history"] });
+      if (!res.stored) toast.warning("Audit completed, but history could not be saved.");
+      else toast.success(`Audit saved: ${res.verdict}`);
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const report = data;
-  const verdict = report?.overallVerdict ?? "PASS";
+  const verdict = report?.overallVerdict ?? "WARNING";
   const cfg = VERDICT_CONFIG[verdict];
   const Icon = cfg.icon;
+  const filtered = report?.discrepancies.filter(d => (category === "all" || d.category === category) && (severity === "all" || d.severity === severity)) ?? [];
 
   return (
     <div className="space-y-8">
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Lead Quantitative Audit Desk</h1>
-          <p className="text-sm text-muted-foreground">
-            Daily raw-bar trade reconstruction, immutable scoreboard recalculation, closed-loop
-            balance reconciliation, and look-ahead bias validation.
-          </p>
         </div>
         <Button
           onClick={() => auditMutation.mutate()}
@@ -113,12 +115,12 @@ function AuditDeskPage() {
       </header>
 
       {/* Main Verdict Card */}
-      <div className={`flex items-center gap-4 rounded-xl border p-5 ${cfg.bg}`}>
+      <div className={`flex items-center gap-4 border-y p-5 ${cfg.bg}`}>
         <Icon className={`h-10 w-10 shrink-0 ${cfg.color}`} />
         <div>
-          <div className={`text-lg font-bold tracking-wide ${cfg.color}`}>{cfg.label}</div>
+          <div className={`text-lg font-bold tracking-wide ${cfg.color}`}>{report ? cfg.label : error ? "AUDIT UNAVAILABLE" : "CHECKING AUDIT EVIDENCE…"}</div>
           <div className="text-xs text-muted-foreground">
-            Last verified:{" "}
+            Last checked:{" "}
             {report?.timestamp ? new Date(report.timestamp).toLocaleString() : "Running check…"}
           </div>
         </div>
@@ -153,9 +155,19 @@ function AuditDeskPage() {
       {/* Discrepancy Ledger Table */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Audit Discrepancy Ledger</h2>
-        {!report || report.discrepancies.length === 0 ? (
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Discrepancy category">
+          {([["all", "All"], ["fill_reconstruction", "Fills"], ["scoreboard_drift", "Scoreboard"], ["balance_leak", "Balance"], ["lookahead_bias", "Lookahead"]] as const).map(([value, label]) => (
+            <Button key={value} size="sm" variant={category === value ? "secondary" : "ghost"} aria-pressed={category === value} onClick={() => setCategory(value)}>{label}</Button>
+          ))}
+        </div>
+        <div className="flex gap-1" role="group" aria-label="Discrepancy severity">
+          {([["all", "All severities"], ["error", "FAIL"], ["warning", "WARNING"]] as const).map(([value, label]) => (
+            <Button key={value} size="sm" variant={severity === value ? "secondary" : "ghost"} aria-pressed={severity === value} onClick={() => setSeverity(value)}>{label}</Button>
+          ))}
+        </div>
+        {!report || filtered.length === 0 ? (
           <div className="rounded-md border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-            Zero discrepancies or mathematical violations detected across all audited tracks.
+            {!report ? (error ? "Audit could not be loaded. Try Run Audit Now." : "Checking evidence…") : report.discrepancies.length ? "No discrepancies match these filters." : "No discrepancies detected in the checked records."}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-md border border-border">
@@ -163,6 +175,7 @@ function AuditDeskPage() {
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
                   <th className="p-3">Category</th>
+                  <th className="p-3">Severity</th>
                   <th className="p-3">Identifier</th>
                   <th className="p-3">Expected</th>
                   <th className="p-3">Actual</th>
@@ -170,14 +183,15 @@ function AuditDeskPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {report.discrepancies.map((d, i) => (
+                {filtered.map((d, i) => (
                   <tr key={i} className="hover:bg-muted/20">
                     <td className="p-3 font-medium uppercase text-muted-foreground">
-                      {d.category.replace("_", " ")}
+                      {d.category.replace(/_/g, " ")}
                     </td>
+                    <td className={`p-3 font-semibold ${d.severity === "error" ? "text-destructive" : "text-primary"}`}>{d.severity === "error" ? "FAIL" : "WARNING"}</td>
                     <td className="p-3 font-mono">{d.identifier}</td>
                     <td className="p-3 text-muted-foreground">{String(d.expected)}</td>
-                    <td className="p-3 text-destructive font-mono">{String(d.actual)}</td>
+                    <td className={`p-3 font-mono ${d.severity === "error" ? "text-destructive" : "text-primary"}`}>{String(d.actual)}</td>
                     <td className="p-3 text-muted-foreground">{d.reason}</td>
                   </tr>
                 ))}
@@ -220,9 +234,9 @@ function AuditDeskPage() {
                     <td className="p-3 font-mono text-muted-foreground">{r.target ?? "—"}</td>
                     <td className="p-3">
                       {r.verified ? (
-                        <span className="font-medium text-emerald-500">✓ verified</span>
+                        <span className="font-medium text-success">✓ verified</span>
                       ) : (
-                        <span className="font-medium text-amber-500">unverified</span>
+                        <span className="font-medium text-primary">unverified</span>
                       )}
                     </td>
                     <td className="p-3 text-muted-foreground">{r.verification_note ?? "—"}</td>
@@ -266,10 +280,10 @@ function AuditDeskPage() {
                       <span
                         className={
                           r.overall_verdict === "PASS"
-                            ? "font-medium text-emerald-500"
+                            ? "font-medium text-success"
                             : r.overall_verdict === "WARNING"
-                              ? "font-medium text-amber-500"
-                              : "font-medium text-rose-500"
+                              ? "font-medium text-primary"
+                              : "font-medium text-destructive"
                         }
                       >
                         {r.overall_verdict}

@@ -17,6 +17,14 @@ import {
 } from "@/lib/engineer/engineer.functions";
 
 export const Route = createFileRoute("/engineer/recovery")({
+  head: () => ({ meta: [
+    { title: "Code Recovery — ASTR Engineer" },
+    { name: "description", content: "ASTR engineer checkpoints and code-only recovery history." },
+    { property: "og:title", content: "Code Recovery — ASTR Engineer" },
+    { property: "og:description", content: "Review checkpoints and recover verified ASTR code without changing historical data." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: EngineerRecoveryPage,
 });
 

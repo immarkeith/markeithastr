@@ -36,6 +36,14 @@ import {
 } from "@/lib/engineer/engineer.functions";
 
 export const Route = createFileRoute("/engineer/")({
+  head: () => ({ meta: [
+    { title: "Engineer Conversations — ASTR" },
+    { name: "description", content: "ASTR code-work conversations, verified changes and approval queue." },
+    { property: "og:title", content: "Engineer Conversations — ASTR" },
+    { property: "og:description", content: "Review ASTR engineer conversations and verified change approvals." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: EngineerMissionControl,
 });
 

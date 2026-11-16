@@ -76,11 +76,8 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
           }
           // Phase E: Lead Researcher Quantitative Self-Audit post-market run
           try {
-            const { runLeadSelfAudit } = await import("@/lib/audit.server");
-            const auditReport = await runLeadSelfAudit();
-            if (auditReport.overallVerdict === "FAIL") {
-              console.error("[LEAD SELF-AUDIT] Quantitative Audit FAILED:", auditReport.discrepancies);
-            }
+            const { runIntegrityCheck } = await import("@/lib/integrity.server");
+            await runIntegrityCheck("daily");
           } catch (auditErr) {
             console.error("lead self-audit failed:", auditErr instanceof Error ? auditErr.message : auditErr);
           }

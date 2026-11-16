@@ -179,6 +179,36 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_integrity_results: {
+        Row: {
+          cadence: string
+          checked_at: string
+          discrepancies: Json
+          id: string
+          overall_verdict: string
+          pillars: Json
+          summary: string | null
+        }
+        Insert: {
+          cadence: string
+          checked_at?: string
+          discrepancies?: Json
+          id?: string
+          overall_verdict: string
+          pillars: Json
+          summary?: string | null
+        }
+        Update: {
+          cadence?: string
+          checked_at?: string
+          discrepancies?: Json
+          id?: string
+          overall_verdict?: string
+          pillars?: Json
+          summary?: string | null
+        }
+        Relationships: []
+      }
       backup_tests: {
         Row: {
           created_at: string

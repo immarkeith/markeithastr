@@ -99,11 +99,15 @@
 
 ### Phase E — Lead Researcher Quantitative Self-Audit Engine
 *Target: 3–4 credits*
-- [ ] Daily 6:00 PM ET raw-bar trade reconstruction (verifying fills, prices, same-day calendar precision).
-- [ ] Independent recalculation of all graph points and scoreboard stats directly from immutable trade rows.
-- [ ] Saturday 10:00 AM ET weekly closed-loop balance reconciliation (Starting Capital + Net Realized P&L = Current Value).
-- [ ] Randomized historical look-ahead bias validation.
-- [ ] Audit Desk UI with PASS / WARNING / FAIL verdicts and discrepancy ledgers.
+- [x] Four-pillar audits, explicit evidence gaps, saved manual results, filters and real-record verification. All 50 tests pass; see `docs/phase-e-audit.md`.
+- [x] Raw-bar entry/exit reconstruction and paper-only closed-loop balance equation; daily cycle persists reports, weekly hook extends lookback to 180 days.
+- [x] Independent paper scoreboard recomputation and saved researcher ledger identities. Graphs remain ledger-based, never reconstructed from trades.
+- [x] Historical boundary validation; missing provenance and fewer than five verified records warn instead of passing.
+- [x] Audit Desk PASS / WARNING / FAIL verdicts and category/severity filters; manual run saved and read back, desktop/phone verified.
+- [ ] Configure dedicated 6 PM ET daily / Saturday 10 AM ET weekly integrity schedules on the independent host; no integrity job exists in the inspected scheduler. Existing daily cycle timing differs.
+- [ ] Record actual input-cutoff provenance in research producers; legacy records cannot prove lookahead absence. Requires separately reviewed producer changes.
+- [ ] Review first audit findings before any data repair: 119 fill violations, two scoreboard discrepancies and eight balance discrepancies; no automatic changes authorized.
+- [ ] Apply portable audit-history setup (`migration/fresh/19-phase-e-integrity-history.sql`) to the separate Vercel database; only preview application is verified.
 
 ### Phase F — T+1 Settlement & Cash Account Realism
 *Target: 2–3 credits*

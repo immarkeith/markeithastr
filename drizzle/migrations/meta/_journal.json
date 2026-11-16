@@ -78,6 +78,13 @@
       "when": 1794793782038,
       "tag": "0010_phase_l_autonomous_live",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794794593792,
+      "tag": "0011_phase_e_integrity_history",
+      "breakpoints": true
     }
   ]
 }

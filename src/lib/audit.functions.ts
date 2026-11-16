@@ -11,8 +11,8 @@ export const getLeadAudit = createServerFn({ method: "GET" })
 export const runLeadAuditNow = createServerFn({ method: "POST" })
   .middleware([requireGate])
   .handler(async () => {
-    const { runLeadSelfAudit } = await import("./audit.server");
-    return runLeadSelfAudit();
+    const { runIntegrityCheck } = await import("./integrity.server");
+    return runIntegrityCheck("manual");
   });
 
 export const getRepairLogs = createServerFn({ method: "GET" })

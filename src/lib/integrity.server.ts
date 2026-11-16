@@ -10,13 +10,14 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { runLeadSelfAudit, type LeadAuditReport } from "./audit.server";
 
-export type IntegrityCadence = "daily" | "weekly";
+export type IntegrityCadence = "daily" | "weekly" | "manual";
 
 export interface IntegrityResult {
   cadence: IntegrityCadence;
   verdict: string;
   summary: string;
   report: LeadAuditReport;
+  stored: boolean;
 }
 
 /**
@@ -26,7 +27,10 @@ export interface IntegrityResult {
 export async function runIntegrityCheck(
   cadence: IntegrityCadence = "daily",
 ): Promise<IntegrityResult> {
-  const report = await runLeadSelfAudit();
+  const report = await runLeadSelfAudit({
+    lookbackDays: cadence === "weekly" ? 180 : 60,
+    sampleCount: cadence === "weekly" ? 60 : 15,
+  });
 
   const pillarSummary = Object.values(report.pillars)
     .map((p) => `${p.name}: ${p.verdict}`)
@@ -34,20 +38,24 @@ export async function runIntegrityCheck(
   const summary = `[${cadence.toUpperCase()}] ${report.overallVerdict} — ${pillarSummary}`;
 
   // Store the result (graceful: table may not exist yet)
+  let stored = false;
   try {
-    await untypedDb().from("audit_integrity_results").insert({
+    const { error } = await untypedDb().from("audit_integrity_results").insert({
       cadence,
       overall_verdict: report.overallVerdict,
       pillars: report.pillars as never,
       discrepancies: report.discrepancies as never,
       summary,
     });
-  } catch {
-    // Table may not exist yet — never block the integrity check.
+    stored = !error;
+    if (error) console.error("Integrity result could not be stored:", error.message);
+  } catch (error) {
+    console.error("Integrity result could not be stored:", error instanceof Error ? error.message : "write failed");
   }
 
   // Alert only on FAIL — warnings are logged but not pushed.
-  if (report.overallVerdict === "FAIL") {
+  if (report.overallVerdict === "FAIL" && cadence !== "manual") {
+    try {
     const { notify } = await import("./notify.server");
     const failCount = report.discrepancies.filter((d) => d.severity === "error").length;
     const detail = report.discrepancies
@@ -63,9 +71,12 @@ export async function runIntegrityCheck(
       action: "Open the Audit Desk to review",
       dedupe_key: `integrity-${cadence}:${new Date().toISOString().slice(0, 10)}`,
     });
+    } catch (error) {
+      console.error("Integrity notification failed:", error instanceof Error ? error.message : "notification failed");
+    }
   }
 
-  return { cadence, verdict: report.overallVerdict, summary, report };
+  return { cadence, verdict: report.overallVerdict, summary, report, stored };
 }
 
 export interface IntegrityHistoryRow {
