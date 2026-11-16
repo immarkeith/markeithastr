@@ -42,8 +42,9 @@ export function resolveProvider(
   const key = process.env[KEY_ENV]?.trim();
   if (!baseUrl?.trim() || !model?.trim() || !key) return null;
   return {
-    base_url: baseUrl.replace(/\/+$/, ""),
-    model: model.trim(),
+    // Strip stray quotes/backticks/spaces a copy-paste can leave behind.
+    base_url: baseUrl.trim().replace(/^[`"'\s]+|[`"'\s]+$/g, "").replace(/\/+$/, ""),
+    model: model.trim().replace(/^[`"'\s]+|[`"'\s]+$/g, ""),
     api_key: key,
     price_per_million_tokens: pricePerMillionTokens,
   };
