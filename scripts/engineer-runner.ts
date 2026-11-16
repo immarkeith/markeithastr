@@ -336,59 +336,64 @@ try {
 
   // ---------------------------------------------------------- 5. the patch
   await setStatus("coding");
-  const first = await chatCompletion(
-    provider,
-    [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    { json: true, maxTokens: 4000 },
-  );
-  tokensUsed += first.tokens;
-
-  if (!first.ok) {
-    await failTask(`Model call failed: ${first.error}`, {
-      tokens_used: tokensUsed,
-      cost_estimate_usd: estimateCostUsd(tokensUsed, provider.price_per_million_tokens),
-    });
-  }
-
-  let plan: ModelPlan;
-  try {
-    plan = JSON.parse(first.text) as ModelPlan;
-  } catch {
-    await failTask("The model did not return valid JSON — nothing was applied.", {
-      tokens_used: tokensUsed,
-    });
-  }
-
-  if (plan.plan) await log("planning", plan.plan.slice(0, 1500));
-  const hunks: PatchHunk[] = (plan.edits ?? []).filter(
-    (edit) =>
-      typeof edit?.path === "string" &&
-      typeof edit?.find === "string" &&
-      typeof edit?.replace === "string",
-  );
-  if (hunks.length === 0) {
-    await failTask("The model proposed no edits. Nothing was changed.", {
-      tokens_used: tokensUsed,
-    });
-  }
-
-  const originals = new Map<string, string>();
-  for (const hunk of hunks) {
-    if (!originals.has(hunk.path)) {
-      if (!existsSync(hunk.path)) {
-        await failTask(`Proposed file ${hunk.path} does not exist in the repository.`);
+  // The first patch gets the same bounded retries as repairs: free models often
+  // return empty/invalid JSON or an anchor that is not verbatim in the file, so
+  // each failure is fed back and costs one attempt instead of ending the task.
+  let plan: ModelPlan = {} as ModelPlan;
+  let hunks: PatchHunk[] = [];
+  let applied!: ReturnType<typeof applyHunks>;
+  let feedback = "";
+  for (let attemptNo = 1; ; attemptNo++) {
+    const first = await chatCompletion(
+      provider,
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: feedback ? `${userPrompt}\n\nYour previous reply could not be applied: ${feedback}\nEach "find" must be copied character-for-character from the file shown above and occur exactly once.` : userPrompt },
+      ],
+      { json: true, maxTokens: 4000 },
+    );
+    tokensUsed += first.tokens;
+    let problem = "";
+    if (!first.ok) problem = `model call failed: ${first.error}`;
+    else {
+      try {
+        plan = JSON.parse(first.text) as ModelPlan;
+      } catch {
+        problem = "the reply was not valid JSON";
       }
-      originals.set(hunk.path, readFileSync(hunk.path, "utf8"));
     }
-  }
-
-  const applied = applyHunks(originals, hunks);
-  if (!applied.ok) {
-    const detail = applied.errors.map((error) => `${error.path}: ${error.reason}`).join("; ");
-    await failTask(`Anchored patching stopped: ${detail}`, { tokens_used: tokensUsed });
+    if (!problem) {
+      if (plan.plan) await log("planning", plan.plan.slice(0, 1500));
+      hunks = (plan.edits ?? []).filter(
+        (edit) => typeof edit?.path === "string" && typeof edit?.find === "string" && typeof edit?.replace === "string",
+      );
+      if (hunks.length === 0) problem = "no edits were proposed";
+    }
+    if (!problem) {
+      const originals = new Map<string, string>();
+      for (const hunk of hunks) {
+        if (!originals.has(hunk.path)) {
+          if (!existsSync(hunk.path)) { problem = `${hunk.path} does not exist`; break; }
+          originals.set(hunk.path, readFileSync(hunk.path, "utf8"));
+        }
+      }
+      if (!problem) {
+        applied = applyHunks(originals, hunks);
+        if (!applied.ok) problem = applied.errors.map((e) => `${e.path}: ${e.reason}`).join("; ");
+      }
+    }
+    if (!problem) break;
+    if (first.ok === false && /\b(401|402|403|404)\b/.test(String(first.error))) {
+      await failTask(`Model call failed: ${first.error}`, { tokens_used: tokensUsed });
+    }
+    await log("coding", `Patch attempt ${attemptNo}/${MAX_REPAIR_ATTEMPTS}: ${problem}`, "warn");
+    if (attemptNo >= MAX_REPAIR_ATTEMPTS) {
+      await failTask(`No usable patch after ${attemptNo} attempts (last: ${problem}). Nothing was changed.`, {
+        tokens_used: tokensUsed,
+        cost_estimate_usd: estimateCostUsd(tokensUsed, provider.price_per_million_tokens),
+      });
+    }
+    feedback = problem;
   }
   for (const [path, content] of applied.files) writeFileSync(path, content);
   await log(
