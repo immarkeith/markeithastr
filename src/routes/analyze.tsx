@@ -8,6 +8,8 @@ import { StatTile } from "@/components/StatTile";
 import { EventIntelligence } from "@/components/EventIntelligence";
 import { InfluenceProfile } from "@/components/InfluenceProfile";
 import { ResearcherBuyTable } from "@/components/ResearcherBuyTable";
+import { ByobSpecialistCard } from "@/components/ByobSpecialistCard";
+import { BYOB_SEEDS } from "@/lib/byob-rules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,6 +113,11 @@ function AnalyzePage() {
       </div>
 
       {result ? <ResultCard result={result} request={request} /> : null}
+      <div className="border-t border-border pt-4">
+        <h2 className="mb-3 text-sm font-semibold">BYOB research universe</h2>
+        <div className="flex flex-wrap gap-1">{BYOB_SEEDS.map(t=><Button key={t} size="sm" variant={ticker===t?'secondary':'ghost'} onClick={()=>{setTicker(t);setResult(null);}}>{t}</Button>)}</div>
+      </div>
+      {/^[A-Z.\-]{1,10}$/.test(ticker) ? <ByobSpecialistCard key={ticker} ticker={ticker} /> : null}
       <InfluenceProfile />
     </div>
   );

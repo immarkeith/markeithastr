@@ -1,5 +1,11 @@
 # ASTR Master Roadmap
 
+## Approved Phase 2g implementation
+- [x] Build isolated BYOB discovery, frozen holdout validation, versioned research records and fast evaluation.
+- [x] Prepare and research all 15 seed stocks: 971 sessions each; 5 qualified, 6 provisional, 4 disqualified. Initial calendar-rejected records preserved as version 1, corrected historical-calendar evaluations saved as version 2.
+- [x] Integrate advisory Analyze presentation; 79 tests pass, preview validation clean, authorized NVDA update reads back unchanged version 2, desktop/390px checks show no overflow or page errors.
+- [ ] Independent Vercel database: apply `migration/fresh/20-byob-specialist.sql` and run `bun scripts/research-byob.ts` there; this preview cannot verify that separate deployment.
+
 ## Approved Research Lab backfill (2026-11-16)
 - [x] Backfill the existing 300-stock research universe from January 2024 through November 13, 2026; existing bars preserved (301 symbols including SPY).
 - [x] Replay seven researchers chronologically: 4,627 saved rows across 661 sessions, March 28, 2024–November 13, 2026; trades and live settings untouched.
@@ -150,10 +156,10 @@
 ### 3. Phase 2g — BYOB Stock-Specific Discovery & Dynamic Horizon Engine
 *Full spec: `docs/06-byob-researcher-spec.md`*
 *Goal: Evolve from static universal scoring to stock-specific quantitative modeling across the seed universe (NVDA, AMD, MU, DELL, LRCX, SHOP, AVGO, ASML, ANET, etc.).*
-- [ ] **Stock-Specific Formula Exploration**: Test independent momentum, mean-reversion, and breakout parameter combinations against historical bars for each individual seed stock.
-- [ ] **Empirical Holding Horizon Calibration**: Determine the specific holding horizon (1 to 21 trading days) that maximizes risk-adjusted expectancy for that specific ticker.
-- [ ] **Out-of-Sample Validation**: Require candidate models to clear at least 10 historical test trades across two unseen market regimes with positive net expectancy after 0.1% modeled costs.
-- [ ] **Analyze Desk Integration**: Surface validated stock-specific BYOB findings on the Analyze tab alongside standard specialists without altering live execution rules.
+- [x] **Stock-Specific Formula Exploration**: Independent momentum-breakout, trend-pullback and mean-reversion parameter discovery, with recorded trial counts.
+- [x] **Empirical Holding Horizon Calibration**: Validation selects from the approved 11 horizons spanning 1–90 trading days; holdout never selects a model.
+- [x] **Out-of-Sample Validation**: 10 training / 5 validation / 5 holdout trades, 20 total, positive validation and holdout expectancy and two positive known regimes after 0.10% round-trip friction.
+- [x] **Analyze Desk Integration**: Separate paper-only advisory BYOB section, independent score/quality/confidence, chronological metrics, saved outcomes and model history; standard specialists and execution unchanged. See `docs/phase-2g-byob.md` for limits.
 
 ## Open setup items
 - [ ] Vercel site uses its own database: run `bun scripts/backfill-research-ledger.ts` there to get the same Lab history.

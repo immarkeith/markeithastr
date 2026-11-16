@@ -278,6 +278,63 @@ export type Database = {
         }
         Relationships: []
       }
+      byob_models: {
+        Row: {
+          best_horizon_days: number | null
+          created_at: string
+          data_fingerprint: string
+          formula_type: string | null
+          holdout_metrics: Json
+          id: string
+          is_active: boolean
+          parameters: Json
+          qualification_reason: string
+          regime_metrics: Json
+          result: Json
+          status: string
+          ticker: string
+          training_metrics: Json
+          validation_metrics: Json
+          version: number
+        }
+        Insert: {
+          best_horizon_days?: number | null
+          created_at?: string
+          data_fingerprint: string
+          formula_type?: string | null
+          holdout_metrics?: Json
+          id?: string
+          is_active?: boolean
+          parameters?: Json
+          qualification_reason: string
+          regime_metrics?: Json
+          result: Json
+          status: string
+          ticker: string
+          training_metrics?: Json
+          validation_metrics?: Json
+          version?: number
+        }
+        Update: {
+          best_horizon_days?: number | null
+          created_at?: string
+          data_fingerprint?: string
+          formula_type?: string | null
+          holdout_metrics?: Json
+          id?: string
+          is_active?: boolean
+          parameters?: Json
+          qualification_reason?: string
+          regime_metrics?: Json
+          result?: Json
+          status?: string
+          ticker?: string
+          training_metrics?: Json
+          validation_metrics?: Json
+          version?: number
+        }
+        Relationships: []
+      }
       capital_ladder_events: {
         Row: {
           capital: number

@@ -1,0 +1,23 @@
+# Phase 2g — BYOB stock-specific research
+
+## Operation
+Analyze contains a separate paper-only BYOB section and the approved 15 seed stocks. Opening a ticker loads saved research and evaluates the newest completed stored session; it does not discover models. Start/Update research requires an unlocked device and a configured app passcode. Existing live BUY controls belong exclusively to the unchanged standard specialists.
+
+Independent maintenance: apply `migration/fresh/20-byob-specialist.sql` to the independent host's database, then run `bun scripts/research-byob.ts` (or supply tickers). The script prepares data using the existing Alpaca IEX adapter, preserves duplicate cache rows, then saves one model version per ticker. It makes no brokerage requests or order calls. Provider failures preserve cached history and remain visible.
+
+## Statistical contract
+- At least 250 valid, consecutive market sessions; missing sessions produce insufficient data, never invented marks.
+- Split N bars at floor(0.6N), floor(0.8N). Indicators may use earlier bars, never future bars; entries use next-session open after a completed signal. Exits use close H trading sessions after entry. Trades cannot cross a split boundary or overlap; simulated proceeds are reusable only after the exit session.
+- Three formula families: momentum breakout (previous-high breakout with volume confirmation), trend pullback (fast average above 50-session average with bounded pullback), mean reversion (distance below trailing average). Periods 10/20/50; volume thresholds 1.2/1.5/2 or distance thresholds 2/3/5 percent. Training selects one parameter pair per family with a fixed 3-session pilot horizon. Validation selects family and horizon from 1/2/3/5/7/10/13/20/30/60/90. Ties use deterministic grid order.
+- Freeze the selected candidate before evaluating holdout exactly once. Require 10 training, 5 validation, 5 holdout trades and 20 total. Insufficient samples remain provisional; nonpositive validation/holdout expectancy disqualifies. At least two known out-of-sample regimes must have positive net expectancy; any observed negative regime disqualifies. Unknown regimes cannot establish qualification.
+- Existing Phase C implementation, not stale header comments: SPY distance above/below SMA200 by 5%; annualized RV20 bands at 15%/28%. Classification uses only information known on the signal date.
+- Costs: entry ×1.0005, exit ×0.9995; net return = (adjusted exit/adjusted entry −1) ×100. This is approximately 0.10% total friction, uniformly applied to all splits.
+- Score = 50% signal match + 30% holdout quality tier + 20% regime compatibility. Quality tiers 100 for >=3% expectancy and PF>=2 (or no losses); 75 >=1.5%; 50 >=0.5%; 25 for positive below 0.5%; zero otherwise. Signal is zero without entry criteria. Compatibility 100 for strongest known regime, 0 for negative regime, 50 otherwise. Paper setup additionally requires qualified status, active signal and score >=65.
+- Confidence remains separate: fewer than 5 holdout trades insufficient, 5–29 preliminary, >=30 moderate. Qualification is an evidence gate, not statistical proof or investment advice.
+
+## Integrity and limitations
+
+Verified initial replay: 971 sessions per seed ticker, 5 qualified models (AMD, DELL, ASML, LITE, FTNT), 6 provisional and 4 disqualified. Qualification is not a live buy instruction. Version 1 calendar-rejected records remain preserved; version 2 uses the existing all-year paper-session calendar instead of the live calendar's 2026/2027-only holiday list. All 79 tests pass. Browser verification unlocked the app, selected NVDA, updated research, reloaded and read back version 2; desktop and 390px phone checks had no page errors or horizontal overflow.
+Results store parameters, periods, input SHA-256, engine version, trials, metrics, regimes and exact holdout outcomes. Same data is idempotent; concurrent inserts fail safely under unique keys. New discovery after an exposed holdout requires a new final holdout entirely later than the prior evaluated history. Past model rows are never updated or deleted.
+
+The static current seed universe is not survivorship-free. Available adjusted IEX history is not full consolidated market execution. Non-overlap reduces dependence but does not prove independent samples; multiple testing is recorded, not magically eliminated. Five trades or sparse regime cells do not prove robustness. Prospective observation, external recommendation replay, walk-forward stability and a durable background queue are later work from the broader BYOB product definition, not part of this initial approved slice. No change is made to standard Research Lab charts or ledgers.
