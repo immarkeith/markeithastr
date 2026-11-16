@@ -16,7 +16,7 @@ const LIVE_BASE = "https://api.alpaca.markets";
 export type BrokerMode = "live";
 
 /** Origin token proving a human confirmed this order in the UI. */
-export type OrderOrigin = "manual_confirmed";
+export type OrderOrigin = "manual_confirmed" | "autonomous_authorized";
 
 function assertLive(mode: BrokerMode): void {
   if (mode !== "live") {
@@ -140,7 +140,22 @@ export async function buyNotional(
   dollars: number,
   origin: OrderOrigin,
 ): Promise<BrokerFill> {
-  if (origin !== "manual_confirmed") {
+  if (origin === "autonomous_authorized") {
+    // Phase L: re-read the switch from the database at order time, so no
+    // caller can authorize itself. Hard $50 ceiling regardless of settings.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("app_settings")
+      .select("auto_live_trading, paper_mode, auto_max_trade_dollars")
+      .eq("id", 1)
+      .single();
+    if (!data?.auto_live_trading || data.paper_mode !== false) {
+      throw new Error("Firewall: autonomous live trading is not enabled.");
+    }
+    if (dollars > Math.min(50, Number(data.auto_max_trade_dollars))) {
+      throw new Error("Firewall: autonomous order exceeds the per-trade cap.");
+    }
+  } else if (origin !== "manual_confirmed") {
     throw new Error("Firewall: live buy orders require manual user confirmation.");
   }
   const order = await call(mode, "/v2/orders", {

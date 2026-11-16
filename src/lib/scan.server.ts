@@ -1007,7 +1007,7 @@ async function latestBarByTicker(tickers: string[]) {
  * Settled cash currently available for real orders. Banked profit ("reserve"
  * rows) is deliberately excluded so the stake never compounds.
  */
-async function availableCash(): Promise<number> {
+export async function availableCash(): Promise<number> {
   const { data, error } = await supabaseAdmin
     .from("ledger_entries")
     .select("amount, available_on, kind")

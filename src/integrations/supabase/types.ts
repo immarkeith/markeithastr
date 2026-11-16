@@ -17,7 +17,13 @@ export type Database = {
       app_settings: {
         Row: {
           active_strategy_id: string | null
+          auto_daily_loss_limit: number
+          auto_live_trading: boolean
+          auto_max_daily_trades: number
+          auto_max_trade_dollars: number
           auto_run: boolean
+          auto_spy_move_limit_pct: number
+          auto_volatility_kill_switch: boolean
           bt_fee_pct: number
           bt_slippage_bps: number
           dollars_per_day_trade: number
@@ -65,7 +71,13 @@ export type Database = {
         }
         Insert: {
           active_strategy_id?: string | null
+          auto_daily_loss_limit?: number
+          auto_live_trading?: boolean
+          auto_max_daily_trades?: number
+          auto_max_trade_dollars?: number
           auto_run?: boolean
+          auto_spy_move_limit_pct?: number
+          auto_volatility_kill_switch?: boolean
           bt_fee_pct?: number
           bt_slippage_bps?: number
           dollars_per_day_trade?: number
@@ -113,7 +125,13 @@ export type Database = {
         }
         Update: {
           active_strategy_id?: string | null
+          auto_daily_loss_limit?: number
+          auto_live_trading?: boolean
+          auto_max_daily_trades?: number
+          auto_max_trade_dollars?: number
           auto_run?: boolean
+          auto_spy_move_limit_pct?: number
+          auto_volatility_kill_switch?: boolean
           bt_fee_pct?: number
           bt_slippage_bps?: number
           dollars_per_day_trade?: number
@@ -1918,6 +1936,7 @@ export type Database = {
       }
       trades: {
         Row: {
+          auto_managed: boolean
           broker_order_id: string | null
           created_at: string
           dollars: number
@@ -1936,6 +1955,7 @@ export type Database = {
           kept: number | null
           kind: string
           mode: string
+          owning_researcher: string | null
           position_type: string
           profit: number | null
           review_date: string | null
@@ -1949,6 +1969,7 @@ export type Database = {
           ticker: string
         }
         Insert: {
+          auto_managed?: boolean
           broker_order_id?: string | null
           created_at?: string
           dollars: number
@@ -1967,6 +1988,7 @@ export type Database = {
           kept?: number | null
           kind?: string
           mode?: string
+          owning_researcher?: string | null
           position_type?: string
           profit?: number | null
           review_date?: string | null
@@ -1980,6 +2002,7 @@ export type Database = {
           ticker: string
         }
         Update: {
+          auto_managed?: boolean
           broker_order_id?: string | null
           created_at?: string
           dollars?: number
@@ -1998,6 +2021,7 @@ export type Database = {
           kept?: number | null
           kind?: string
           mode?: string
+          owning_researcher?: string | null
           position_type?: string
           profit?: number | null
           review_date?: string | null

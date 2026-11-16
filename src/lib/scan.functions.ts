@@ -144,6 +144,12 @@ export const saveSettings = createServerFn({ method: "POST" })
         exit_buffer_minutes: z.number().int().min(1).max(60).optional(),
         preopen_recheck_minutes: z.number().int().min(0).max(120).optional(),
         hold_qualifying_positions: z.boolean().optional(),
+        auto_live_trading: z.boolean().optional(),
+        auto_max_trade_dollars: z.number().min(1).max(50).optional(),
+        auto_max_daily_trades: z.number().int().min(0).max(3).optional(),
+        auto_daily_loss_limit: z.number().min(1).max(500).optional(),
+        auto_volatility_kill_switch: z.boolean().optional(),
+        auto_spy_move_limit_pct: z.number().min(0.5).max(10).optional(),
       })
       .parse(input),
   )

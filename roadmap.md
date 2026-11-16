@@ -71,18 +71,20 @@
 *Target: 2–3 credits*
 
 ### Phase L.1 — Autonomous Live Trading Engine & Daily Selection
-- [ ] Dedicated "Autonomous Live Trading" toggle in Settings with hard daily loss limit and max position size (e.g. $20–$50 per trade, max 1 trade/day).
-- [ ] Automated 9:35 AM ET market scan via cron across the tracked universe.
-- [ ] Multi-researcher consensus ranking: score tickers across all active specialists and select the #1 ranked candidate with highest calibrated confidence.
-- [ ] Hold horizon assignment: automatically assign the winning specialist's research-derived hold period (e.g. DIS for 17 trading days) and record `hold_until_date` and `owning_researcher`.
-- [ ] Automated market order execution via Alpaca Live API for the selected top ticker.
+- [x] Dedicated "Autonomous Live Trading" toggle in Settings with hard daily loss limit and max position size (e.g. $20–$50 per trade, max 1 trade/day).
+- [x] Automated 9:35 AM ET market scan via cron across the tracked universe.
+- [x] Multi-researcher consensus ranking: score tickers across all active specialists and select the #1 ranked candidate with highest calibrated confidence.
+- [x] Hold horizon assignment: automatically assign the winning specialist's research-derived hold period (e.g. DIS for 17 trading days) and record `hold_until_date` and `owning_researcher`.
+- [x] Automated market order execution via Alpaca Live API for the selected top ticker.
 
 ### Phase L.2 — Strict Time-Based Liquidation Engine
-- [ ] Scheduled 3:45 PM ET daily liquidation check against open positions.
-- [ ] Strict expiration exit: if `hold_days_elapsed >= target_horizon`, automatically submit a market sell order before market close.
-- [ ] Same-day trade guarantee: positions with horizon = 0 are strictly liquidated by 3:55 PM ET—never carried overnight.
-- [ ] Volatility kill switch: automatically abort new buys and cancel unfilled orders if SPY intraday volatility spikes above high-vol regime threshold.
-- [ ] Notification summary: dispatch push/in-app alert detailing morning entry reason, assigned specialist, and afternoon exit execution.
+- [x] Scheduled 3:45 PM ET daily liquidation check against open positions.
+- [x] Strict expiration exit: if `hold_days_elapsed >= target_horizon`, automatically submit a market sell order before market close.
+- [x] Same-day trade guarantee: positions with horizon = 0 are strictly liquidated by 3:55 PM ET—never carried overnight.
+- [x] Volatility kill switch: automatically abort new buys and cancel unfilled orders if SPY intraday volatility spikes above high-vol regime threshold.
+- [x] Notification summary: dispatch push/in-app alert detailing morning entry reason, assigned specialist, and afternoon exit execution.
+- [ ] Run `migration/fresh/18-phase-l-autonomous-live.sql` on the Vercel site's database (applied to the preview database only).
+- [ ] Live end-to-end check on a real trading morning (not exercised with real money yet).
 
 ---
 

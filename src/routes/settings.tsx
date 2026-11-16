@@ -54,6 +54,13 @@ const NUMERIC_FIELDS = [
   ["ml_combine_weight", "Model share of blended rank (0-1)"],
 ] as const;
 
+const AUTO_FIELDS = [
+  ["auto_max_trade_dollars", "Dollars per autonomous trade (max $50)"],
+  ["auto_max_daily_trades", "Autonomous trades per day"],
+  ["auto_daily_loss_limit", "Daily loss limit ($)"],
+  ["auto_spy_move_limit_pct", "Market swing limit (SPY %, ±)"],
+] as const;
+
 function SettingsPage() {
   const qc = useQueryClient();
   const { data } = useQuery(settingsQuery);
@@ -65,6 +72,8 @@ function SettingsPage() {
     ml_enabled: true,
     research_auto: true,
     hold_qualifying_positions: true,
+    auto_live_trading: false,
+    auto_volatility_kill_switch: true,
   });
 
 
@@ -75,7 +84,7 @@ function SettingsPage() {
       provider: String(data.provider),
       ml_target: String((data as Record<string, unknown>)['ml_target'] ?? "return"),
     };
-    for (const [key] of NUMERIC_FIELDS) next[key] = String((data as Record<string, unknown>)[key]);
+    for (const [key] of [...NUMERIC_FIELDS, ...AUTO_FIELDS]) next[key] = String((data as Record<string, unknown>)[key] ?? "");
     setForm(next);
     const row = data as Record<string, unknown>;
     setToggles({
@@ -84,6 +93,8 @@ function SettingsPage() {
       ml_enabled: row['ml_enabled'] !== false,
       research_auto: row['research_auto'] !== false,
       hold_qualifying_positions: row['hold_qualifying_positions'] !== false,
+      auto_live_trading: row['auto_live_trading'] === true,
+      auto_volatility_kill_switch: row['auto_volatility_kill_switch'] !== false,
     });
   }, [data]);
 
@@ -94,7 +105,9 @@ function SettingsPage() {
         provider: form['provider'] === "alpaca" ? "alpaca" : "polygon",
         ml_target: form['ml_target'] ?? "return",
       };
-      for (const [key] of NUMERIC_FIELDS) patch[key] = Number(form[key]);
+      for (const [key] of [...NUMERIC_FIELDS, ...AUTO_FIELDS]) patch[key] = Number(form[key]);
+      patch['auto_live_trading'] = toggles.auto_live_trading;
+      patch['auto_volatility_kill_switch'] = toggles.auto_volatility_kill_switch;
       patch['paper_mode'] = toggles.paper_mode;
       patch['auto_run'] = toggles.auto_run;
       patch['ml_enabled'] = toggles.ml_enabled;
@@ -227,6 +240,68 @@ function SettingsPage() {
             <option value="prob_positive">Chance the move is positive</option>
             <option value="prob_target">Chance it reaches the target move</option>
           </select>
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-destructive/50 bg-card p-4">
+        <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+          Autonomous live trading
+        </h2>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={toggles.auto_live_trading}
+            onChange={(e) => {
+              if (
+                e.target.checked &&
+                !window.confirm(
+                  "Turn on autonomous live trading? ASTR will buy with REAL money after the morning scan, without asking you, and sell strictly when the researcher's hold time ends.",
+                )
+              )
+                return;
+              setToggles({ ...toggles, auto_live_trading: e.target.checked });
+            }}
+          />
+          <span>
+            <span className="font-semibold">Let ASTR buy and sell on its own (real money)</span>
+            <span className="block text-xs text-muted-foreground">
+              OFF by default. When ON (and Simulation mode and the Automatic daily cycle are set
+              for live), the post-open pass buys the highest-confidence stock, owned by the
+              best-performing researcher that agrees, and holds it for that researcher's hold
+              time. It sells at the pre-close pass on the exit day no matter the price. Hard
+              limit: $50 per trade.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={toggles.auto_volatility_kill_switch}
+            onChange={(e) =>
+              setToggles({ ...toggles, auto_volatility_kill_switch: e.target.checked })
+            }
+          />
+          <span>
+            <span className="font-semibold">Skip buying on wild market days</span>
+            <span className="block text-xs text-muted-foreground">
+              No autonomous buy if SPY has moved more than the swing limit since yesterday's close.
+            </span>
+          </span>
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {AUTO_FIELDS.map(([key, label]) => (
+            <div key={key} className="space-y-1">
+              <Label htmlFor={key}>{label}</Label>
+              <Input
+                id={key}
+                inputMode="decimal"
+                value={form[key] ?? ""}
+                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+              />
+            </div>
+          ))}
         </div>
       </div>
 

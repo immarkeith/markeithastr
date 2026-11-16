@@ -15,11 +15,15 @@ export const Route = createFileRoute("/api/public/hooks/preclose")({
           // automation is switched off.
           const { runPaperTesting } = await import("@/lib/race.server");
           const paper = await runPaperTesting("exit");
+          // Phase L strict time exits always run, whatever the other switches say.
+          const { runAutonomousExits } = await import("@/lib/autonomous.server");
+          const { marketStatus } = await import("@/lib/market-calendar");
+          const autonomous = marketStatus().tradingDay ? await runAutonomousExits() : null;
           const settings = await loadSettings();
           if (!settings.auto_run) {
-            return Response.json({ ran: false, reason: "auto_run is off", paper });
+            return Response.json({ ran: false, reason: "auto_run is off", paper, autonomous });
           }
-          return Response.json({ ...(await runPreCloseExits()), paper });
+          return Response.json({ ...(await runPreCloseExits()), paper, autonomous });
         } catch (error) {
           const message = error instanceof Error ? error.message : "pre-close pass failed";
           console.error("preclose failed:", message);

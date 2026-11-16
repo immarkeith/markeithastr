@@ -305,3 +305,4 @@ container's keys are unset for the run.
   skip scheduling with a NOTICE). Run both files twice — they are idempotent.
   Then exercise the lease with the smoke test in `docs/phase-k-deployment.md`.
 
+- Phase L autonomous live trading lives in `src/lib/autonomous.ts` (pure, tested rules) and `src/lib/autonomous.server.ts`; it uses position_type `AUTO_TIMED` so the same-day pass and long-term protections never touch it, and `buyNotional` re-reads the DB switch for the `autonomous_authorized` origin — why: no caller can self-authorize a live buy.
