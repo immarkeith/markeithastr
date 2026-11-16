@@ -200,8 +200,10 @@
 - [x] Free AI model set in Engineer settings
 - [x] Secure bridge so GitHub needs no database key (tested: allowed calls work, trades/approvals refused)
 - [x] Published; bridge live and answering on the real site
-- [ ] GitHub Actions secrets ENGINEER_LLM_API_KEY, ENGINEER_BRIDGE_SECRET, ENGINEER_BRIDGE_URL — waits on user
-- [ ] Pilot Level 1 task + safety drills — waits on Actions secrets
+- [x] GitHub Actions secrets in place (runs reach the bridge and AI)
+- [x] Pilot Level 1 task + safety drills
 - [x] Pilot run 1: lease, bridge, AI model, baselines all worked; failed only because the named file wasn't read (fixed)
 - [x] Bridge moved to Vercel (verified). Vercel uses your own Supabase database, not the Lovable one — that is the real Engineer queue
-- [ ] Pilot run 2 + safety drills
+- [x] Pilot run 2: edited, firewall passed, independently verified, waiting for human approval (2026-11-16)
+- [x] Safety drills: self-approval, trades read, unknown RPC, wrong password all refused; firewall drill tests added
+- [ ] Optional: add GITHUB_ENGINEER_TOKEN to Vercel so queuing starts GitHub runs automatically
