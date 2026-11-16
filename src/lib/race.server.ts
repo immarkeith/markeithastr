@@ -53,6 +53,7 @@ export interface RankRow {
   sma20: number | null;
   tradeable: boolean;
   invalidation: string;
+  history_end?: string | null;
 }
 
 /** The Lead Researcher plus the six rotating researchers. */
@@ -727,6 +728,7 @@ export async function runRacePass(
               ticker: candidate.ticker,
               score: own?.score ?? candidate.score,
               close: candidate.close,
+              factors: { history_end: own?.history_end ?? null, provenance_kind: 'stored_bar_features_current_formula' },
             },
             price,
           );

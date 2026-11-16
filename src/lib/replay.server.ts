@@ -11,6 +11,7 @@ import { assemble, bandBonus, type MasterRule } from "./master-formula.server";
 import { loadSettings, volumeShare } from "./scan.server";
 import { extraFactors, marketContext } from "./factors";
 import { snapshot, scoreSecurity, type Bar, type Weights } from "./scoring";
+import { beforeSignal, inputBoundary } from './research-boundary';
 
 export const STRATEGY_IDS: Record<string, string> = {
   lead: "69b3556c-828a-4543-ad5b-683606de679c",
@@ -36,10 +37,8 @@ async function loadState(): Promise<State> {
   const { data } = await supabaseAdmin.from("research_runs").select("summary").eq("kind", KIND).order("created_at", { ascending: false }).limit(1).maybeSingle();
   const s = (data?.summary ?? null) as Partial<State> | null;
   if (Number(s?.version ?? 1) !== VERSION) {
-    // Old rebuild used a 3-day hold. Wipe ONLY its paper records and restart.
-    await supabaseAdmin.from("trades").delete().eq("mode", "paper").eq("status_note", "historical rebuild");
-    await supabaseAdmin.from("research_runs").delete().eq("kind", KIND);
-    return { next: 0, holds: {}, done: false, trades: 0, version: VERSION };
+    // Preserve previous research. A methodology change never authorizes deletion.
+    throw new Error('Historical replay version differs; preserved records require an explicit reviewed continuation.');
   }
   return { next: Number(s?.next ?? 0), holds: {}, done: Boolean(s?.done), trades: Number(s?.trades ?? 0), through: s?.through, version: VERSION };
 }
@@ -111,7 +110,6 @@ export async function runHistoryRebuildStep() {
     byTicker.set(b.ticker, list);
   }
   const proxyBars = byTicker.get(proxy) ?? [];
-  const proxyIdx = new Map(proxyBars.map((b, i) => [b.date, i]));
 
   const researchers = await listResearchers();
   const laneParams = new Map<string, LaneParams>();
@@ -140,10 +138,11 @@ export async function runHistoryRebuildStep() {
 
   for (const day of stepDays) {
     const dayIdx = days.indexOf(day);
-    const pIdx = proxyIdx.get(day);
-    const market = pIdx !== undefined ? marketContext(proxyBars, pIdx) : { roc20: 0, roc60: 0 };
-    const back = pIdx !== undefined ? proxyBars[pIdx - 5]?.close : undefined;
-    const marketRoc5 = pIdx !== undefined && back ? pct(proxyBars[pIdx]!.close, back) : 0;
+    const marketInputs = beforeSignal(proxyBars, day);
+    const marketEnd = marketInputs.at(-1);
+    const market = marketEnd ? marketContext(marketInputs, marketInputs.length - 1) : { roc20: 0, roc60: 0 };
+    const back = marketInputs.at(-6)?.close;
+    const marketRoc5 = marketEnd && back ? pct(marketEnd.close, back) : 0;
 
     // Point-in-time rows: only bars on or before the previous session feed the
     // scores; the pick is bought at this session's open.
@@ -196,7 +195,7 @@ export async function runHistoryRebuildStep() {
           const ret = evalBar ? +pct(evalBar.close, cand.r.bar.open).toFixed(2) : null;
           predictions.push({
             prediction_date: day, predicted_at: `${day}T13:35:00Z`, lane, researcher_name: laneName, strategy_id: STRATEGY_IDS[lane],
-            ticker: cand.r.row.ticker, entry_price: cand.r.bar.open, score: +cand.s.toFixed(1), factors: cand.r.row.pct,
+            ticker: cand.r.row.ticker, entry_price: cand.r.bar.open, score: +cand.s.toFixed(1), factors: { ...cand.r.row.pct, history_end: inputBoundary(cand.r.bars[cand.r.i - 1]?.date, marketEnd?.date), provenance_kind: 'historical_replay_current_formula' },
             horizon, evaluate_on: evalDate ?? day, evaluated_at: evalBar ? `${evalDate}T20:00:00Z` : null,
             exit_price: evalBar?.close ?? null, return_pct: ret,
             successful: ret === null ? null : ret > 0, outcome: ret === null ? "pending" : ret > 0 ? "won" : "lost",
@@ -234,7 +233,7 @@ export async function runHistoryRebuildStep() {
         const ret = evalBar ? +pct(evalBar.close, entry).toFixed(2) : null;
         predictions.push({
           prediction_date: day, predicted_at: `${day}T13:35:00Z`, lane, researcher_name: laneName, strategy_id: STRATEGY_IDS[lane],
-          ticker: best.row.ticker, entry_price: entry, score: +bestScore.toFixed(1), factors: best.row.pct,
+          ticker: best.row.ticker, entry_price: entry, score: +bestScore.toFixed(1), factors: { ...best.row.pct, history_end: inputBoundary(best.bars[best.i - 1]?.date, marketEnd?.date), provenance_kind: 'historical_replay_current_formula' },
           horizon, evaluate_on: evalDate ?? day, evaluated_at: evalBar ? `${evalDate}T20:00:00Z` : null,
           exit_price: evalBar?.close ?? null, return_pct: ret,
           successful: ret === null ? null : ret > 0, outcome: ret === null ? "pending" : ret > 0 ? "won" : "lost",
@@ -256,7 +255,7 @@ export async function runHistoryRebuildStep() {
       if (error) throw new Error("trade insert failed: " + error.message);
     }
   }
-  if (predictions.length) await supabaseAdmin.from("research_horizon_predictions").upsert(predictions as never, { onConflict: "lane,ticker,prediction_date,horizon" });
+  if (predictions.length) await supabaseAdmin.from("research_horizon_predictions").upsert(predictions as never, { onConflict: "lane,ticker,prediction_date,horizon", ignoreDuplicates: true });
   if (examples.length) await supabaseAdmin.from("researcher_examples").upsert(examples as never, { onConflict: "lane,source,source_id,horizon" });
 
   const next = start + stepDays.length;

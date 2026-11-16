@@ -12,6 +12,8 @@ export const Route = createFileRoute("/api/public/hooks/lab-refresh")({
         const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
         const denied = await rejectUnauthorizedHook(request);
         if (denied) return denied;
+        const { scheduledPassDue } = await import('@/lib/schedule-rules');
+        if (!scheduledPassDue('lab-refresh')) return Response.json({ ran: false, reason: 'Outside the Eastern research window.' });
         try {
           const { latestLedgerDate, runResearcherLedger } = await import(
             "@/lib/researcher-ledger.server"
@@ -19,10 +21,14 @@ export const Route = createFileRoute("/api/public/hooks/lab-refresh")({
           if (!(await latestLedgerDate())) await runResearcherLedger();
           const { refreshLabGraphIntraday } = await import("@/lib/lab-graph.server");
           const result = await refreshLabGraphIntraday();
+          const { nyParts } = await import('@/lib/market-calendar');
+          const { runIntegrityCheck } = await import('@/lib/integrity.server');
+          const integrity = await runIntegrityCheck(nyParts().weekday === 6 ? 'weekly' : 'daily');
           return Response.json({
             mode: result.mode,
             generated_at: result.guards.generated_at,
             curves: result.payload.equity_curves.length,
+            integrity: { verdict: integrity.verdict, stored: integrity.stored },
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : "lab refresh failed";

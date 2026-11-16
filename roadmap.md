@@ -1,16 +1,25 @@
 # ASTR Master Roadmap
 
+## Finish recent setup (2026-11-16)
+- [x] Correct connected Vercel callback schedules for both Eastern DST offsets; matching code gates local windows and half-day exits. Destinations, credentials and switches preserved.
+- [x] Reuse saved-Lab callback for 6 PM weekday / Saturday 10 AM read-only audits; authenticated local integrity callback stored a report, unlocked Audit Desk read it back. Scheduled production firing remains unverified.
+- [x] New predictions retain actual input boundaries; historical proxy inputs stop before entry session. Legacy records preserved; historical formula independence remains unproven.
+- [x] Safety/research checks and independent-host instructions: `docs/recent-setup-checklist.md`.
+- [ ] Deploy this update and confirm the production database/scheduler matches (blocked by production sign-in and separate-host access).
+- [ ] First scheduled paper session and any explicitly authorized live session (blocked until the market opens and the relevant host is verified).
+
 ## Approved corrected BYOB revision (2026-11-16)
 - [x] Implement indicator toolkit, horizon-aware partitions, holdout-only regime qualification, marked drawdown and exact scoring.
 - [x] Add immutable research records, durable test-exposure tracking and a transactional single active-model pointer; preserve all 30 legacy rows.
 - [x] Verify 15 seeds: 12 provisional, 3 integrity-blocked; no active models. 107 tests pass; signed-in NVDA update reads back v3, desktop/phone verified.
-- [ ] Independent-host deployment (`21-byob-corrected-research.sql`), new untouched future holdout and verified corporate-action/point-in-time source evidence (external prerequisites); authentic missing-session review for DELL/SHOP/ANET.
+- [x] User confirmed migration 21, GitHub main and Vercel Ready; screenshots confirm NVDA BYOB readback. Separate production schema not independently inspected.
+- [ ] New untouched future holdout and verified corporate-action/point-in-time source evidence (external prerequisites); authentic missing-session review for DELL/SHOP/ANET.
 
 ## Legacy Phase 2g implementation (superseded qualification; rows preserved)
 - [x] Build isolated BYOB discovery, frozen holdout validation, versioned research records and fast evaluation.
 - [x] Prepare and research all 15 seed stocks: 971 sessions each; 5 qualified, 6 provisional, 4 disqualified. Initial calendar-rejected records preserved as version 1, corrected historical-calendar evaluations saved as version 2.
 - [x] Integrate advisory Analyze presentation; 79 tests pass, preview validation clean, authorized NVDA update reads back unchanged version 2, desktop/390px checks show no overflow or page errors.
-- [ ] Independent Vercel database: apply `migration/fresh/20-byob-specialist.sql` and run `bun scripts/research-byob.ts` there; this preview cannot verify that separate deployment.
+- [x] Superseded setup instructions: user confirmed corrected BYOB setup/deployment and NVDA readback; do not re-run legacy discovery for fresh qualification.
 
 ## Approved Research Lab backfill (2026-11-16)
 - [x] Backfill the existing 300-stock research universe from January 2024 through November 13, 2026; existing bars preserved (301 symbols including SPY).
@@ -95,7 +104,7 @@
 - [x] Same-day trade guarantee: positions with horizon = 0 are strictly liquidated by 3:55 PM ET—never carried overnight.
 - [x] Volatility kill switch: automatically abort new buys and cancel unfilled orders if SPY intraday volatility spikes above high-vol regime threshold.
 - [x] Notification summary: dispatch push/in-app alert detailing morning entry reason, assigned specialist, and afternoon exit execution.
-- [ ] Run `migration/fresh/18-phase-l-autonomous-live.sql` on the Vercel site's database (applied to the preview database only).
+- [x] User confirmed Phase L setup; separate production schema/settings remain independently unverified. Do not repeat setup or enable live money based on preview state.
 - [ ] Live end-to-end check on a real trading morning (not exercised with real money yet).
 
 ---
@@ -116,10 +125,10 @@
 - [x] Independent paper scoreboard recomputation and saved researcher ledger identities. Graphs remain ledger-based, never reconstructed from trades.
 - [x] Historical boundary validation; missing provenance and fewer than five verified records warn instead of passing.
 - [x] Audit Desk PASS / WARNING / FAIL verdicts and category/severity filters; manual run saved and read back, desktop/phone verified.
-- [ ] Configure dedicated 6 PM ET daily / Saturday 10 AM ET weekly integrity schedules on the independent host; no integrity job exists in the inspected scheduler. Existing daily cycle timing differs.
-- [ ] Record actual input-cutoff provenance in research producers; legacy records cannot prove lookahead absence. Requires separately reviewed producer changes.
+- [x] Configure connected saved-Lab callback for 6 PM ET daily / Saturday 10 AM ET weekly audit; production deployment and first scheduled report pending.
+- [x] Record actual cutoffs for new predictions; legacy records and current-formula hindsight limits remain explicitly disclosed.
 - [ ] Review first audit findings before any data repair: 119 fill violations, two scoreboard discrepancies and eight balance discrepancies; no automatic changes authorized.
-- [ ] Apply portable audit-history setup (`migration/fresh/19-phase-e-integrity-history.sql`) to the separate Vercel database; only preview application is verified.
+- [x] User confirmed audit-history setup; separate production readback still needs the authenticated host check.
 
 ### Phase F — T+1 Settlement & Cash Account Realism [IMPLEMENTED — SESSION CHECK PENDING]
 *Target: 2–3 credits*

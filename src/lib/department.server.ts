@@ -75,6 +75,7 @@ export interface Leg {
 export interface PanelRow {
   ticker: string;
   date: string;
+  history_end?: string | null;
   pct: Record<FactorKey, number>;
   close: number;
   avg_dollar_volume: number;
@@ -193,6 +194,7 @@ export async function buildPanel(universe: number, proxyTicker: string, days: nu
       rows.push({
         ticker: item.ticker,
         date,
+        history_end: pIdx !== undefined ? date : null,
         pct: {
           trend: scored.factors['trend']!.weighted_points,
           momentum: scored.factors['momentum']!.weighted_points,

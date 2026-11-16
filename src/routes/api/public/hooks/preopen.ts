@@ -8,6 +8,8 @@ export const Route = createFileRoute("/api/public/hooks/preopen")({
         const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
         const denied = await rejectUnauthorizedHook(request);
         if (denied) return denied;
+        const { scheduledPassDue } = await import('@/lib/schedule-rules');
+        if (!scheduledPassDue('preopen')) return Response.json({ ran: false, reason: 'Outside the Eastern entry window.' });
         try {
           const { runPreOpenEntries, loadSettings } = await import("@/lib/scan.server");
           // Paper strategy testing runs first and always: it is isolated from

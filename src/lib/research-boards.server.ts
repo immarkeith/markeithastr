@@ -35,6 +35,7 @@ export interface BoardRow {
   sma20: number | null;
   tradeable: boolean;
   invalidation: string;
+  history_end?: string | null;
 }
 
 /** How many stocks the whole universe is sampled down to for research boards. */
@@ -100,6 +101,7 @@ export async function researchBoards(): Promise<ResearchBoards> {
         sma20: null,
         tradeable: x.score >= params.min_score_to_trade,
         invalidation: "",
+        history_end: x.row.history_end ?? null,
       }));
 
   const researchers = await listResearchers();

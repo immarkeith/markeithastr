@@ -11,6 +11,8 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
         const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
         const denied = await rejectUnauthorizedHook(request);
         if (denied) return denied;
+        const { scheduledPassDue } = await import('@/lib/schedule-rules');
+        if (!scheduledPassDue('daily-cycle')) return Response.json({ ran: false, reason: 'Outside the Eastern daily window.' });
         try {
           const { runDailyCycle, loadSettings } = await import("@/lib/scan.server");
           // Paper testing is independent of the live switch (see preopen hook).
@@ -74,13 +76,8 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
               graphError instanceof Error ? graphError.message : graphError,
             );
           }
-          // Phase E: Lead Researcher Quantitative Self-Audit post-market run
-          try {
-            const { runIntegrityCheck } = await import("@/lib/integrity.server");
-            await runIntegrityCheck("daily");
-          } catch (auditErr) {
-            console.error("lead self-audit failed:", auditErr instanceof Error ? auditErr.message : auditErr);
-          }
+          // The independent saved-Lab callback audits at 6 PM Eastern after this
+          // cycle; do not create a second daily report or duplicate alert here.
 
           const settings = await loadSettings();
           if (!(settings as unknown as { auto_run: boolean }).auto_run) {

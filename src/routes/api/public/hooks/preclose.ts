@@ -8,6 +8,8 @@ export const Route = createFileRoute("/api/public/hooks/preclose")({
         const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
         const denied = await rejectUnauthorizedHook(request);
         if (denied) return denied;
+        const { scheduledPassDue } = await import('@/lib/schedule-rules');
+        if (!scheduledPassDue('preclose')) return Response.json({ ran: false, reason: 'Outside the Eastern exit window.' });
         try {
           const { runPreCloseExits, loadSettings } = await import("@/lib/scan.server");
           // Paper strategy testing runs first and always: it is isolated from

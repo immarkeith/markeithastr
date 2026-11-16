@@ -23,6 +23,8 @@ export const Route = createFileRoute("/api/public/hooks/key-check")({
         const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
         const denied = await rejectUnauthorizedHook(request);
         if (denied) return denied;
+        const { scheduledPassDue } = await import('@/lib/schedule-rules');
+        if (!scheduledPassDue('key-check')) return Response.json({ ran: false, reason: 'Outside the Eastern key-check window.' });
 
         const id = process.env["ALPACA_LIVE_KEY_ID"]?.trim() ?? "";
         const secret = process.env["ALPACA_LIVE_SECRET_KEY"]?.trim() ?? "";
