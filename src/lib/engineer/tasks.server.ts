@@ -324,7 +324,8 @@ export async function saveEngineerSettings(input: {
   if (!(await engineerSchemaInstalled())) {
     return { ok: false, error: "Phase K schema is not installed yet." };
   }
-  const baseUrl = input.baseUrl?.trim() || null;
+  const baseUrl =
+    input.baseUrl?.trim().replace(/^(?:%60|%22|%27|[`"'\s])+|(?:%60|%22|%27|[`"'\s])+$/gi, "") || null;
   if (baseUrl && !/^https?:\/\//i.test(baseUrl)) {
     return { ok: false, error: "Base URL must start with http:// or https://" };
   }

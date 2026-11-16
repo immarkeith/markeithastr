@@ -43,7 +43,7 @@ export function resolveProvider(
   if (!baseUrl?.trim() || !model?.trim() || !key) return null;
   return {
     // Strip stray quotes/backticks/spaces a copy-paste can leave behind.
-    base_url: baseUrl.trim().replace(/^[`"'\s]+|[`"'\s]+$/g, "").replace(/\/+$/, ""),
+    base_url: baseUrl.trim().replace(/^(?:%60|%22|%27|[`"'\s])+|(?:%60|%22|%27|[`"'\s])+$/gi, "").replace(/\/+$/, ""),
     model: model.trim().replace(/^[`"'\s]+|[`"'\s]+$/g, ""),
     api_key: key,
     price_per_million_tokens: pricePerMillionTokens,
