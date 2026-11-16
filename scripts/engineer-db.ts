@@ -33,7 +33,7 @@ export function createEngineerDb(): any {
   if (url && key) return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
   const bridge = process.env["ENGINEER_BRIDGE_URL"];
-  const secret = process.env["ENGINEER_BRIDGE_SECRET"];
+  const secret = process.env["ENGINEER_BRIDGE_SECRET"]?.trim();
   if (!bridge || !secret)
     throw new Error("Set ENGINEER_BRIDGE_URL + ENGINEER_BRIDGE_SECRET (or SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).");
 

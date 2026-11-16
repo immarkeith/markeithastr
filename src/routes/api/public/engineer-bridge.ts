@@ -14,8 +14,8 @@ export const Route = createFileRoute("/api/public/engineer-bridge")({
     handlers: {
       POST: async ({ request }) => {
         const { timingSafeEqual, createHash } = await import("node:crypto");
-        const expected = process.env["ENGINEER_BRIDGE_SECRET"] ?? "";
-        const provided = request.headers.get("x-engineer-secret") ?? "";
+        const expected = (process.env["ENGINEER_BRIDGE_SECRET"] ?? "").trim();
+        const provided = (request.headers.get("x-engineer-secret") ?? "").trim();
         const d = (v: string) => createHash("sha256").update(v).digest();
         if (!expected || expected.length < 32 || !provided || !timingSafeEqual(d(provided), d(expected)))
           return json({ error: "Unauthorized" }, 401);
