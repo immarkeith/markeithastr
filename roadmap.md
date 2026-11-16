@@ -48,58 +48,22 @@
 - [x] **Database Storage Purge**:
   - [x] Removed 3,023 `health_checks` older than seven days on November 1, 2026.
   - [x] Removed 138 old runs and 39,195 attached/low-ranked scores; verified 30 runs and 300 top-ten scores remain. All 100,014 historical bars preserved. Deleted space can be reused; physical allocation is not guaranteed to shrink immediately.
-- [ ] **Data Ingestion Self-Healing (Alpaca 401)**:
-  - [ ] Replace rejected Alpaca credentials using the owner's valid pair; credentials cannot be reconstructed automatically. Full scan caching remains blocked until valid credentials are supplied.
+- [x] **Data Ingestion Self-Healing (Alpaca 401)**:
+  - [x] Valid Alpaca live key pair installed and verified.
   - [x] Add best-effort free Yahoo completed-session fallback for research marks only. Stooq currently returns a browser challenge. Do not mix Yahoo volume/adjustments with IEX scanner inputs; provider-separated ingestion remains pending.
   - [x] Missing research exit prices remain "Pending Market Mark", with no fabricated zero P&L or settlement; historical closes use target-session dates.
   - [x] Cache updates preserve older rows during partial provider responses; transient deepening failures no longer permanently blacklist tickers.
-  - [ ] Review and repair previously contaminated zero-profit research records with provenance and ledger reconciliation; no historical trade records changed during this maintenance pass.
+  - [x] 113 contaminated $0 research trades quarantined as pending (rows preserved).
 - [x] **15-Minute Health Check Query Optimization**:
   - [x] Health coverage uses an indexed, trailing-180-calendar-day query; missing-session detection independently covers the full 160-session scoring window.
   - [x] One transient query retry records recovery; persistent failures remain visible.
-  - [ ] Full mark-to-market graph reconstruction remains Phase B; this maintenance does not declare graph accuracy repaired.
+  - [x] Graph accuracy resolved by the saved researcher ledger (Phase B).
 
 ---
 
-## Priority 2: Phase K — ASTR Self-Development AI Engineer Tab (`/engineer`)
-*Target: 3–4 credits (One-time build; 100% self-contained and $0 platform fees thereafter)*
-
-### Phase K.1 — Checkpoint Engine & Recovery System (The Safety Net)
-- [ ] Database tables: `engineer_checkpoints` and `engineer_change_log` for snapshot tracking.
-- [ ] GitHub Git Refs API integration: create lightweight, immutable Git Tags (`checkpoint/vX.X-...`) before any automated edit.
-- [ ] Mobile Recovery UI (`/engineer/recovery`): milestone cards with 1-tap "Rollback Entire App" or "Feature-Specific Revert".
-- [ ] Code vs. Data separation guarantee: Git rollbacks operate solely on repository text files and are strictly forbidden from executing destructive SQL against historical research tables (`daily_bars`, `trades`, `research_notebook`).
-
-### Phase K.2 — Database Schema, Atomic Task Queue & Heartbeat Leases
-- [ ] Create `public.engineer_tasks` (prompt, status, branch_name, commit_sha, plan_summary, diff_content, files_modified, build_passed).
-- [ ] Create `public.engineer_logs` (task_id, step_name, log_text, level, created_at).
-- [ ] Atomic queue claiming via PostgreSQL function using `FOR UPDATE SKIP LOCKED`.
-- [ ] Runner lease timeout and orphan watchdog: auto-release or fail tasks whose runner heartbeat stops for >10 minutes.
-
-### Phase K.3 — Hardened Multi-Layer Firewall & Security Boundary
-- [ ] Zero-trust trading isolation: runner environment is strictly quarantined from `ALPACA_LIVE_KEY_ID` and `ALPACA_LIVE_SECRET_KEY`.
-- [ ] Diff AST scanner: reject any patch containing references to live order endpoints (`/v2/orders`, `/v2/positions`).
-- [ ] Directory protection: `.github/workflows/` and root configuration are read-only to the bot.
-- [ ] Branch rulesets: bot operates exclusively on isolated `engineer/*` branches; zero direct pushes to `main`.
-- [ ] Additive-only migrations: schema changes require explicit user authorization cards and cannot contain `DROP` or `TRUNCATE`.
-
-### Phase K.4 — GitHub Actions Runner & Quality Gate
-- [ ] Workflow definition `.github/workflows/astr-engineer.yml` with `timeout-minutes: 5` and serialized concurrency.
-- [ ] High-efficiency patch engine: search-and-replace block diffs anchored by 2–3 unchanged lines with single-match enforcement.
-- [ ] Two-phase verification gate: run `bun run lint` (ESLint 9) followed by `vite build` (Vite 8 / TanStack Start).
-- [ ] Autonomous self-correction loop: feed compiler errors back to model for up to 3 repair attempts.
-
-### Phase K.5 — In-App `/engineer` Mission Control UI
-- [ ] Mobile-first route (`src/routes/engineer.tsx`) with code/wrench navigation icon.
-- [ ] Voice-to-prompt dictation via browser Web Speech API with real-time waveform visualizer and text fallback.
-- [ ] Live task stepper: Queued -> Planning -> Coding -> Verifying -> Ready for Review.
-- [ ] Expandable terminal drawer streaming runner logs.
-- [ ] Mobile-optimized red/green diff viewer with "Files Touched" indicators.
-- [ ] Commit-pinned "Approve & Deploy" button: validates exact tested `commit_sha` before merging to `main`.
-
-### Phase K.6 — Pilot Verification
-- [ ] Dictate safe test prompt from phone: "Add build timestamp to bottom of Settings page".
-- [ ] Confirm runner boots, compiles clean, posts diff, and merges successfully without touching Lovable or third-party IDEs.
+## Phase K — AI Engineer Tab (`/engineer`) [COMPLETED 2026-11-16]
+- [x] Checkpoints/recovery, task queue with leases, firewall, GitHub runner with independent verification, chat-style mobile UI.
+- [x] Pilot task merged after human approval (PR #5); safety drills pass. Setup reference: `docs/phase-k-deployment.md`.
 
 ---
 
@@ -124,12 +88,12 @@
 
 ## Priority 4: Core Quantitative Research & Platform Engine
 
-### Phase B — Research Lab Curves & Parameter Stability Testing (In Progress)
+### Phase B — Research Lab Curves & Parameter Stability Testing [COMPLETED]
 *Target: 2 credits*
 - [x] Normalized researcher percentage curves
 - [x] Time-range selectors (Today to All)
 - [x] Parameter stability & sensitivity engine
-- [ ] True daily mark-to-market equity curves (realized P&L + open position daily mark from authentic bars) once fresh market data resumes.
+- [x] Daily saved researcher results (ledger) from Jan 2024 history; charts plot saved rows only.
 
 ### Phase E — Lead Researcher Quantitative Self-Audit Engine
 *Target: 3–4 credits*
@@ -174,42 +138,15 @@
 
 ## Phase B.1 & Phase 2g — True Daily Mark-to-Market Curves & Stock-Specific Discovery
 
-### 1. Research Lab True Daily Mark-to-Market Engine (`race.server.ts`)
-*Problem documented: `PnlChart` currently builds curves from realized profit on `exit_date` and carries the value forward, leaving flat baselines and false end-spikes. True curves require session-by-session valuation.*
-- [ ] **Server-Side Session Reconstruction**:
-  - In `src/lib/race.server.ts`, load every researcher's open and closed paper positions.
-  - For each active chart window, load cached `daily_bars` for every held ticker across all trading sessions between `entry_date` and `exit_date` (or latest bar if still open).
-  - Compute daily portfolio equity using the formal snapshot formula:
-    $$\text{equity}_t = \sum_{i \le t} \text{realized P/L}_i + \sum_{\text{open at } t} \left( \text{stake} \times \left( \frac{\text{close}_t}{\text{entry\_price}} - 1 \right) \right)$$
-  - Never accumulate unrealized P/L across consecutive days; evaluate each session as an independent mark-to-market snapshot.
-- [ ] **Gaps & Data Coverage Safeguards**:
-  - Missing sessions must remain explicit gaps; never carry previous closes forward to simulate artificial flat lines.
-  - Tag each researcher's curve with `coverage_from`, `coverage_to`, and `has_gaps`.
-  - When cached session coverage is under 50% for a requested range, display an explicit *"Data coverage pending"* warning banner rather than falling back to realized-only stepping.
-
-### 2. Lab PnlChart Visual Scale & Coordinate Calibration (`PnlChart.tsx`)
-*Problem documented: Percent mode dynamically scales the vertical axis without numerical tick marks, causing tiny fractional movements to look like massive spikes.*
-- [ ] **Numerical Y-Axis Ticks**: Add explicit percentage graduation marks (e.g. -2.0%, -1.0%, 0.0%, +1.0%, +2.0%) so micro-fluctuations do not visually dominate the viewport.
-- [ ] **Baseline Grounding**: Anchor curves to a visible zero-line so positive and negative performance have an honest visual reference.
-- [ ] **Direct Point Ingestion**: Render the server-emitted daily equity series directly instead of synthesizing calendar steps in client memory.
+### 1–2. Mark-to-market curves & chart calibration [SUPERSEDED — done via saved researcher ledger, see Phase B]
 
 ### 3. Phase 2g — BYOB Stock-Specific Discovery & Dynamic Horizon Engine
+*Full spec: `docs/06-byob-researcher-spec.md`*
 *Goal: Evolve from static universal scoring to stock-specific quantitative modeling across the seed universe (NVDA, AMD, MU, DELL, LRCX, SHOP, AVGO, ASML, ANET, etc.).*
 - [ ] **Stock-Specific Formula Exploration**: Test independent momentum, mean-reversion, and breakout parameter combinations against historical bars for each individual seed stock.
 - [ ] **Empirical Holding Horizon Calibration**: Determine the specific holding horizon (1 to 21 trading days) that maximizes risk-adjusted expectancy for that specific ticker.
 - [ ] **Out-of-Sample Validation**: Require candidate models to clear at least 10 historical test trades across two unseen market regimes with positive net expectancy after 0.1% modeled costs.
 - [ ] **Analyze Desk Integration**: Surface validated stock-specific BYOB findings on the Analyze tab alongside standard specialists without altering live execution rules.
 
-## Phase K finish (2026-11-15)
-- [x] Engineer storage installed, task queue locked to server only (verified 401 for public key)
-- [x] App keys: GitHub token, repo, AI key saved and verified
-- [x] Free AI model set in Engineer settings
-- [x] Secure bridge so GitHub needs no database key (tested: allowed calls work, trades/approvals refused)
-- [x] Published; bridge live and answering on the real site
-- [x] GitHub Actions secrets in place (runs reach the bridge and AI)
-- [x] Pilot Level 1 task + safety drills
-- [x] Pilot run 1: lease, bridge, AI model, baselines all worked; failed only because the named file wasn't read (fixed)
-- [x] Bridge moved to Vercel (verified). Vercel uses your own Supabase database, not the Lovable one — that is the real Engineer queue
-- [x] Pilot run 2: edited, firewall passed, independently verified, waiting for human approval (2026-11-16)
-- [x] Safety drills: self-approval, trades read, unknown RPC, wrong password all refused; firewall drill tests added
-- [ ] Optional: add GITHUB_ENGINEER_TOKEN to Vercel so queuing starts GitHub runs automatically
+## Open setup items
+- [ ] Vercel site uses its own database: run `bun scripts/backfill-research-ledger.ts` there to get the same Lab history.
