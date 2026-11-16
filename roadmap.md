@@ -203,5 +203,5 @@
 - [ ] GitHub Actions secrets ENGINEER_LLM_API_KEY, ENGINEER_BRIDGE_SECRET, ENGINEER_BRIDGE_URL — waits on user
 - [ ] Pilot Level 1 task + safety drills — waits on Actions secrets
 - [x] Pilot run 1: lease, bridge, AI model, baselines all worked; failed only because the named file wasn't read (fixed)
-- [ ] Move bridge to Vercel: add ENGINEER_BRIDGE_SECRET on Vercel + redeploy, set GitHub ENGINEER_BRIDGE_URL to Vercel — waits on user
+- [x] Bridge moved to Vercel (verified). Vercel uses your own Supabase database, not the Lovable one — that is the real Engineer queue
 - [ ] Pilot run 2 + safety drills
