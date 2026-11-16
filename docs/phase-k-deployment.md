@@ -188,3 +188,5 @@ idempotency.
 4. Only then does the app merge that commit and, if `deployment_enabled` and
    `deploy_workflow` are set, dispatch it. Status shows `deployed` only when a
    run for that SHA is observed to succeed.
+
+Pilot run verified end to end.
