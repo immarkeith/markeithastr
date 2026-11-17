@@ -1,5 +1,11 @@
 # ASTR Master Roadmap
 
+## Historical expansion authorized (2026-11-17)
+- [x] Download July 2020–November 16, 2026 history for the locked 624-symbol cached research cohort; 900,233 total saved bars, existing prices/research/trading records preserved.
+- [x] Verify cohort-only per-session 80% coverage: 500 required; uninterrupted passing dates start March 9, 2022, not July 2020. See `docs/historical-expansion-2026-11-17.md`; 14 tests pass.
+- [ ] Full eligible-market/listing/source evidence and six-year 80% certification remain blocked by unverified historical membership and uncollected broader-market history; cached cohort is not the full market.
+- [ ] Full independent daily rankings and existing-interval graph reconstruction remain separate from this download; prerequisite: verified comparable universe and point-in-time inputs.
+
 ## Finish recent setup (2026-11-16)
 - [x] Correct connected Vercel callback schedules for both Eastern DST offsets; matching code gates local windows and half-day exits. Destinations, credentials and switches preserved.
 - [x] Reuse saved-Lab callback for 6 PM weekday / Saturday 10 AM read-only audits; authenticated local integrity callback stored a report, unlocked Audit Desk read it back. Scheduled production firing remains unverified.
