@@ -17,7 +17,7 @@ export function warmedUp(barsUpToT: number): boolean {
 export function eligibleAt(history: Bar[], minPrice: number, minDollarVolume: number): boolean {
   if (!warmedUp(history.length)) return false;
   const last = history[history.length - 1];
-  if (last.close < minPrice) return false;
+  if (!last || last.close < minPrice) return false;
   const recent = history.slice(-20);
   const adv = recent.reduce((s, b) => s + b.close * b.volume, 0) / recent.length;
   return adv >= minDollarVolume;
