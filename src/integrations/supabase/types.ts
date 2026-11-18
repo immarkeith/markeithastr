@@ -1543,6 +1543,54 @@ export type Database = {
         }
         Relationships: []
       }
+      research_daily_selections: {
+        Row: {
+          comparable_universe: number
+          created_at: string
+          eligible_universe: number
+          engine_version: string
+          lane: string
+          ranked_count: number
+          runners_up: Json
+          score: number | null
+          selected_at: string
+          selection_close: number | null
+          session_date: string
+          ticker: string | null
+          universe_basis: string
+        }
+        Insert: {
+          comparable_universe: number
+          created_at?: string
+          eligible_universe: number
+          engine_version: string
+          lane: string
+          ranked_count: number
+          runners_up?: Json
+          score?: number | null
+          selected_at: string
+          selection_close?: number | null
+          session_date: string
+          ticker?: string | null
+          universe_basis: string
+        }
+        Update: {
+          comparable_universe?: number
+          created_at?: string
+          eligible_universe?: number
+          engine_version?: string
+          lane?: string
+          ranked_count?: number
+          runners_up?: Json
+          score?: number | null
+          selected_at?: string
+          selection_close?: number | null
+          session_date?: string
+          ticker?: string | null
+          universe_basis?: string
+        }
+        Relationships: []
+      }
       research_dead_ends: {
         Row: {
           created_at: string
@@ -1793,6 +1841,65 @@ export type Database = {
           warnings?: Json
         }
         Relationships: []
+      }
+      research_selection_evaluations: {
+        Row: {
+          benchmark_return_pct: number | null
+          created_at: string
+          entry_date: string | null
+          entry_price: number | null
+          excess_return_pct: number | null
+          exit_date: string | null
+          exit_price: number | null
+          horizon_sessions: number
+          lane: string
+          matured_at: string | null
+          return_pct: number | null
+          session_date: string
+          status: string
+          ticker: string
+        }
+        Insert: {
+          benchmark_return_pct?: number | null
+          created_at?: string
+          entry_date?: string | null
+          entry_price?: number | null
+          excess_return_pct?: number | null
+          exit_date?: string | null
+          exit_price?: number | null
+          horizon_sessions: number
+          lane: string
+          matured_at?: string | null
+          return_pct?: number | null
+          session_date: string
+          status?: string
+          ticker: string
+        }
+        Update: {
+          benchmark_return_pct?: number | null
+          created_at?: string
+          entry_date?: string | null
+          entry_price?: number | null
+          excess_return_pct?: number | null
+          exit_date?: string | null
+          exit_price?: number | null
+          horizon_sessions?: number
+          lane?: string
+          matured_at?: string | null
+          return_pct?: number | null
+          session_date?: string
+          status?: string
+          ticker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_selection_evaluations_lane_session_date_fkey"
+            columns: ["lane", "session_date"]
+            isOneToOne: false
+            referencedRelation: "research_daily_selections"
+            referencedColumns: ["lane", "session_date"]
+          },
+        ]
       }
       researcher_beliefs: {
         Row: {

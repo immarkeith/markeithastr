@@ -1,5 +1,11 @@
 # ASTR Master Roadmap
 
+## Approved researcher selection replay (2026-11-18)
+- [x] Immutable daily picks + separate forward results (same-day, 5/10/20/60 sessions; entry next-session open, exit session-close) with 6 rule tests; nightly run appends.
+- [x] Replay: 7 researchers + lead, 508 sessions from 2024-11-06 (first date clearing 80% of today's 563 point-in-time eligible stocks), 3,556 picks, 16,622 matured results, 7 missing-bar results left unfilled.
+- [ ] Show forward-result win rates on the Research Lab cards (not wired yet).
+- [ ] Survivorship-free universe (delisted/inactive symbols and verified listing dates) — needs a source for historical membership.
+
 ## Historical expansion authorized (2026-11-17)
 - [x] Download July 2020–November 16, 2026 history for the locked 624-symbol cached research cohort; 900,233 total saved bars, existing prices/research/trading records preserved.
 - [x] Verify cohort-only per-session 80% coverage: 500 required; uninterrupted passing dates start March 9, 2022, not July 2020. See `docs/historical-expansion-2026-11-17.md`; 14 tests pass.

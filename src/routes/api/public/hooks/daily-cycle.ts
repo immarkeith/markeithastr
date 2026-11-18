@@ -68,6 +68,12 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
             console.error("researcher ledger run failed:", ledgerError instanceof Error ? ledgerError.message : ledgerError);
           }
           try {
+            const { runSelectionReplay } = await import("@/lib/selection-replay.server");
+            await runSelectionReplay();
+          } catch (selError) {
+            console.error("selection replay failed:", selError instanceof Error ? selError.message : selError);
+          }
+          try {
             const { rebuildLabGraph } = await import("@/lib/lab-graph.server");
             await rebuildLabGraph();
           } catch (graphError) {

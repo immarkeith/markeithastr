@@ -111,13 +111,13 @@ function toBars(raw: RawBars): Bar[] {
 
 // ---------------------------------------------------------------- the panel
 
-export async function buildPanel(universe: number, proxyTicker: string, days: number = HISTORY_DAYS) {
-  const { data, error } = await supabaseAdmin.rpc("scan_input", {
-    p_days: days,
-    p_limit: universe,
-    p_offset: 0,
-  });
-  if (error) throw new Error(error.message);
+export async function buildPanel(universe: number, proxyTicker: string, days: number = HISTORY_DAYS, preloaded?: { ticker: string; bars: RawBars }[]) {
+  let data: unknown = preloaded;
+  if (!preloaded) {
+    const res = await supabaseAdmin.rpc("scan_input", { p_days: days, p_limit: universe, p_offset: 0 });
+    if (res.error) throw new Error(res.error.message);
+    data = res.data;
+  }
   const series = ((data ?? []) as { ticker: string; bars: RawBars }[]).map((r) => ({
     ticker: r.ticker,
     bars: toBars(r.bars),
