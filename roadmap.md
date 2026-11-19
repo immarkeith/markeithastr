@@ -1,5 +1,12 @@
 # ASTR Master Roadmap
 
+## Four-step audit and graph completion (2026-11-19)
+- [x] Step 1 audit-code corrections: quarantine fill warnings, linked cash lifecycles, one-cent scoreboard tolerance; 25 tests pass, unlocked manual audit saved/read back; no trade/live changes. See `docs/audit-step1-2026-11-19.md`.
+- [ ] Step 1 clean-audit certification: 18 remaining fill violations across 13 unquarantined trades require approved price/data investigation; genuine FAIL alerts deliberately remain enabled. Independent-host deployment remains unverified.
+- [ ] Step 2 (later authorization): connect matured forward evaluations to researcher card metrics and existing intervals.
+- [ ] Step 3 (later authorization): finish historical reconstruction graph wiring with selection and strategy performance kept distinct.
+- [ ] Step 4 (later authorization): desktop/mobile and scheduled-pipeline end-to-end certification.
+
 ## Approved researcher selection replay (2026-11-18)
 - [x] Immutable daily picks + separate forward results (same-day, 5/10/20/60 sessions; entry next-session open, exit session-close) with 6 rule tests; nightly run appends.
 - [x] Replay: 7 researchers + lead, 508 sessions from 2024-11-06 (first date clearing 80% of today's 563 point-in-time eligible stocks), 3,556 picks, 16,622 matured results, 7 missing-bar results left unfilled.

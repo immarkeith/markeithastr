@@ -1,7 +1,7 @@
 /** Phase E: independent read-only paper audits. Only integrity history is written elsewhere. */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { nyParts } from "./market-calendar";
-import { validateBarFill, validateSameDayHold, recalculateMetrics, reconcileBalance, validateTemporalBoundary, verdictFor, cents } from "./audit-rules";
+import { validateBarFill, validateSameDayHold, recalculateMetrics, reconcileBalance, validateTemporalBoundary, verdictFor, cents, isQuarantinedTrade, validateLedgerIdentity, paperCashLifecycle } from "./audit-rules";
 
 export type AuditVerdict = "PASS" | "WARNING" | "FAIL";
 export interface Discrepancy {
@@ -42,7 +42,7 @@ function warning(category: Discrepancy["category"], identifier: string, reason: 
   return { category, severity: "warning", identifier, expected: "Verifiable evidence", actual: "Unavailable", reason };
 }
 function paperTrades() {
-  return pages((from, to) => supabaseAdmin.from("trades").select("id,ticker,strategy_id,entry_date,entry_price,exit_date,exit_price,profit,dollars,status,position_type,hold_days,hold_target_date,created_at")
+  return pages((from, to) => supabaseAdmin.from("trades").select("id,ticker,strategy_id,entry_date,entry_price,exit_date,exit_price,profit,dollars,status,status_note,position_type,hold_days,hold_target_date,created_at")
     .not("strategy_id", "is", null).eq("mode", "paper").order("id").range(from, to));
 }
 async function reconstruction(trades: Row[], lookback: number): Promise<Result> {
@@ -59,6 +59,10 @@ async function reconstruction(trades: Row[], lookback: number): Promise<Result> 
   }
   const byBar = new Map(bars.map(b => [`${b['ticker']}:${b['bar_date']}`, { low: Number(b['low']), high: Number(b['high']) }]));
   for (const t of recent) {
+    if (isQuarantinedTrade({ status: t['status'], status_note: t['status_note'] })) {
+      ds.push(warning("fill_reconstruction", `${t['ticker']} ${t['id']}`, "Trade quarantined pending mark recovery; placeholder fills are not verified and no P&L is inferred."));
+      continue;
+    }
     for (const side of ["entry", "exit"] as const) {
       if (side === "exit" && t['status'] !== "closed") continue;
       const date = t[`${side}_date`];
@@ -86,7 +90,7 @@ async function scoreboard(trades: Row[]): Promise<Result> {
   const entrants = (Array.isArray(payload['entrants']) ? payload['entrants'] : []) as Row[];
   const ids = [...new Set(trades.map(t => String(t['strategy_id'])))];
   for (const id of ids) {
-    const closed = trades.filter(t => t['strategy_id'] === id && t['status'] === "closed");
+    const closed = trades.filter(t => t['strategy_id'] === id && t['status'] === "closed" && !isQuarantinedTrade({ status: t['status'], status_note: t['status_note'] }));
     if (closed.some(t => t['profit'] == null || !Number.isFinite(Number(t['profit'])))) {
       ds.push(warning("scoreboard_drift", id, "Closed rows lack booked profit; cannot verify totals."));
       continue;
@@ -113,7 +117,7 @@ async function scoreboard(trades: Row[]): Promise<Result> {
   // Graphs remain saved-ledger based: verify saved accounting identities, never reconstruct trades into curves.
   const ledger = await pages((from, to) => supabaseAdmin.from("researcher_daily_ledger").select("lane,session_date,equity,pnl,pnl_pct").order("lane").order("session_date").range(from, to));
   for (const row of ledger) {
-    if (cents(Number(row['equity'])) !== cents(100 + Number(row['pnl'])) || cents(Number(row['pnl_pct'])) !== cents(Number(row['pnl'])))
+    if ([row['equity'], row['pnl'], row['pnl_pct']].some(v => v == null) || !validateLedgerIdentity(Number(row['equity']), Number(row['pnl']), Number(row['pnl_pct'])))
       ds.push({ category: "scoreboard_drift", severity: "error", identifier: `${row['lane']} ${row['session_date']}`, expected: 100 + Number(row['pnl']), actual: Number(row['equity']), reason: "Saved researcher equity/P&L identity on the $100 base does not reconcile." });
   }
   if (!ids.length || !ledger.length) ds.push(warning("scoreboard_drift", "Coverage", "Paper trade books or saved researcher results are absent."));
@@ -121,7 +125,7 @@ async function scoreboard(trades: Row[]): Promise<Result> {
 }
 async function balances(trades: Row[]): Promise<Result> {
   const ds: Discrepancy[] = [];
-  const ledger = await pages((from, to) => supabaseAdmin.from("ledger_entries").select("id,strategy_id,kind,amount,available_on,note").not("strategy_id", "is", null).order("id").range(from, to));
+  const ledger = await pages((from, to) => supabaseAdmin.from("ledger_entries").select("id,trade_id,strategy_id,kind,amount,available_on,note").not("strategy_id", "is", null).order("id").range(from, to));
   const ids = [...new Set([...ledger, ...trades].map(t => String(t['strategy_id'])))];
   const today = nyParts().date;
   let count = 0;
@@ -132,7 +136,6 @@ async function balances(trades: Row[]): Promise<Result> {
     if (rows.some(r => !['deposit', 'withdrawal', 'deploy', 'settle', 'reserve'].includes(String(r['kind']))) || book.some(t => !['open', 'closed', 'pending_mark'].includes(String(t['status'])))) {
       ds.push(warning("balance_leak", id, "Unrecognized cash/position state prevents complete reconciliation.")); continue;
     }
-    if (book.some(t => t['status'] === 'closed' && t['profit'] == null)) { ds.push(warning("balance_leak", id, "Closed profits are missing.")); continue; }
     let capital = 0, settled = 0, pending = 0;
     for (const row of rows) {
       const amount = Number(row['amount']);
@@ -142,16 +145,17 @@ async function balances(trades: Row[]): Promise<Result> {
       const cashAmount = row['kind'] === 'withdrawal' && amount > 0 ? -amount : amount;
       if (String(row['available_on']) <= today) settled += cashAmount; else pending += cashAmount;
     }
-    const realized = book.filter(t => t['status'] === 'closed').reduce((sum, t) => sum + Number(t['profit']), 0);
-    // Pending marks are still invested, not settled and not zero-profit closes.
-    const cost = book.filter(t => t['status'] === 'open' || t['status'] === 'pending_mark').reduce((sum, t) => sum + Number(t['dollars']), 0);
-    const check = reconcileBalance(capital, realized, settled, pending, cost);
+    const lifecycle = paperCashLifecycle(book.map(t => ({ id: String(t['id']), status: String(t['status']), profit: t['profit'] == null ? null : Number(t['profit']), dollars: Number(t['dollars']), quarantined: isQuarantinedTrade({ status: t['status'], status_note: t['status_note'] }) })),
+      rows.map(r => ({ trade_id: r['trade_id'] == null ? null : String(r['trade_id']), kind: String(r['kind']), amount: Number(r['amount']) })));
+    for (const issue of lifecycle.issues) ds.push({ category: "balance_leak", ...issue, identifier: `${id} ${issue.identifier}`, expected: "Verified paper cash lifecycle", actual: "Requires review" });
+    if (!lifecycle.complete) continue;
+    const check = reconcileBalance(capital, lifecycle.realized, settled, pending, lifecycle.cost);
     count++;
     if (!check.valid) ds.push({ category: "balance_leak", severity: "error", identifier: id, expected: check.expected, actual: check.actual,
       reason: `Capital + realized P&L differs from settled cash + unsettled/reserved cash + invested cost by $${check.difference.toFixed(2)}.` });
   }
   if (!ids.length) ds.push(warning("balance_leak", "Paper books", "No paper capital records to reconcile."));
-  return result("Closed-Loop Balance Reconciliation", count, ds, `${count} paper books reconciled to the penny; live cash excluded.`);
+  return result("Closed-Loop Balance Reconciliation", count, ds, `${count} linked paper cash books checked to the penny; live cash and unlinked research P&L excluded.`);
 }
 async function lookahead(sampleCount: number): Promise<Result> {
   const ds: Discrepancy[] = [];
