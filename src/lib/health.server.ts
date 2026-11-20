@@ -253,6 +253,15 @@ export async function runHealthCheck(): Promise<HealthResult> {
     }
   }
 
+  // Stale strategy simulations with invalid entries cannot be settled at an invented breakeven.
+  try {
+    const { quarantineStalePaperOutages } = await import("./paper-outage.server");
+    const quarantined = await quarantineStalePaperOutages(status.nyDate);
+    if (quarantined.length) repairs.push(`Quarantined ${quarantined.length} stale research position(s); no P&L or cash settlement invented.`);
+  } catch (error) {
+    issues.push(`Could not quarantine stale research entries: ${(error as Error).message}`);
+  }
+
   // 5. Broker orders the app never recorded. This is read-only: it reports the
   // mismatch (with the order ids, so the source can be traced) and never trades
   // to "fix" it. Positions themselves get adopted by the pre-close pass.

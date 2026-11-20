@@ -27,11 +27,16 @@ export async function researchMarketMark(ticker: string, date: string): Promise<
  * resolve exactly that mark instead of guessing which date to re-price.
  */
 export async function pendingResearchMark(id: string, session?: string): Promise<void> {
+  const { data: trade, error: readError } = await supabaseAdmin.from("trades").select("status_note").eq("id", id).maybeSingle();
+  if (readError) throw new Error(readError.message);
+  // Exit-feed retries must never erase proven-invalid entry evidence.
+  if (/Needs review.*entry/i.test(trade?.status_note ?? "")) return;
   const note = session
     ? `Pending Market Mark — exact-session price for ${session} unavailable; no P&L or settlement recorded.`
     : "Pending Market Mark — exact-session price unavailable; no P&L or settlement recorded.";
   const { error } = await supabaseAdmin.from("trades")
     .update({ status_note: note })
-    .eq("id", id).eq("mode", "paper").eq("status", "open");
+    .eq("id", id).eq("mode", "paper").eq("status", "open")
+    .or("status_note.is.null,status_note.not.ilike.%Needs review%entry%");
   if (error) throw new Error(error.message);
 }

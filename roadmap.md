@@ -2,7 +2,8 @@
 
 ## Four-step audit and graph completion (2026-11-19)
 - [x] Step 1 audit-code corrections: quarantine fill warnings, linked cash lifecycles, one-cent scoreboard tolerance; 25 tests pass, unlocked manual audit saved/read back; no trade/live changes. See `docs/audit-step1-2026-11-19.md`.
-- [ ] Step 1 clean-audit certification: 18 remaining fill violations across 13 unquarantined trades require approved price/data investigation; genuine FAIL alerts deliberately remain enabled. Independent-host deployment remains unverified.
+- [x] Step 1 safe outage repairs: five closed $0 records annotated, seven invalid open entries quarantined without invented sale/cash/P&L; guarded future closes, refreshed snapshot, 29 tests and unlocked desktop/phone readback verified; repeat repair changes zero records. See `docs/outage-step1-2026-11-20.md`.
+- [ ] Step 1 final certification: two GNK fill errors remain pending decision on its unsupported $0.30 paper gain; no reversal authorized yet. Evidence gaps remain warnings, not PASS. Independent-host deployment remains unverified.
 - [ ] Step 2 (later authorization): connect matured forward evaluations to researcher card metrics and existing intervals.
 - [ ] Step 3 (later authorization): finish historical reconstruction graph wiring with selection and strategy performance kept distinct.
 - [ ] Step 4 (later authorization): desktop/mobile and scheduled-pipeline end-to-end certification.

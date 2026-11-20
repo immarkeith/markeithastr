@@ -26,6 +26,8 @@ import {
 import { HISTORY_DAYS, loadSettings, scoreConfig, volumeShare, type Settings } from "./scan.server";
 import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
 import { researchMarketMark, pendingResearchMark } from "./research-market-mark.server";
+import { verifiedPaperEntry } from "./paper-outage.server";
+import { isQuarantinedTrade } from "./audit-rules";
 import { paperSettlementDate, paperBuyCapacity, requirePaperCash, trancheOf, paperCash } from "./settlement-rules";
 
 export interface RaceSlot {
@@ -437,6 +439,7 @@ async function recordSameDay(
   trade: Record<string, unknown>,
   price: number,
 ): Promise<number | null> {
+  if (!(await verifiedPaperEntry(trade))) return null;
   const dollars = Number(trade['dollars']);
   const entryPrice = Number(trade['entry_price']);
   if (!entryPrice || !price) return null;
@@ -475,6 +478,7 @@ async function closeSlotTrade(
   // A sale needs a real, positive mark. Without one the position stays open and
   // pending — the entry price is never used as an exit mark.
   if (!Number.isFinite(price) || price <= 0) return null;
+  if (!(await verifiedPaperEntry(trade))) return null;
   const dollars = Number(trade['dollars']);
   const entry = Number(trade['entry_price']);
   if (!Number.isFinite(entry) || entry <= 0) return null;
@@ -1057,20 +1061,20 @@ export async function raceStandings(): Promise<{
       slotOpenTrades(slot.strategy_id),
       supabaseAdmin
         .from("trades")
-        .select("ticker, entry_date, exit_date, dollars, profit, status")
+        .select("ticker, entry_date, exit_date, dollars, profit, status,status_note")
         .eq("strategy_id", slot.strategy_id)
         .order("entry_date", { ascending: true })
         .limit(400),
       supabaseAdmin
         .from("trades")
-        .select("entry_date, same_day_profit")
+        .select("entry_date, same_day_profit,status,status_note")
         .eq("strategy_id", slot.strategy_id)
         .not("same_day_profit", "is", null)
         .order("entry_date", { ascending: true })
         .limit(400),
     ]);
     const closed = (closedRows.data ?? [])
-      .filter((r) => r.status === "closed" && r.exit_date)
+      .filter((r) => r.status === "closed" && r.exit_date && !isQuarantinedTrade(r))
       .map((r) => ({
         exit_date: String(r.exit_date),
         entry_date: String(r.entry_date ?? r.exit_date),
@@ -1084,7 +1088,7 @@ export async function raceStandings(): Promise<{
     const next = ranked.find((r) => r.tradeable && !heldTickers.has(r.ticker)) ?? null;
     const deposits = depositsOf(ledger);
     const sameDay = horizonStats(
-      ((sameDayRows.data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      (sameDayRows.data ?? []).filter(r => !isQuarantinedTrade(r)).map((r) => ({
         date: String(r['entry_date']),
         profit: Number(r['same_day_profit'] ?? 0),
       })),
