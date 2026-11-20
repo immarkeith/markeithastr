@@ -11,6 +11,6 @@
 - 29 rule/regression tests pass. Unlocked Audit Desk manual result saved and read back on desktop and 390×710 phone, with no overflow or runtime errors.
 
 ## Remaining exception and honest verdict
-GNK trade `e14dae3a-8b53-46aa-b24c-97264a338247` has a booked $0.30 gain and a linked profit reserve, not a zero-dollar breakeven as the earlier plan claimed. Its two fill violations remain FAIL pending the user's reversal decision. No profit or ledger adjustment was made to this exception.
+GNK trade `e14dae3a-8b53-46aa-b24c-97264a338247` has a booked $0.30 gain and a linked profit reserve, not a zero-dollar breakeven as the earlier plan claimed. Reversed 2026-11-20 with user approval: profit set to $0, offsetting -$0.30 reserve appended (originals kept), note marks it Needs review. Audit now 0 errors (WARNING).
 
 Latest saved audit: 2 fill errors, 0 scoreboard errors, 0 cash-book errors. Evidence gaps remain warnings; a green PASS cannot honestly be certified while evidence is missing. Daily/weekly FAIL alerts remain enabled. Independent production deployment and scheduled firing are not verified. Graph Steps 2–4 are unchanged and require later authorization.
