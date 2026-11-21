@@ -3,15 +3,15 @@
 ## Four-step audit and graph completion (2026-11-19)
 - [x] Step 1 audit-code corrections: quarantine fill warnings, linked cash lifecycles, one-cent scoreboard tolerance; 25 tests pass, unlocked manual audit saved/read back; no trade/live changes. See `docs/audit-step1-2026-11-19.md`.
 - [x] Step 1 safe outage repairs: five closed $0 records annotated, seven invalid open entries quarantined without invented sale/cash/P&L; guarded future closes, refreshed snapshot, 29 tests and unlocked desktop/phone readback verified; repeat repair changes zero records. See `docs/outage-step1-2026-11-20.md`.
-- [ ] Step 1 final certification: two GNK fill errors remain pending decision on its unsupported $0.30 paper gain; no reversal authorized yet. Evidence gaps remain warnings, not PASS. Independent-host deployment remains unverified.
-- [ ] Step 2 (later authorization): connect matured forward evaluations to researcher card metrics and existing intervals.
+- [x] Step 1 final certification: user-approved GNK $0.30 paper gain reversal preserved originals and correction history; fresh audit has zero errors (WARNING for evidence gaps). Independent-host deployment remains unverified.
+- [x] Step 2 (2026-11-21): paginated Layer 2 1M/3M card metrics, return/SPY excess and exact pending counts; absent 9M disclosed. Saved snapshot refreshed/read back, existing nightly and incremental refresh connected, 31 research/outage tests pass; all seven cards and all horizons verified unlocked on desktop/phone without overflow or page errors. No user setup. Separate live deployment not verified. See `docs/selection-metrics-step2-2026-11-21.md`.
 - [ ] Step 3 (later authorization): finish historical reconstruction graph wiring with selection and strategy performance kept distinct.
 - [ ] Step 4 (later authorization): desktop/mobile and scheduled-pipeline end-to-end certification.
 
 ## Approved researcher selection replay (2026-11-18)
 - [x] Immutable daily picks + separate forward results (same-day, 5/10/20/60 sessions; entry next-session open, exit session-close) with 6 rule tests; nightly run appends.
 - [x] Replay: 7 researchers + lead, 508 sessions from 2024-11-06 (first date clearing 80% of today's 563 point-in-time eligible stocks), 3,556 picks, 16,622 matured results, 7 missing-bar results left unfilled.
-- [ ] Show forward-result win rates on the Research Lab cards (not wired yet).
+- [x] Show forward-result win rates on the Research Lab cards (Step 2; verified 2026-11-21).
 - [ ] Survivorship-free universe (delisted/inactive symbols and verified listing dates) — needs a source for historical membership.
 
 ## Historical expansion authorized (2026-11-17)

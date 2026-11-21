@@ -36,6 +36,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 
 import type { CapitalAnalysisResult } from "./capital-analysis";
+import type { SelectionRate } from "./selection-evaluations";
 import type { EquityPoint, RaceEntrant, ResearcherEquityCurve } from "./race.server";
 
 /** research_runs.kind value for Research Lab graph snapshots. */
@@ -66,10 +67,7 @@ export interface LabGraphPayload {
   suggestion: { name: string; strategy_id: string; edge: number } | null;
   equity_curves: ResearcherEquityCurve[];
   strategies: { id: string; name: string; description: string }[];
-  long_term_win_rates: Record<
-    string,
-    { horizon: "1M" | "3M" | "9M"; wins: number; completed: number; win_rate: number | null }[]
-  >;
+  long_term_win_rates: Record<string, SelectionRate[]>;
   capital_analysis: CapitalAnalysisResult;
 }
 
@@ -97,6 +95,7 @@ async function computeFingerprint(): Promise<string> {
   return createHash("sha256")
     .update(
       JSON.stringify({
+        selection_metrics_version: 1,
         slots: slots.map((s) => [s.id, s.strategy_id, s.enabled, s.position_dollars, s.started_on]),
         strategies: strategies ?? [],
         active: settings.active_strategy_id ?? null,
@@ -174,11 +173,11 @@ export async function rebuildLabGraph(): Promise<{
   guards: LabGraphGuards;
 }> {
   const { raceStandings } = await import("./race.server");
-  const { researcherLongTermWinRates } = await import("./long-term-research.server");
+  const { selectionEvaluationWinRates } = await import("./selection-evaluations.server");
   const { capitalAnalysis } = await import("./capital-analysis.server");
   const [standings, winRates, capital] = await Promise.all([
     raceStandings(),
-    researcherLongTermWinRates(),
+    selectionEvaluationWinRates(),
     capitalAnalysis(),
   ]);
   const { data: strategies, error } = await supabaseAdmin
@@ -531,6 +530,8 @@ export async function refreshLabGraphIntraday(): Promise<{
     return { ...built, mode: "rebuilt" };
   }
   await markQuotes(appended.payload);
+  const { selectionEvaluationWinRates } = await import("./selection-evaluations.server");
+  appended.payload.long_term_win_rates = await selectionEvaluationWinRates();
   appended.guards.generated_at = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from("research_runs")

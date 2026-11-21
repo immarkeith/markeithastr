@@ -26,6 +26,7 @@ import { runRegimeNow } from "@/lib/regime.functions";
 import { runStabilityNow } from "@/lib/stability.functions";
 import { RegimeMatrix } from "@/components/RegimeMatrix";
 import { money } from "@/lib/queries";
+import type { SelectionRate } from "@/lib/selection-evaluations";
 
 export const Route = createFileRoute("/lab")({
   head: () => ({
@@ -337,12 +338,7 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
   );
 }
 
-type LongTermRate = {
-  horizon: "1M" | "3M" | "9M";
-  wins: number;
-  completed: number;
-  win_rate: number | null;
-};
+type LongTermRate = SelectionRate;
 
 function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
   const [horizon, setHorizon] = useState<"1M" | "3M" | "9M">("1M");
@@ -352,7 +348,7 @@ function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
   return (
     <section className="space-y-2 border-t border-border/60 pt-3">
       <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-        Long-Term Win Rate
+        Selection Win Rate
       </p>
       <div className="flex flex-wrap gap-1" role="group" aria-label="Long-term win-rate horizon">
         {(Object.keys(labels) as Array<keyof typeof labels>).map((value) => (
@@ -361,6 +357,7 @@ function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
             type="button"
             size="sm"
             variant={horizon === value ? "secondary" : "ghost"}
+            aria-pressed={horizon === value}
             onClick={() => setHorizon(value)}
           >
             {labels[value]}
@@ -369,16 +366,27 @@ function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
       </div>
       {!selected || selected.completed === 0 ? (
         <p className="text-xs text-muted-foreground">
-          Insufficient data — no completed {labels[horizon].toLowerCase()} predictions yet.
+          {selected?.available ? "No matured evaluations yet." : "No recorded evaluations for this horizon."}
         </p>
       ) : (
         <p className="text-sm tabular-nums">
           <span className="font-semibold">{selected.win_rate}%</span>{" "}
           <span className="text-xs text-muted-foreground">
-            {selected.wins} correct of {selected.completed} completed predictions
+            {selected.wins} positive of {selected.completed} matured selections
           </span>
         </p>
       )}
+      {selected && selected.completed > 0 ? (
+        <div className="space-y-1 text-xs tabular-nums text-muted-foreground">
+          <p>Average return {selected.avg_return_pct === null ? "—" : `${selected.avg_return_pct >= 0 ? "+" : ""}${selected.avg_return_pct.toFixed(2)}%`}</p>
+          <p>Excess vs SPY {selected.avg_excess_return_pct === null ? "unavailable" : `${selected.avg_excess_return_pct >= 0 ? "+" : ""}${selected.avg_excess_return_pct.toFixed(2)}%`} · {selected.benchmark_completed} benchmark pairs</p>
+        </div>
+      ) : null}
+      {selected?.available ? (
+        <p className="text-xs tabular-nums text-muted-foreground">
+          {selected.pending} maturing{selected.excluded > 0 ? ` · ${selected.excluded} excluded (unverified)` : ""}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -393,7 +401,7 @@ function SlotCard({
   equity: EquityCurve | null;
 }) {
   return (
-    <section className="space-y-4">
+    <section className="min-w-0 space-y-4 break-words">
       {/* Every researcher tests every market day, so no status badge is needed. */}
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-lg font-bold leading-tight">{slot.name}</h2>
