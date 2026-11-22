@@ -14,34 +14,40 @@ const NAMES: Record<string, string> = {
   skeptic: "Skeptic",
 };
 
-/** Historical replay of each researcher's formula on real past market data. */
+/** Stored daily selection outcomes, independent of strategy holding books. */
 export function HistoricalReconstruction() {
-  const q = useQuery({ queryKey: ["lab-history"], queryFn: () => fetchLabHistory(), staleTime: 0, refetchOnMount: "always", refetchInterval: (query) => (query.state.data ? false : 60_000) });
+  const q = useQuery({ queryKey: ["lab-history"], queryFn: () => fetchLabHistory(), staleTime: 0, refetchOnMount: "always", refetchInterval: 5 * 60_000 });
   const h = q.data;
   return (
-    <div className="space-y-3">
-      <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Historical reconstruction</h2>
+    <div className="min-w-0 space-y-3" aria-label="Historical selection replay">
+      <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Historical selection replay (same-day)</h2>
       {!h ? (
         <p className="text-sm text-muted-foreground">
-          {q.isLoading ? "Loading…" : "The historical replay has not finished yet."}
+          {q.isLoading ? "Loading…" : q.isError ? "Historical selection results are temporarily unavailable." : "No saved selection results yet."}
         </p>
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
-            Replay of each researcher&apos;s formula from {h.from} to {h.to} across {h.universe.toLocaleString()} US
-            stocks (including ones later delisted). Picks use only data known before each morning; $20 bought at the
-            open and sold at the close. Simulated — kept separate from paper and live trades.
+            {h.from} to {h.to} · {h.selection_sessions.toLocaleString()} selection sessions · {h.universe.toLocaleString()}-stock comparable cached cohort.
+            Selection at the prior session&apos;s close; $20 at the next session&apos;s open, exit at that session&apos;s close.
+            Simulated gross P/L, before costs — separate from strategy books and live trading.
+            Historical listing and delisting membership remains unverified.
           </p>
           <div className="grid gap-4 lg:grid-cols-3">
             {h.curves.map((c) => {
               const last = c.points[c.points.length - 1];
               return (
-                <section key={c.lane} className="space-y-2 rounded border border-border/70 p-3">
-                  <h3 className="font-semibold">{NAMES[c.lane] ?? c.lane}</h3>
+                <section key={c.lane} className="min-w-0 space-y-2 rounded border border-border/70 p-3">
+                  <h3 className="break-words font-semibold">{NAMES[c.lane] ?? c.lane}</h3>
                   <p className="text-xs tabular-nums text-muted-foreground">
                     {c.trades} trades · {c.trades ? Math.round((c.wins / c.trades) * 100) : 0}% wins ·{" "}
                     {c.total_pnl >= 0 ? "+" : ""}
                     {money(c.total_pnl)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.pending > 0 && `${c.pending} pending · `}
+                    {c.no_pick} no-pick sessions
+                    {c.excluded + c.missing_evaluations > 0 && ` · ${c.excluded + c.missing_evaluations} excluded / missing outcomes`}
                   </p>
                   <PnlChart
                     rows={[]}
@@ -49,13 +55,12 @@ export function HistoricalReconstruction() {
                     initialRange="all"
                     title="Replayed P/L"
                     compact
-                    percent
-                    basis={20}
+                    ledgerOnly
                     equity={{
                       points: c.points,
                       coverage_from: c.points[0]?.date ?? null,
                       coverage_to: last?.date ?? null,
-                      has_gaps: false,
+                      has_gaps: c.has_gaps,
                     }}
                   />
                 </section>

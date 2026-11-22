@@ -74,6 +74,12 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
             console.error("selection replay failed:", selError instanceof Error ? selError.message : selError);
           }
           try {
+            const { rebuildLabHistory } = await import("@/lib/history-reconstruction.server");
+            await rebuildLabHistory();
+          } catch (historyError) {
+            console.error("selection history refresh failed:", historyError instanceof Error ? historyError.message : historyError);
+          }
+          try {
             const { rebuildLabGraph } = await import("@/lib/lab-graph.server");
             await rebuildLabGraph();
           } catch (graphError) {

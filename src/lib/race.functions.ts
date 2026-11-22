@@ -176,7 +176,7 @@ export const refreshLabGraph = createServerFn({ method: "POST" })
     return refreshLabGraphIntraday();
   });
 
-/** The saved one-time historical reconstruction (2021 → present), or null. */
+/** Read-only saved Layer 2 same-day selection history, or null. */
 export const fetchLabHistory = createServerFn({ method: "GET" })
   .middleware([requireGate])
   .handler(async () => {
