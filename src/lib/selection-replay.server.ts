@@ -10,6 +10,7 @@ import { assemble, bandBonus, type Band, type MasterRule } from "./master-formul
 import { loadSettings, volumeShare } from "./scan.server";
 import { historyCoverage } from "./history-coverage";
 import { EVAL_HORIZONS, eligibleAt, evaluate, type Bar } from "./selection-replay";
+import { loadSelectionInput } from './selection-input.server';
 
 export const SELECTION_ENGINE_VERSION = "sel-v1";
 const UNIVERSE_BASIS = "cached-cohort-survivors-unverified-membership";
@@ -17,18 +18,7 @@ const HISTORY_DAYS = 2000;
 
 type Raw = { ticker: string; bars: [string, number, number, number, number, number][] };
 async function loadRaw(): Promise<Raw[]> {
-  const out: Raw[] = [];
-  for (let offset = 0; ; offset += 20) {
-    let page: Raw[] | null = null;
-    for (let attempt = 0; attempt < 3 && !page; attempt++) {
-      const { data, error } = await supabaseAdmin.rpc("scan_input", { p_days: HISTORY_DAYS, p_limit: 20, p_offset: offset });
-      if (!error) page = (data ?? []) as Raw[];
-      else if (attempt === 2) throw new Error(error.message);
-    }
-    out.push(...page!);
-    if (page!.length < 20) break;
-  }
-  return out;
+  return loadSelectionInput();
 }
 
 async function pagedKeys(table: "research_daily_selections" | "research_selection_evaluations", cols: string, filter?: (q: any) => any) {

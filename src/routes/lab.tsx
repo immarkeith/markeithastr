@@ -9,6 +9,7 @@ import { marketStatus } from "@/lib/market-calendar";
 import { InfoDot } from "@/components/InfoDot";
 import { FutureCapitalAnalysis } from "@/components/FutureCapitalAnalysis";
 import { HistoricalReconstruction } from "@/components/HistoricalReconstruction";
+import { ResearchBoundary } from "@/components/ResearchBoundary";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import {
   ResearchDepartment,
@@ -166,10 +167,11 @@ function LabPage() {
   // The Best Formula is never the Lead's own formula — the Lead validates and
   // combines what the assistant researchers discover.
   const assistants = slots.filter((s) => !/lead/i.test(s.name));
-  const best = assistants.length
+  const firstAssistant = assistants[0];
+  const best = firstAssistant
     ? assistants.reduce(
         (top, s) => (s.same_day.total_pnl > top.same_day.total_pnl ? s : top),
-        assistants[0]!,
+        firstAssistant,
       )
     : null;
 
@@ -237,9 +239,9 @@ function LabPage() {
       </section>
 
       {/* Findings that agree or conflict sit directly under the Lead's suggestions. */}
-      <ResearchDisagreements />
+      <ResearchBoundary name="Researcher findings"><ResearchDisagreements /></ResearchBoundary>
 
-      {d?.capital_analysis ? <FutureCapitalAnalysis analysis={d.capital_analysis} /> : null}
+      {d?.capital_analysis ? <ResearchBoundary name="Capital analysis"><FutureCapitalAnalysis analysis={d.capital_analysis} /></ResearchBoundary> : null}
 
       {/* Phase C — how each formula behaves across the 9 market regimes. */}
       <section className="space-y-3">
@@ -256,7 +258,7 @@ function LabPage() {
             {regime.isPending ? "Analyzing…" : "Run regime analysis"}
           </Button>
         </div>
-        <RegimeMatrix />
+        <ResearchBoundary name="Market regime results"><RegimeMatrix /></ResearchBoundary>
       </section>
 
       <section>
@@ -290,21 +292,21 @@ function LabPage() {
         ) : null}
         <div className="grid gap-4 lg:grid-cols-3">
           {active.map((slot) => (
-            <SlotCard
+            <ResearchBoundary key={slot.key} name={slot.name}><SlotCard
               key={slot.key}
               slot={slot}
-              longTermRates={slot.lane ? (d?.long_term_win_rates[slot.lane] ?? []) : []}
+              longTermRates={slot.lane ? (d?.long_term_win_rates?.[slot.lane] ?? []) : []}
               equity={
-                d?.equity_curves.find((c) => c.strategy_id === slot.strategy_id) ?? null
+                d?.equity_curves?.find((c) => c.strategy_id === slot.strategy_id) ?? null
               }
-            />
+            /></ResearchBoundary>
           ))}
         </div>
       </div>
 
-      <HistoricalReconstruction />
+      <ResearchBoundary name="Historical selection results"><HistoricalReconstruction /></ResearchBoundary>
 
-      <ResearchDepartment />
+      <ResearchBoundary name="Model tests"><ResearchDepartment /></ResearchBoundary>
 
       <footer className="space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
         <p>

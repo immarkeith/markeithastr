@@ -1,14 +1,10 @@
 /** Stored same-day selection evidence; legacy prototypes are retained but never served. */
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 import type { Json } from '@/integrations/supabase/types';
-import { SELECTION_LANES, buildSelectionHistoryCurve, type SelectionRecord, type CurveEvaluation, type SelectionCurve } from './selection-curve';
+import { SELECTION_LANES, buildSelectionHistoryCurve, type SelectionRecord, type CurveEvaluation } from './selection-curve';
+import { HISTORY_VERSION, parseLabHistory, type LabHistory } from './lab-history';
+export { HISTORY_VERSION, type LabHistory } from './lab-history';
 export const HISTORY_KIND = 'lab_history';
-export const HISTORY_VERSION = 'selection-layer2-v1';
-export interface LabHistory {
-  from: string; to: string; universe: number; universe_basis: string;
-  selection_sessions: number; market_sessions: number; selection_to: string;
-  generated_at: string; version: string; curves: SelectionCurve[];
-}
 export async function rebuildLabHistory(asOf = new Date().toISOString()): Promise<LabHistory | null> {
   const selections: SelectionRecord[] = [];
   const evaluations: CurveEvaluation[] = [];
@@ -49,7 +45,7 @@ export async function rebuildLabHistory(asOf = new Date().toISOString()): Promis
     from, to, selection_to: selectionTo, universe: Math.max(...latest.map(s => s.comparable_universe)),
     universe_basis: [...new Set(selections.map(s => s.universe_basis))].join(', '),
     selection_sessions: dates.length, market_sessions: sessions.length, version: HISTORY_VERSION, generated_at: asOf,
-    curves: SELECTION_LANES.map(lane => buildSelectionHistoryCurve(lane, selections, evaluations, sessions, asOf)),
+    curves: SELECTION_LANES.map(lane => ({ ...buildSelectionHistoryCurve(lane, selections, evaluations, sessions, asOf), lane })),
   };
   const { error } = await supabaseAdmin.from('research_runs').insert({ kind: HISTORY_KIND,
     config: { version: HISTORY_VERSION, stake: 20, horizon_sessions: 1, entry: 'T+1 open', exit: 'T+1 close', from, to } as Json,
@@ -62,5 +58,8 @@ export async function readLabHistory(): Promise<LabHistory | null> {
     .contains('config', { version: HISTORY_VERSION }).order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(`Selection snapshot unavailable: ${error.message}`);
   // Reads never run provider downloads or replay. Initial setup and nightly job save the snapshot.
-  return data ? data.summary as unknown as LabHistory : null;
+  if (!data) return null;
+  const history = parseLabHistory(data.summary);
+  if (!history) throw new Error('Saved historical selection evidence is incomplete. Awaiting a verified refresh.');
+  return history;
 }

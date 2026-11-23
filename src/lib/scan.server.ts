@@ -13,6 +13,7 @@ import {
 } from "./market-data.server";
 import { scoreSecurity, type Bar, type ScoreConfig } from "./scoring";
 import { retryCoverage } from "./market-data-validation";
+import { resilientCoverage, type CoverageDay } from "./bar-coverage";
 
 export interface Settings {
   provider: Provider;
@@ -116,11 +117,33 @@ function today(): string {
 export async function barCoverage(start?: string, recovered?: () => void): Promise<{ bar_date: string; ticker_count: number }[]> {
   const earliest = start ?? recentWeekdays(HISTORY_DAYS + 5)[0];
   if (!earliest) return [];
-  return retryCoverage(async () => {
+  return resilientCoverage(() => retryCoverage(async () => {
     const { data, error } = await supabaseAdmin.rpc("bar_dates_present_since", { p_start: earliest });
     if (error) throw new Error(error.message);
     return (data ?? []) as { bar_date: string; ticker_count: number }[];
-  }, recovered);
+  }, recovered), () => directBarCoverage(earliest), recovered);
+}
+
+/** Index-bounded exact counts bypass schema-cache RPC lookup and API row caps. */
+async function directBarCoverage(start: string): Promise<CoverageDay[]> {
+  const first = Date.parse(`${start}T00:00:00Z`);
+  if (!Number.isFinite(first)) throw new Error("Invalid coverage start date");
+  const end = Date.parse(`${today()}T00:00:00Z`);
+  // Operational fallback only. Never scan the entire historical cache here.
+  if ((end - first) / 86400000 > 400) throw new Error("Cached-history fallback requires a bounded operational window");
+  const dates: string[] = [];
+  for (let time = first; time <= end; time += 86400000) dates.push(new Date(time).toISOString().slice(0, 10));
+  const result: CoverageDay[] = [];
+  for (let i = 0; i < dates.length; i += 4) {
+    const rows = await Promise.all(dates.slice(i, i + 4).map(async (date) => {
+      const { count, error } = await supabaseAdmin.from("daily_bars")
+        .select("ticker", { count: "exact", head: true }).eq("bar_date", date);
+      if (error || count === null) throw new Error(`Cached-history fallback failed: ${error?.message ?? "count unavailable"}`);
+      return { bar_date: date, ticker_count: count };
+    }));
+    result.push(...rows.filter(row => row.ticker_count > 0));
+  }
+  return result.sort((a, b) => b.bar_date.localeCompare(a.bar_date));
 }
 
 /** Weekdays in the lookback window that we have no cached bars for, oldest first. */

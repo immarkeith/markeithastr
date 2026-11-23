@@ -67,36 +67,17 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
           } catch (ledgerError) {
             console.error("researcher ledger run failed:", ledgerError instanceof Error ? ledgerError.message : ledgerError);
           }
-          try {
-            const { runSelectionReplay } = await import("@/lib/selection-replay.server");
-            await runSelectionReplay();
-          } catch (selError) {
-            console.error("selection replay failed:", selError instanceof Error ? selError.message : selError);
-          }
-          try {
-            const { rebuildLabHistory } = await import("@/lib/history-reconstruction.server");
-            await rebuildLabHistory();
-          } catch (historyError) {
-            console.error("selection history refresh failed:", historyError instanceof Error ? historyError.message : historyError);
-          }
-          try {
-            const { rebuildLabGraph } = await import("@/lib/lab-graph.server");
-            await rebuildLabGraph();
-          } catch (graphError) {
-            console.error(
-              "end-of-day lab graph rebuild failed:",
-              graphError instanceof Error ? graphError.message : graphError,
-            );
-          }
+          const { runSelectionGraphPipeline } = await import("@/lib/research-pipeline.server");
+          const research = await runSelectionGraphPipeline();
           // The independent saved-Lab callback audits at 6 PM Eastern after this
           // cycle; do not create a second daily report or duplicate alert here.
 
           const settings = await loadSettings();
           if (!(settings as unknown as { auto_run: boolean }).auto_run) {
-            return Response.json({ ran: false, reason: "auto_run is off", paper, department, horizons });
+            return Response.json({ ran: false, reason: "auto_run is off", paper, department, horizons, research }, { status: research.ok ? 200 : 503 });
           }
           const result = await runDailyCycle();
-          return Response.json({ ...result, paper, department, horizons });
+          return Response.json({ ...result, paper, department, horizons, research }, { status: research.ok ? 200 : 503 });
         } catch (error) {
           const message = error instanceof Error ? error.message : "cycle failed";
           console.error("daily-cycle failed:", message);

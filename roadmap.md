@@ -6,7 +6,7 @@
 - [x] Step 1 final certification: user-approved GNK $0.30 paper gain reversal preserved originals and correction history; fresh audit has zero errors (WARNING for evidence gaps). Independent-host deployment remains unverified.
 - [x] Step 2 (2026-11-21): paginated Layer 2 1M/3M card metrics, return/SPY excess and exact pending counts; absent 9M disclosed. Saved snapshot refreshed/read back, existing nightly and incremental refresh connected, 31 research/outage tests pass; all seven cards and all horizons verified unlocked on desktop/phone without overflow or page errors. No user setup. Separate live deployment not verified. See `docs/selection-metrics-step2-2026-11-21.md`.
 - [x] Step 3 (2026-11-22): seven versioned Layer 2 same-day selection graphs saved/read back; 508 recorded sessions (2024-11-06–2026-11-16), 563-stock comparable cohort, exact $20 open/close math, pending/no-pick disclosure; 31 tests pass, seven lanes × seven ranges verified unlocked on desktop/390×710 phone. Nightly refresh connected; strategy/live records untouched. See `docs/selection-graphs-step3-2026-11-22.md`. Historical membership and separate production deployment remain unverified; scheduled firing certification belongs to Step 4.
-- [ ] Step 4 (later authorization): desktop/mobile and scheduled-pipeline end-to-end certification.
+- [ ] Step 4 (authorized 2026-11-23): harden snapshot rendering and cached-history reads; certify desktop/iPhone, research-only pipeline, and GitHub → Vercel deployment without touching live trading.
 
 ## Approved researcher selection replay (2026-11-18)
 - [x] Immutable daily picks + separate forward results (same-day, 5/10/20/60 sessions; entry next-session open, exit session-close) with 6 rule tests; nightly run appends.

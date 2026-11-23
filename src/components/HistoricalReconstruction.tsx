@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { LAB_RANGES, PnlChart } from "@/components/PnlChart";
 import { money } from "@/lib/queries";
 import { fetchLabHistory } from "@/lib/race.functions";
+import { parseLabHistory } from "@/lib/lab-history";
+import { Button } from "@/components/ui/button";
 
 const NAMES: Record<string, string> = {
   lead: "Lead Researcher",
@@ -17,14 +19,17 @@ const NAMES: Record<string, string> = {
 /** Stored daily selection outcomes, independent of strategy holding books. */
 export function HistoricalReconstruction() {
   const q = useQuery({ queryKey: ["lab-history"], queryFn: () => fetchLabHistory(), staleTime: 0, refetchOnMount: "always", refetchInterval: 5 * 60_000 });
-  const h = q.data;
+  const h = parseLabHistory(q.data);
   return (
     <div className="min-w-0 space-y-3" aria-label="Historical selection replay">
       <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">Historical selection replay (same-day)</h2>
       {!h ? (
-        <p className="text-sm text-muted-foreground">
-          {q.isLoading ? "Loading…" : q.isError ? "Historical selection results are temporarily unavailable." : "No saved selection results yet."}
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            {q.isLoading ? "Loading…" : q.isError || q.data ? "Historical selection results are temporarily unavailable." : "No saved selection results yet."}
+          </p>
+          {!q.isLoading && (q.isError || q.data) ? <Button variant="outline" size="sm" disabled={q.isFetching} onClick={() => void q.refetch()}>{q.isFetching ? "Checking…" : "Try again"}</Button> : null}
+        </div>
       ) : (
         <>
           <p className="text-xs text-muted-foreground">

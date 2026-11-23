@@ -68,7 +68,7 @@ export async function runHealthCheck(): Promise<HealthResult> {
   try {
     const start = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10);
     const coverage = await barCoverage(start, () =>
-      repairs.push("Recovered cached-history query after a transient timeout."),
+      repairs.push("Recovered cached-history query after a temporary API failure."),
     );
     // IEX does not print every tracked symbol every day. Judging the entire
     // cache by only the newest session caused a complete history rebuild every
