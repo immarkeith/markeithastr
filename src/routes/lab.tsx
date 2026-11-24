@@ -342,6 +342,14 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
 
 type LongTermRate = SelectionRate;
 
+/** Older saved snapshots can omit newer numeric fields; never let one crash a card. */
+function fixed(value: number | null | undefined, digits: number): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "—";
+}
+function signedPct(value: number | null | undefined): string | null {
+  return typeof value === "number" && Number.isFinite(value) ? `${value >= 0 ? "+" : ""}${value.toFixed(2)}%` : null;
+}
+
 function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
   const [horizon, setHorizon] = useState<"1M" | "3M" | "9M">("1M");
   const selected = rates.find((rate) => rate.horizon === horizon);
@@ -380,8 +388,8 @@ function LongTermWinRate({ rates }: { rates: LongTermRate[] }) {
       )}
       {selected && selected.completed > 0 ? (
         <div className="space-y-1 text-xs tabular-nums text-muted-foreground">
-          <p>Average return {selected.avg_return_pct === null ? "—" : `${selected.avg_return_pct >= 0 ? "+" : ""}${selected.avg_return_pct.toFixed(2)}%`}</p>
-          <p>Excess vs SPY {selected.avg_excess_return_pct === null ? "unavailable" : `${selected.avg_excess_return_pct >= 0 ? "+" : ""}${selected.avg_excess_return_pct.toFixed(2)}%`} · {selected.benchmark_completed} benchmark pairs</p>
+          <p>Average return {signedPct(selected.avg_return_pct) ?? "—"}</p>
+          <p>Excess vs SPY {signedPct(selected.avg_excess_return_pct) ?? "unavailable"} · {selected.benchmark_completed ?? 0} benchmark pairs</p>
         </div>
       ) : null}
       {selected?.available ? (
@@ -478,7 +486,7 @@ function SlotCard({
                   </span>
                   <span className={`tabular-nums ${h.pl >= 0 ? "text-success" : "text-destructive"}`}>
                     {h.pl >= 0 ? "+" : ""}
-                    {money(h.pl)} ({h.pl_pct.toFixed(2)}%)
+                    {money(h.pl)} ({fixed(h.pl_pct, 2)}%)
                   </span>
                 </div>
               ))
@@ -490,10 +498,10 @@ function SlotCard({
               <p className="text-sm">
                 <span className="font-semibold">{slot.up_next.ticker}</span>{" "}
                 <span className="tabular-nums text-primary">
-                  {slot.up_next.score.toFixed(1)} pts
+                  {fixed(slot.up_next.score, 1)} pts
                 </span>{" "}
                 <span className="text-xs text-muted-foreground">
-                  at ~${slot.up_next.close.toFixed(2)}
+                  at ~${fixed(slot.up_next.close, 2)}
                 </span>
               </p>
             ) : (

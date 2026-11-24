@@ -2,18 +2,29 @@ import { supabaseAdmin } from '@/integrations/supabase/client.server';
 export type SelectionInput = { ticker: string; bars: [string, number, number, number, number, number][] };
 /** Walk the ticker/date primary key, not repeated full-cache GROUP BY queries. */
 export async function loadSelectionInput(): Promise<SelectionInput[]> {
-  const tickers: string[] = [];
-  let cursor = '';
-  for (;;) {
-    const { data, error } = await supabaseAdmin.from('daily_bars').select('ticker').gt('ticker', cursor).order('ticker').limit(1);
-    if (error) throw new Error(`Selection universe unavailable: ${error.message}`);
-    const ticker = data?.[0]?.ticker;
-    if (!ticker) break;
-    tickers.push(ticker); cursor = ticker;
-  }
+  // Walk each alphabetical segment in parallel: one sequential walk over
+  // thousands of cached tickers takes longer than the nightly time budget.
+  const bounds = ['', ...'BCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
+  const segments = await Promise.all(bounds.map(async (start, i) => {
+    const end = bounds[i + 1];
+    const found: string[] = [];
+    let cursor = start;
+    for (;;) {
+      let q = supabaseAdmin.from('daily_bars').select('ticker').order('ticker').limit(1);
+      q = found.length === 0 && start ? q.gte('ticker', cursor) : q.gt('ticker', cursor);
+      if (end) q = q.lt('ticker', end);
+      const { data, error } = await q;
+      if (error) throw new Error(`Selection universe unavailable: ${error.message}`);
+      const ticker = data?.[0]?.ticker;
+      if (!ticker) break;
+      found.push(ticker); cursor = ticker;
+    }
+    return found;
+  }));
+  const tickers = segments.flat();
   const out: SelectionInput[] = [];
-  for (let i = 0; i < tickers.length; i += 8) {
-    const batch = await Promise.all(tickers.slice(i, i + 8).map(async ticker => {
+  for (let i = 0; i < tickers.length; i += 16) {
+    const batch = await Promise.all(tickers.slice(i, i + 16).map(async ticker => {
       const bars: SelectionInput['bars'] = [];
       for (let offset = 0; ; offset += 1000) {
         const { data, error } = await supabaseAdmin.from('daily_bars')
