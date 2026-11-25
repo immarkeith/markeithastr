@@ -187,13 +187,10 @@ function liquidityPrefilter(rows: BarRow[], s: Settings, share = 1): BarRow[] {
 
 /** Tickers already in the cache — keeps the stored universe stable day to day. */
 export async function cachedTickers(): Promise<string[]> {
-  const { data, error } = await supabaseAdmin
-    .from("daily_bars")
-    .select("ticker")
-    .order("ticker", { ascending: true })
-    .limit(100000);
-  if (error) throw new Error(error.message);
-  return [...new Set((data ?? []).map((r) => r.ticker as string))];
+  // A plain select is row-capped and silently dropped most of the universe
+  // (including the market proxy), so walk the distinct tickers instead.
+  const { distinctCachedTickers } = await import("./selection-input.server");
+  return distinctCachedTickers();
 }
 
 /**
@@ -219,6 +216,8 @@ export async function cacheOneDay(date: string): Promise<{
         ? existing
         : await alpacaUniverse(Math.max(50, Number(s.max_universe)));
     keepExisting = existing.length >= 100;
+    const proxy = s.market_proxy.toUpperCase();
+    if (!universe.includes(proxy)) universe.push(proxy);
     rows = (await alpacaBars(universe, date, date)).filter((r) => r.bar_date === date);
   } else {
     rows = await polygonGroupedDay(date);

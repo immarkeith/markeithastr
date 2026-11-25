@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 export type SelectionInput = { ticker: string; bars: [string, number, number, number, number, number][] };
-/** Walk the ticker/date primary key, not repeated full-cache GROUP BY queries. */
-export async function loadSelectionInput(): Promise<SelectionInput[]> {
+/** Every distinct cached ticker, walked through the primary key (no row cap). */
+export async function distinctCachedTickers(): Promise<string[]> {
   // Walk each alphabetical segment in parallel: one sequential walk over
   // thousands of cached tickers takes longer than the nightly time budget.
   const bounds = ['', ...'BCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
@@ -21,7 +21,12 @@ export async function loadSelectionInput(): Promise<SelectionInput[]> {
     }
     return found;
   }));
-  const tickers = segments.flat();
+  return segments.flat();
+}
+
+/** Walk the ticker/date primary key, not repeated full-cache GROUP BY queries. */
+export async function loadSelectionInput(): Promise<SelectionInput[]> {
+  const tickers = await distinctCachedTickers();
   const out: SelectionInput[] = [];
   for (let i = 0; i < tickers.length; i += 16) {
     const batch = await Promise.all(tickers.slice(i, i + 16).map(async ticker => {
