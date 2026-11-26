@@ -1,0 +1,158 @@
+name: Production Research Replay (Manual)
+
+# One-off, operator-approved maintenance for the production research database.
+# It never places orders, writes trades, changes live settings, or deploys code.
+# Alpaca credentials are exposed only to the market-data download step.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type exactly: REPLAY PRODUCTION RESEARCH'
+        required: true
+        type: string
+      from:
+        description: 'First market-data date to request (inclusive)'
+        required: true
+        default: '2020-07-01'
+        type: string
+      until:
+        description: 'Exclusive end date; blank means yesterday (UTC)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: astr-production-research-replay
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Backfill, replay, refresh and certify
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 360
+    steps:
+      - name: Require explicit production confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRMATION" != "REPLAY PRODUCTION RESEARCH" ]; then
+            echo "::error::Confirmation did not match. No research data was changed."
+            exit 1
+          fi
+
+      - name: Preflight required Actions secrets
+        env:
+          DATABASE_SET: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+          MARKET_DATA_SET: ${{ secrets.ALPACA_LIVE_KEY_ID != '' && secrets.ALPACA_LIVE_SECRET_KEY != '' }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ "$DATABASE_SET" = "true" ] || missing="$missing SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY"
+          [ "$MARKET_DATA_SET" = "true" ] || missing="$missing ALPACA_LIVE_KEY_ID ALPACA_LIVE_SECRET_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository or production-environment Actions secrets:$missing"
+            exit 1
+          fi
+          echo "All required credentials are present; values remain hidden."
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Resolve and validate replay window
+        id: window
+        env:
+          REQUESTED_FROM: ${{ inputs.from }}
+          REQUESTED_UNTIL: ${{ inputs.until }}
+        run: |
+          set -euo pipefail
+          from_date="$REQUESTED_FROM"
+          until_date="$REQUESTED_UNTIL"
+          if [ -z "$until_date" ]; then
+            until_date=$(date -u -d 'yesterday' +%F)
+          fi
+          if [[ ! "$from_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || [[ ! "$until_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || [[ ! "$from_date" < "$until_date" ]]; then
+            echo "::error::Invalid replay window: $from_date to $until_date"
+            exit 1
+          fi
+          echo "until=$until_date" >> "$GITHUB_OUTPUT"
+          echo "Market-data window: $from_date (inclusive) to $until_date (exclusive)"
+          mkdir -p replay-artifacts
+
+      - name: Verify the locked research universe
+        run: |
+          set -euo pipefail
+          node -e 'const m=require("./scripts/research-universe-2026-11-26.json"); if (!Array.isArray(m.symbols) || m.symbols.length < 2000 || new Set(m.symbols).size !== m.symbols.length || !m.symbols.includes("SPY")) process.exit(1); console.log(`Locked research universe: ${m.symbols.length} symbols`)'
+
+      - name: Backfill research market data (restartable, upsert only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ALPACA_LIVE_KEY_ID: ${{ secrets.ALPACA_LIVE_KEY_ID }}
+          ALPACA_LIVE_SECRET_KEY: ${{ secrets.ALPACA_LIVE_SECRET_KEY }}
+        run: >-
+          bun run scripts/expand-research-history.ts
+          --from=${{ inputs.from }}
+          --until=${{ steps.window.outputs.until }}
+          --symbols-file=scripts/research-universe-2026-11-26.json
+
+      - name: Archive and continuously replay all researcher books
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: >-
+          bun run scripts/rebuild-researcher-ledger.ts
+          --confirm
+          --archive-file=replay-artifacts/pre-replay-ledger.json
+
+      - name: Refresh selections, outcomes and saved Lab graphs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: bun run scripts/refresh-research-graphs.ts
+
+      - name: Certify saved rows and graph readback
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: >-
+          bun run scripts/certify-research-phase-a.ts
+          --require-replay
+          --expect-start=2021-06-01
+          --allow-missing=2021-10-25,2022-03-08
+          --output=replay-artifacts/certification.json
+
+      - name: Publish run summary
+        if: success()
+        run: |
+          set -euo pipefail
+          {
+            echo "## Production research replay passed"
+            echo
+            echo "The saved researcher rows and Lab snapshot passed the continuity, identity, date and readback gate."
+            echo "Only the two explicitly approved historical coverage gaps were allowed."
+            echo "No orders, trades, live settings or deployments were changed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve backup and certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-replay-${{ github.run_id }}
+          path: |
+            replay-artifacts/pre-replay-ledger.json
+            replay-artifacts/certification.json
+          if-no-files-found: ignore
+          retention-days: 30

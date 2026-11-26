@@ -6,6 +6,12 @@
 export const WARMUP_SESSIONS = 200;
 export const EVAL_HORIZONS = [1, 5, 10, 20, 60] as const;
 
+/** Historical bootstraps ignore the nightly incremental input watermark. */
+export function selectionReplaySince(latestPick: string | null, fullReplay: boolean): string | undefined {
+  if (fullReplay || !latestPick) return undefined;
+  return new Date(Date.parse(`${latestPick}T00:00:00Z`) - 500 * 86400000).toISOString().slice(0, 10);
+}
+
 export interface Bar { date: string; open: number; close: number; volume: number }
 
 /** A stock is rankable on T only with 200 stored sessions before T plus T itself. */

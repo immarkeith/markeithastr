@@ -62,3 +62,7 @@ Nov 26 verification: 4,676 saved points match the accessible ledger, but each la
 - [x] Archived old 4,676 ledger rows (research_runs kind `ledger_archive`) and replayed all 7 researchers from 2021-06-01 under one engine: 1,378 sessions each, 0 continuity errors, snapshot matches
 - [x] Nightly pipeline completes end-to-end (ledger → picks → history → Lab graph)
 - [ ] Deploy to Vercel and confirm the live site shows the new curves (needs push + Vercel env check)
+
+## Nov 26 — Production research replay automation
+- [x] Add a manually confirmed GitHub Actions workflow using the verified 2,417-stock manifest, existing production secrets, a pre-replay ledger backup, ordered full-history graph refresh, and a strict certification gate. Validated with 199 passing tests, typechecking, positive/negative certification checks, and a clean build; the production workflow itself has not been run.
+- [ ] Operator runs the workflow on `main`, then hard-refreshes the live Research Lab and confirms June 2021 coverage. Existing nightly production hooks remain responsible for future sessions.

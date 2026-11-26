@@ -3,7 +3,7 @@ import { researchWatermark } from './research-watermark.server';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 import type { Json } from '@/integrations/supabase/types';
 /** No orders, trade mutation, provider ingestion or settings changes. */
-export async function runSelectionGraphPipeline(options: { force?: boolean } = {}) {
+export async function runSelectionGraphPipeline(options: { force?: boolean; fullReplay?: boolean } = {}) {
   const started = Date.now();
   const watermark = await researchWatermark();
   const { data: receipt, error } = await supabaseAdmin.from('research_runs').select('config').eq('kind', 'research_pipeline_verified').order('created_at', { ascending: false }).limit(1).maybeSingle();
@@ -17,7 +17,7 @@ export async function runSelectionGraphPipeline(options: { force?: boolean } = {
     } },
     { name: 'selection_replay', run: async () => {
       const { runSelectionReplay } = await import('./selection-replay.server');
-      return runSelectionReplay();
+      return runSelectionReplay(options.fullReplay ? { fullReplay: true } : {});
     } },
     { name: 'selection_history', run: async () => {
       const { rebuildLabHistory, readLabHistory } = await import('./history-reconstruction.server');

@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { eligibleAt, evaluate, warmedUp, type Bar } from './selection-replay';
+import { eligibleAt, evaluate, selectionReplaySince, warmedUp, type Bar } from './selection-replay';
 
 const bar = (date: string, open: number, close: number): Bar => ({ date, open, close, volume: 1_000_000 });
 
 describe('historical replay rules', () => {
+  test('a full bootstrap ignores the latest-pick watermark used by nightly replay', () => {
+    expect(selectionReplaySince('2026-10-19', true)).toBeUndefined();
+    expect(selectionReplaySince(null, false)).toBeUndefined();
+    expect(selectionReplaySince('2026-10-19', false)).toBe('2025-06-06');
+  });
   test('200-day average needs 200 preceding sessions', () => {
     expect(warmedUp(200)).toBe(false);
     expect(warmedUp(201)).toBe(true);

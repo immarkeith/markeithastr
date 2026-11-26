@@ -9,7 +9,7 @@ import { LANES, buildPanel, laneSeedParams, listResearchers, passesFilters, scor
 import { assemble, bandBonus, type Band, type MasterRule } from "./master-formula.server";
 import { loadSettings, volumeShare } from "./scan.server";
 import { historyCoverage } from "./history-coverage";
-import { EVAL_HORIZONS, eligibleAt, evaluate, type Bar } from "./selection-replay";
+import { EVAL_HORIZONS, eligibleAt, evaluate, selectionReplaySince, type Bar } from "./selection-replay";
 import { loadSelectionInput } from './selection-input.server';
 import { completedResearchSession, selectionTimestamp } from './research-session';
 
@@ -18,12 +18,12 @@ const UNIVERSE_BASIS = "cached-cohort-survivors-unverified-membership";
 const HISTORY_DAYS = 2000;
 
 type Raw = { ticker: string; bars: [string, number, number, number, number, number][] };
-async function loadRaw(): Promise<Raw[]> {
+async function loadRaw(fullReplay: boolean): Promise<Raw[]> {
   // Once picks exist, nightly runs need only the 200-session eligibility window
-  // before the newest pick; the first run reads the full cache.
+  // before the newest pick; a historical bootstrap must ignore that watermark.
   const { data, error } = await supabaseAdmin.from("research_daily_selections").select("session_date").order("session_date", { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(error.message);
-  const since = data?.session_date ? new Date(Date.parse(`${data.session_date}T00:00:00Z`) - 500 * 86400000).toISOString().slice(0, 10) : undefined;
+  const since = selectionReplaySince(data?.session_date ?? null, fullReplay);
   return loadSelectionInput(since);
 }
 
@@ -41,11 +41,11 @@ async function pagedKeys(table: "research_daily_selections" | "research_selectio
   return rows;
 }
 
-export async function runSelectionReplay(): Promise<{ sessions: number; selections: number; matured: number; first_session: string | null }> {
+export async function runSelectionReplay(options: { fullReplay?: boolean } = {}): Promise<{ sessions: number; selections: number; matured: number; first_session: string | null }> {
   const s = await loadSettings();
   const share = await volumeShare(s);
   const minPrice = Number(s.min_price), minAdv = Number(s.min_avg_dollar_volume) * share;
-  const raw = await loadRaw();
+  const raw = await loadRaw(options.fullReplay === true);
   const bars = new Map(raw.map((r) => [r.ticker, r.bars.map(([date, open, , , close, volume]) => ({ date, open: Number(open), close: Number(close), volume: Number(volume) }))]));
   const proxy = s.market_proxy.toUpperCase();
   if (!bars.has(proxy)) {
