@@ -20,6 +20,16 @@ on:
         description: 'Exclusive end date; blank means yesterday (UTC)'
         required: false
         type: string
+      skip_backfill:
+        description: 'Skip market-data backfill (already saved)'
+        required: false
+        default: false
+        type: boolean
+      skip_ledger_rebuild:
+        description: 'Skip researcher book replay (already saved)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -47,13 +57,14 @@ jobs:
 
       - name: Preflight required Actions secrets
         env:
+          NEEDS_MARKET_DATA: ${{ !inputs.skip_backfill }}
           DATABASE_SET: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
           MARKET_DATA_SET: ${{ secrets.ALPACA_LIVE_KEY_ID != '' && secrets.ALPACA_LIVE_SECRET_KEY != '' }}
         run: |
           set -euo pipefail
           missing=""
           [ "$DATABASE_SET" = "true" ] || missing="$missing SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY"
-          [ "$MARKET_DATA_SET" = "true" ] || missing="$missing ALPACA_LIVE_KEY_ID ALPACA_LIVE_SECRET_KEY"
+          [ "$NEEDS_MARKET_DATA" != "true" ] || [ "$MARKET_DATA_SET" = "true" ] || missing="$missing ALPACA_LIVE_KEY_ID ALPACA_LIVE_SECRET_KEY"
           if [ -n "$missing" ]; then
             echo "::error::Missing repository or production-environment Actions secrets:$missing"
             exit 1
@@ -96,7 +107,14 @@ jobs:
           set -euo pipefail
           node -e 'const m=require("./scripts/research-universe-2026-11-26.json"); if (!Array.isArray(m.symbols) || m.symbols.length < 2000 || new Set(m.symbols).size !== m.symbols.length || !m.symbols.includes("SPY")) process.exit(1); console.log(`Locked research universe: ${m.symbols.length} symbols`)'
 
+      - name: Check production database migrations (read-only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: bun run scripts/check-production-schema.ts --strict
+
       - name: Backfill research market data (restartable, upsert only)
+        if: ${{ !inputs.skip_backfill }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -109,6 +127,7 @@ jobs:
           --symbols-file=scripts/research-universe-2026-11-26.json
 
       - name: Archive and continuously replay all researcher books
+        if: ${{ !inputs.skip_ledger_rebuild }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
