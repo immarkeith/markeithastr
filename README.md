@@ -33,3 +33,5 @@ scheduler can call the same hooks instead.
 Actions, verifies the exact commit, and merges only after human approval.
 Setup, secret scopes and the provider-neutral model configuration are in
 [`docs/phase-k-deployment.md`](docs/phase-k-deployment.md).
+
+<!-- Phase K engineer configuration is complete -->
