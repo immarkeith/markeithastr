@@ -30,14 +30,18 @@ import { loadSlots, researcherHoldDays, type ResearcherEquityCurve } from "./rac
 import { loadSettings, volumeShare } from "./scan.server";
 import { simulateLaneRun } from "./researcher-ledger";
 import { z } from "zod";
+import { loadSelectionInput } from "./selection-input.server";
 import type { Json } from "@/integrations/supabase/types";
 import { ledgerReturnMatches } from './research-certification';
 
 export const LEDGER_ENGINE_VERSION = "v2-t1";
 export const LEDGER_BASE_EQUITY = 100;
-const LEDGER_UNIVERSE = 300;
+/** Full cached research universe (backfilled to July 2020). */
+const LEDGER_UNIVERSE = 2600;
+/** First recorded session; earlier bars are indicator warm-up only. */
+export const LEDGER_START_DATE = "2021-06-01";
+const LEDGER_RESUME_DAYS = 320;
 const LEDGER_HISTORY_DAYS = 2000;
-const LEDGER_PAGE = 25;
 const checkpointSchema = z.object({
   date: z.string().nullable(), cash: z.number().finite(),
   pos: z.object({ ticker: z.string(), shares: z.number().finite().positive(), mark: z.number().finite().positive(), held: z.number().int().nonnegative(), tranche: z.enum(["A", "B"]).nullable() }).nullable(),
@@ -83,16 +87,16 @@ export async function runResearcherLedger(options: { fullReplay?: boolean } = {}
     if (parsed.success && parsed.data.state.date === latestByLane.get(lane)) checkpoints.set(lane, parsed.data);
   }
   const share = await volumeShare(s);
+  // Nightly resume needs only the indicator window; bootstrap reads everything.
+  const resumeAll = !options.fullReplay && laneNames.every(lane => checkpoints.has(lane));
+  const historyDays = resumeAll ? LEDGER_RESUME_DAYS : LEDGER_HISTORY_DAYS;
+  const resumeFrom = resumeAll ? [...checkpoints.values()].map(c => c.state.date ?? "").sort()[0] : undefined;
   // Same 300-ticker universe as before, fetched in pages so the long history
   // read stays under the database statement timeout.
-  const raw: { ticker: string; bars: unknown }[] = [];
-  // Sequential heavy reads avoid saturating the database statement budget.
-  for (let offset = 0; offset < LEDGER_UNIVERSE; offset += LEDGER_PAGE) {
-    const res = await supabaseAdmin.rpc("scan_input", { p_days: LEDGER_HISTORY_DAYS, p_limit: LEDGER_PAGE, p_offset: offset });
-    if (res.error) throw new Error(res.error.message);
-    raw.push(...((res.data ?? []) as typeof raw));
-  }
-  const panel = await buildPanel(LEDGER_UNIVERSE, s.market_proxy, LEDGER_HISTORY_DAYS, raw as never);
+  // Walk the ticker/date key per symbol; the aggregate RPC times out at this size.
+  const since = resumeFrom ? new Date(Date.parse(`${resumeFrom}T00:00:00Z`) - LEDGER_RESUME_DAYS * 1.6 * 86400000).toISOString().slice(0, 10) : undefined;
+  const raw = await loadSelectionInput(since);
+  const panel = await buildPanel(LEDGER_UNIVERSE, s.market_proxy, historyDays, raw as never, resumeFrom || undefined);
 
   // Only sessions with real coverage — a half-downloaded day is not a session.
   const byDate = new Map<string, PanelRow[]>();
@@ -103,7 +107,7 @@ export async function runResearcherLedger(options: { fullReplay?: boolean } = {}
   }
   const best = Math.max(0, ...[...byDate.values()].map((l) => l.length));
   const sessions = [...byDate.keys()]
-    .filter((d) => (byDate.get(d)?.length ?? 0) >= best * 0.5)
+    .filter((d) => d >= LEDGER_START_DATE && (byDate.get(d)?.length ?? 0) >= best * 0.5)
     .sort();
 
   const researchers = await listResearchers();
@@ -140,7 +144,7 @@ export async function runResearcherLedger(options: { fullReplay?: boolean } = {}
   for (const l of lanes) {
     const slot = slots.find((x) => x.lane === l.lane);
     const hold = slot ? researcherHoldDays(slot) : 3;
-    const fingerprint = JSON.stringify({ params: l.params, bands: l.bands, hold, base: LEDGER_BASE_EQUITY, engine: LEDGER_ENGINE_VERSION });
+    const fingerprint = JSON.stringify({ params: l.params, bands: l.bands, hold, base: LEDGER_BASE_EQUITY, engine: LEDGER_ENGINE_VERSION, start: LEDGER_START_DATE, universe: LEDGER_UNIVERSE });
     const checkpoint = checkpoints.get(l.lane);
     const resume = !options.fullReplay && checkpoint?.fingerprint === fingerprint ? checkpoint : undefined;
     const days = sessions.filter(date => !resume?.state.date || date > resume.state.date).map((date) => {
@@ -242,7 +246,7 @@ export async function readLedgerCurves(): Promise<(ResearcherEquityCurve & { lan
     has_gaps: list.some((r, i) => r.action?.includes("pending mark") || (i > 0 && !ledgerReturnMatches(Number(list[i - 1]?.equity), Number(r.equity), Number(r.daily_return_pct)))),
     coverage_note: list.some((r, i) => i > 0 && !ledgerReturnMatches(Number(list[i - 1]?.equity), Number(r.equity), Number(r.daily_return_pct)))
       ? "Saved book contains an unreconciled continuity transition. Historical membership and corporate-action coverage are also unverified."
-      : "Cached 300-stock research cohort; historical membership and corporate-action coverage are unverified.",
+      : "Full cached research universe (~2,400 stocks, history from June 2021); historical membership and corporate-action coverage are unverified.",
     source: "ledger" as const,
     basis: LEDGER_BASE_EQUITY,
   }));

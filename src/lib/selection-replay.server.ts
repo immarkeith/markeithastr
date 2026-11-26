@@ -19,7 +19,12 @@ const HISTORY_DAYS = 2000;
 
 type Raw = { ticker: string; bars: [string, number, number, number, number, number][] };
 async function loadRaw(): Promise<Raw[]> {
-  return loadSelectionInput();
+  // Once picks exist, nightly runs need only the 200-session eligibility window
+  // before the newest pick; the first run reads the full cache.
+  const { data, error } = await supabaseAdmin.from("research_daily_selections").select("session_date").order("session_date", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  const since = data?.session_date ? new Date(Date.parse(`${data.session_date}T00:00:00Z`) - 500 * 86400000).toISOString().slice(0, 10) : undefined;
+  return loadSelectionInput(since);
 }
 
 async function pagedKeys(table: "research_daily_selections" | "research_selection_evaluations", cols: string, filter?: (q: any) => any) {

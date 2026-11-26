@@ -56,3 +56,9 @@ Nov 26 verification: 4,676 saved points match the accessible ledger, but each la
 - [ ] Complete clean typechecking, automated rule/regression tests, production runtime checks and desktop/iPhone verification for all critical workflows.
 - [ ] Keep any real-money end-to-end exercise separate and blocked unless explicitly authorized; never use live orders merely to certify research or Engineer features.
 - [ ] Publish final certification documenting verified results, deployed revision, scheduled-run evidence and any unresolved external blockers. Mark ASTR complete only when all agreed scope is verified or an exception is explicitly accepted.
+
+## Nov 26 — Option 1 continuous replay (done)
+- [x] Backfilled daily prices for all 2,417 stocks from July 2020 (3.2M rows, upsert-only)
+- [x] Archived old 4,676 ledger rows (research_runs kind `ledger_archive`) and replayed all 7 researchers from 2021-06-01 under one engine: 1,378 sessions each, 0 continuity errors, snapshot matches
+- [x] Nightly pipeline completes end-to-end (ledger → picks → history → Lab graph)
+- [ ] Deploy to Vercel and confirm the live site shows the new curves (needs push + Vercel env check)

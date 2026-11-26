@@ -30,15 +30,17 @@ export async function distinctCachedTickers(): Promise<string[]> {
 }
 
 /** Walk the ticker/date primary key, not repeated full-cache GROUP BY queries. */
-export async function loadSelectionInput(): Promise<SelectionInput[]> {
+export async function loadSelectionInput(since?: string): Promise<SelectionInput[]> {
   const tickers = await distinctCachedTickers();
   const out: SelectionInput[] = [];
   for (let i = 0; i < tickers.length; i += 6) {
     const batch = await Promise.all(tickers.slice(i, i + 6).map(async ticker => {
       const bars: SelectionInput['bars'] = [];
       for (let offset = 0; ; offset += 1000) {
-        const { data, error } = await supabaseAdmin.from('daily_bars')
-          .select('bar_date,open,high,low,close,volume').eq('ticker', ticker)
+        let q = supabaseAdmin.from('daily_bars')
+          .select('bar_date,open,high,low,close,volume').eq('ticker', ticker);
+        if (since) q = q.gte('bar_date', since);
+        const { data, error } = await q
           .order('bar_date', { ascending: false }).range(offset, offset + 999);
         if (error) throw new Error(`Selection prices unavailable: ${error.message}`);
         for (const row of data ?? []) bars.push([row.bar_date, Number(row.open), Number(row.high), Number(row.low), Number(row.close), Number(row.volume)]);
