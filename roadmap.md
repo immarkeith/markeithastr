@@ -1,200 +1,52 @@
-# ASTR Master Roadmap
+# ASTR Master Completion Roadmap
 
-## Four-step audit and graph completion (2026-11-19)
-- [x] Step 1 audit-code corrections: quarantine fill warnings, linked cash lifecycles, one-cent scoreboard tolerance; 25 tests pass, unlocked manual audit saved/read back; no trade/live changes. See `docs/audit-step1-2026-11-19.md`.
-- [x] Step 1 safe outage repairs: five closed $0 records annotated, seven invalid open entries quarantined without invented sale/cash/P&L; guarded future closes, refreshed snapshot, 29 tests and unlocked desktop/phone readback verified; repeat repair changes zero records. See `docs/outage-step1-2026-11-20.md`.
-- [x] Step 1 final certification: user-approved GNK $0.30 paper gain reversal preserved originals and correction history; fresh audit has zero errors (WARNING for evidence gaps). Independent-host deployment remains unverified.
-- [x] Step 2 (2026-11-21): paginated Layer 2 1M/3M card metrics, return/SPY excess and exact pending counts; absent 9M disclosed. Saved snapshot refreshed/read back, existing nightly and incremental refresh connected, 31 research/outage tests pass; all seven cards and all horizons verified unlocked on desktop/phone without overflow or page errors. No user setup. Separate live deployment not verified. See `docs/selection-metrics-step2-2026-11-21.md`.
-- [x] Step 3 (2026-11-22): seven versioned Layer 2 same-day selection graphs saved/read back; 508 recorded sessions (2024-11-06–2026-11-16), 563-stock comparable cohort, exact $20 open/close math, pending/no-pick disclosure; 31 tests pass, seven lanes × seven ranges verified unlocked on desktop/390×710 phone. Nightly refresh connected; strategy/live records untouched. See `docs/selection-graphs-step3-2026-11-22.md`. Historical membership and separate production deployment remain unverified; scheduled firing certification belongs to Step 4.
-- [x] Step 4 (2026-11-24): safeguards deployed to Vercel; full research refresh ran end-to-end (329 s, all 3 stages verified); 178 tests pass; desktop/iPhone checked. Card crash on older saved numbers fixed — live Vercel recheck pending its next deploy. See `docs/step4-hardening-certification-2026-11-24.md`.
+Status: Planned only. This roadmap replaces the previous task list; no phase implementation has started in this update.
 
-## Approved researcher selection replay (2026-11-18)
-- [x] Immutable daily picks + separate forward results (same-day, 5/10/20/60 sessions; entry next-session open, exit session-close) with 6 rule tests; nightly run appends.
-- [x] Replay: 7 researchers + lead, 508 sessions from 2024-11-06 (first date clearing 80% of today's 563 point-in-time eligible stocks), 3,556 picks, 16,622 matured results, 7 missing-bar results left unfilled.
-- [x] Show forward-result win rates on the Research Lab cards (Step 2; verified 2026-11-21).
-- [ ] Survivorship-free universe (delisted/inactive symbols and verified listing dates) — needs a source for historical membership.
+## Phase A / Step 1: Research Lab Snapshot & Continuous Ledger Unification
+- [ ] Connect the saved Lab snapshot and all seven researcher cards to the canonical `researcher_daily_ledger`, rather than the legacy trade-reconstruction curves.
+- [ ] Verify the recorded 661-session history per researcher, then append missing completed sessions through the latest available market day on the production database. Treat dates and row counts as verification inputs, not proof of current coverage.
+- [ ] Reconcile displayed dates, returns and every plotted point with the saved ledger. Preserve the existing daily/weekly intervals, range rebasing and graph designs.
+- [ ] Replace misleading legacy coverage messages with ledger-based coverage checks; remove warnings only when verified coverage supports it, and retain genuine evidence-gap disclosures.
+- [ ] Verify full tracked-universe ingestion, including SPY, using paginated/distinct ticker discovery and non-destructive bar upserts. Missing exact-session marks remain pending without invented P&L.
+- [ ] Make scheduled research updates incremental: append new selections, mature pending evaluations and extend ledger/snapshot results without replaying the full history. Target under 15 seconds for routine updates; measure actual runtime against Vercel's configured limits and provide bounded recovery for larger catch-ups.
+- [ ] Preserve immutable selections, separate forward evaluations and strategy records; enforce selection/entry/exit timestamps, 200 preceding sessions for SMA200 and 252-session percentile warm-up where required.
+- [ ] Verify point-in-time eligibility, historical IPO dates and delisted/inactive symbols against free source evidence. Apply the shared 80% comparable-universe start gate; do not present a cached shortlist as the full market or claim survivorship-free coverage without evidence.
+- [ ] Confirm GitHub's canonical revision reaches Vercel and verify production curves, metrics, latest session and the first scheduled refresh on desktop and iPhone.
 
-## Historical expansion authorized (2026-11-17)
-- [x] Download July 2020–November 16, 2026 history for the locked 624-symbol cached research cohort; 900,233 total saved bars, existing prices/research/trading records preserved.
-- [x] Verify cohort-only per-session 80% coverage: 500 required; uninterrupted passing dates start March 9, 2022, not July 2020. See `docs/historical-expansion-2026-11-17.md`; 14 tests pass.
-- [ ] Full eligible-market/listing/source evidence and six-year 80% certification remain blocked by unverified historical membership and uncollected broader-market history; cached cohort is not the full market.
-- [ ] Full independent daily rankings and existing-interval graph reconstruction remain separate from this download; prerequisite: verified comparable universe and point-in-time inputs.
+## Phase B / Step 2: AI Engineer Perfection & Queue Management
+- [ ] Diagnose the reported Engineer errors using task logs, configuration, runner dispatch and provider responses before deciding repairs.
+- [ ] Add a **Delete** button to queued task cards, with confirmation, so accidental or stuck queued requests can be cleared. Preserve audit history; active tasks must be safely cancelled before dismissal, never silently deleted while running.
+- [ ] Show clear GitHub runner connection/dispatch status, including queue-only mode and actionable failure reasons.
+- [ ] Distinguish informational questions from code-change instructions so conversational requests do not become unrunnable locked tasks.
+- [ ] Verify existing GitHub repository/token configuration, Actions workflow and required secrets; repair only missing or incorrect setup without exposing credentials.
+- [ ] Verify the configured $0 AI provider/model, including empty replies, rate limits, retry limits and accurate error messages.
+- [ ] Exercise queue → scope approval when required → dispatch → lease → patch → independent verification → exact-commit approval → merge → observed Vercel deployment.
+- [ ] Verify cancellation, stalled-task recovery, checkpoint recovery and firewall protections. Nothing merges without approval of the exact independently verified commit; no live credentials, trading changes or automatic database migrations.
+- [ ] Confirm Engineer and queue controls work on production desktop and iPhone.
 
-## Finish recent setup (2026-11-16)
-- [x] Correct connected Vercel callback schedules for both Eastern DST offsets; matching code gates local windows and half-day exits. Destinations, credentials and switches preserved.
-- [x] Reuse saved-Lab callback for 6 PM weekday / Saturday 10 AM read-only audits; authenticated local integrity callback stored a report, unlocked Audit Desk read it back. Scheduled production firing remains unverified.
-- [x] New predictions retain actual input boundaries; historical proxy inputs stop before entry session. Legacy records preserved; historical formula independence remains unproven.
-- [x] Safety/research checks and independent-host instructions: `docs/recent-setup-checklist.md`.
-- [ ] Deploy this update and confirm the production database/scheduler matches (blocked by production sign-in and separate-host access).
-- [ ] First scheduled paper session and any explicitly authorized live session (blocked until the market opens and the relevant host is verified).
+## Phase C / Step 3: Central Calibration Layer & Adaptive Capital Allocation (Former Phase G)
+- [ ] Collect independent candidate setups and learned holding horizons from the seven specialists.
+- [ ] Build six-pillar calibration using historical hit rate, regime fit, setup quality, reward/drawdown asymmetry, whipsaw penalty and capital-turnaround efficiency.
+- [ ] Validate dynamic specialist weighting and earned capital-access ceilings using untouched out-of-sample evidence.
+- [ ] Apply a calibrated confidence threshold: recommend **Protect 100% Cash** ($0 allocation) when no setup qualifies.
+- [ ] Route 1–3-session holdings to the Short-Term pool and 4+ sessions to the Long-Term pool, with confidence-based sizing constrained by approved ceilings and settlement rules.
+- [ ] Show the Daily Confidence Matrix and regime recommendations on Home and Research Lab.
+- [ ] Validate in isolated paper/advisory mode first. Any production formula, allocation or live-decision integration requires separate explicit approval; this roadmap does not authorize live changes.
 
-## Approved corrected BYOB revision (2026-11-16)
-- [x] Implement indicator toolkit, horizon-aware partitions, holdout-only regime qualification, marked drawdown and exact scoring.
-- [x] Add immutable research records, durable test-exposure tracking and a transactional single active-model pointer; preserve all 30 legacy rows.
-- [x] Verify 15 seeds: 12 provisional, 3 integrity-blocked; no active models. 107 tests pass; signed-in NVDA update reads back v3, desktop/phone verified.
-- [x] User confirmed migration 21, GitHub main and Vercel Ready; screenshots confirm NVDA BYOB readback. Separate production schema not independently inspected.
-- [ ] New untouched future holdout and verified corporate-action/point-in-time source evidence (external prerequisites); authentic missing-session review for DELL/SHOP/ANET.
+## Phase D / Step 4: Autonomous Entertainment & Events Researcher (Former Phase H)
+- [ ] Maintain a strictly research-only hypothesis ledger with zero authority over production formulas, live decisions, holding horizons or broker orders.
+- [ ] Connect $0 public event feeds, sports/entertainment calendars, official announcements, Wikidata and relevant SEC filings through a source registry with health checks and free fallbacks.
+- [ ] Build revalidatable time-scoped entity relationships using `entity_a`, `entity_b`, `relationship_type`, `valid_from` and `valid_to`.
+- [ ] Corroborate relationships across multiple sources; do not rely exclusively on SEC 8-Ks or assume cached relationships are permanent.
+- [ ] Add Research Lab views for events, evidence, relationship pathways, hypotheses and historical comparable outcomes.
+- [ ] Show relevant searched-ticker event filings on Analyze.
+- [ ] Verify historical timestamps, source provenance and research isolation on desktop and iPhone.
 
-## Legacy Phase 2g implementation (superseded qualification; rows preserved)
-- [x] Build isolated BYOB discovery, frozen holdout validation, versioned research records and fast evaluation.
-- [x] Prepare and research all 15 seed stocks: 971 sessions each; 5 qualified, 6 provisional, 4 disqualified. Initial calendar-rejected records preserved as version 1, corrected historical-calendar evaluations saved as version 2.
-- [x] Integrate advisory Analyze presentation; 79 tests pass, preview validation clean, authorized NVDA update reads back unchanged version 2, desktop/390px checks show no overflow or page errors.
-- [x] Superseded setup instructions: user confirmed corrected BYOB setup/deployment and NVDA readback; do not re-run legacy discovery for fresh qualification.
-
-## Approved Research Lab backfill (2026-11-16)
-- [x] Backfill the existing 300-stock research universe from January 2024 through November 13, 2026; existing bars preserved (301 symbols including SPY).
-- [x] Replay seven researchers chronologically: 4,627 saved rows across 661 sessions, March 28, 2024–November 13, 2026; trades and live settings untouched.
-- [x] Remove chart fallback to trade reconstruction; desktop and 390×710 phone checks confirm 1M, 3M, 1Y, All and Today use saved rows, without overflow.
-- [x] Verify stored coverage and all 32 tests; newest preview validation passed. Historical replay uses current formulas and the existing alphabetically selected universe, not historical formula versions or a survivorship-free full-market backtest. Vercel's separate database has not been backfilled by this preview run; use the portable maintenance script there.
-
-## Standing Core Rules
-1. Research is strictly paper-only; live trading, broker accounts, Alpaca state, and P&L are isolated and protected.
-2. All external integrations must be $0 cost with no paid subscriptions or platform fees.
-3. Every live order must adhere to explicit capital sizing limits and strict time-based holding horizons.
-4. Clean compiles (`vite build` exit 0) and type checks are required before any code merge.
-
----
-
-## Completed Phases Archive
-
-### Phase A — Key-Check Activation & Analyze Tab Researcher-Specific Buy [COMPLETED]
-- [x] Run migration 14 in backend to activate 8:00 AM ET Alpaca key check pg_cron schedule
-- [x] Analyze Tab: inline table of all active researchers with specific scores and research-derived hold periods
-- [x] Per-researcher direct BUY button on each row with top fit highlighted
-- [x] Position assignment: locked to researcher rules and hold duration
-- [x] Remove legacy standalone "Buy Long Term" button
-- [x] Home Tab: display owning researcher and target holding horizon on held stocks
-
-### Phase C — Historical Market Regimes & Event Intelligence [COMPLETED]
-- [x] Historical market condition classifier (SPY SMA20/50/200 direction + 20-day SMA50 slope; RV20 volatility vs trailing 252 sessions)
-- [x] Market regime tagging — exactly 9 composite states (Bull/Bear/Sideways x Low/Normal/High vol), high-vol precedence, 758 SPY sessions loaded
-- [x] Performance-by-regime evidence ledger with Benjamini-Hochberg correction and 0.1% transaction cost modeling
-
-### Phase D — Eliminate Alpaca Paper API & Hard Live Firewall [COMPLETED]
-- [x] Standardize exclusively on the single Live credential pair for market data and authorized execution
-- [x] Purge all Alpaca Paper API endpoints and secondary keys from backend
-- [x] Isolate paper research strictly as internal database simulations
-- [x] Hard code-level firewall blocking unconfirmed automated live orders
-
-### Phase J — Comprehensive System Manual & Feature Catalog (`FEATURES.md`) [COMPLETED]
-- [x] Create `FEATURES.md`: complete reference manual of active ASTR systems, tabs, safeguards, and algorithms
-- [x] Document researcher formulas, holding horizon logic, and ranking methodology
-- [x] Detail risk controls, live order firewalls, and T+1 cash management rules
-
----
-
-## Priority 1: Operational Hygiene & Data Health (Immediate Fixes)
-*Target: 1 credit / Chat Mode execution*
-
-- [x] **Database Storage Purge**:
-  - [x] Removed 3,023 `health_checks` older than seven days on November 1, 2026.
-  - [x] Removed 138 old runs and 39,195 attached/low-ranked scores; verified 30 runs and 300 top-ten scores remain. All 100,014 historical bars preserved. Deleted space can be reused; physical allocation is not guaranteed to shrink immediately.
-- [x] **Data Ingestion Self-Healing (Alpaca 401)**:
-  - [x] Valid Alpaca live key pair installed and verified.
-  - [x] Add best-effort free Yahoo completed-session fallback for research marks only. Stooq currently returns a browser challenge. Do not mix Yahoo volume/adjustments with IEX scanner inputs; provider-separated ingestion remains pending.
-  - [x] Missing research exit prices remain "Pending Market Mark", with no fabricated zero P&L or settlement; historical closes use target-session dates.
-  - [x] Cache updates preserve older rows during partial provider responses; transient deepening failures no longer permanently blacklist tickers.
-  - [x] 113 contaminated $0 research trades quarantined as pending (rows preserved).
-- [x] **15-Minute Health Check Query Optimization**:
-  - [x] Health coverage uses an indexed, trailing-180-calendar-day query; missing-session detection independently covers the full 160-session scoring window.
-  - [x] One transient query retry records recovery; persistent failures remain visible.
-  - [x] Graph accuracy resolved by the saved researcher ledger (Phase B).
-
----
-
-## Phase K — AI Engineer Tab (`/engineer`) [COMPLETED 2026-11-16]
-- [x] Checkpoints/recovery, task queue with leases, firewall, GitHub runner with independent verification, chat-style mobile UI.
-- [x] Pilot task merged after human approval (PR #5); safety drills pass. Setup reference: `docs/phase-k-deployment.md`.
-
----
-
-## Priority 3: Phase L — Autonomous Stock Selector & Strict Time-Based Exits
-*Target: 2–3 credits*
-
-### Phase L.1 — Autonomous Live Trading Engine & Daily Selection
-- [x] Dedicated "Autonomous Live Trading" toggle in Settings with hard daily loss limit and max position size (e.g. $20–$50 per trade, max 1 trade/day).
-- [x] Automated 9:35 AM ET market scan via cron across the tracked universe.
-- [x] Multi-researcher consensus ranking: score tickers across all active specialists and select the #1 ranked candidate with highest calibrated confidence.
-- [x] Hold horizon assignment: automatically assign the winning specialist's research-derived hold period (e.g. DIS for 17 trading days) and record `hold_until_date` and `owning_researcher`.
-- [x] Automated market order execution via Alpaca Live API for the selected top ticker.
-
-### Phase L.2 — Strict Time-Based Liquidation Engine
-- [x] Scheduled 3:45 PM ET daily liquidation check against open positions.
-- [x] Strict expiration exit: if `hold_days_elapsed >= target_horizon`, automatically submit a market sell order before market close.
-- [x] Same-day trade guarantee: positions with horizon = 0 are strictly liquidated by 3:55 PM ET—never carried overnight.
-- [x] Volatility kill switch: automatically abort new buys and cancel unfilled orders if SPY intraday volatility spikes above high-vol regime threshold.
-- [x] Notification summary: dispatch push/in-app alert detailing morning entry reason, assigned specialist, and afternoon exit execution.
-- [x] User confirmed Phase L setup; separate production schema/settings remain independently unverified. Do not repeat setup or enable live money based on preview state.
-- [ ] Live end-to-end check on a real trading morning (not exercised with real money yet).
-
----
-
-## Priority 4: Core Quantitative Research & Platform Engine
-
-### Phase B — Research Lab Curves & Parameter Stability Testing [COMPLETED]
-*Target: 2 credits*
-- [x] Normalized researcher percentage curves
-- [x] Time-range selectors (Today to All)
-- [x] Parameter stability & sensitivity engine
-- [x] Daily saved researcher results (ledger) from Jan 2024 history; charts plot saved rows only.
-
-### Phase E — Lead Researcher Quantitative Self-Audit Engine
-*Target: 3–4 credits*
-- [x] Four-pillar audits, explicit evidence gaps, saved manual results, filters and real-record verification. All 50 tests pass; see `docs/phase-e-audit.md`.
-- [x] Raw-bar entry/exit reconstruction and paper-only closed-loop balance equation; daily cycle persists reports, weekly hook extends lookback to 180 days.
-- [x] Independent paper scoreboard recomputation and saved researcher ledger identities. Graphs remain ledger-based, never reconstructed from trades.
-- [x] Historical boundary validation; missing provenance and fewer than five verified records warn instead of passing.
-- [x] Audit Desk PASS / WARNING / FAIL verdicts and category/severity filters; manual run saved and read back, desktop/phone verified.
-- [x] Configure connected saved-Lab callback for 6 PM ET daily / Saturday 10 AM ET weekly audit; production deployment and first scheduled report pending.
-- [x] Record actual cutoffs for new predictions; legacy records and current-formula hindsight limits remain explicitly disclosed.
-- [ ] Review first audit findings before any data repair: 119 fill violations, two scoreboard discrepancies and eight balance discrepancies; no automatic changes authorized.
-- [x] User confirmed audit-history setup; separate production readback still needs the authenticated host check.
-
-### Phase F — T+1 Settlement & Cash Account Realism [IMPLEMENTED — SESSION CHECK PENDING]
-*Target: 2–3 credits*
-- [x] New paper sales settle next eligible session; all paper entry paths check settled cash. Historical rows preserved.
-- [x] Disable automatic top-ups and reserve-release deposits; display settled, in-flight and marked equity balances.
-- [x] Alternate A/B pools for rapid paper slots and historical simulation; 65 tests pass, real cash display verified desktop/phone.
-- [x] Separate capital-efficiency indicator, not ranking: realized Return % / (elapsed holding sessions + 1 settlement session).
-- [ ] Observe the first scheduled paper-session execution after independent-host deployment (waiting for deployment/open market); no live orders used for verification. See `docs/phase-f-settlement.md` for limitations.
-
-### Phase G — Central Calibration Layer & Adaptive Capital Allocation
-*Target: 4–5 credits*
-- [ ] Independent signal discovery: 7 formulas submit candidate setups with learned hold periods.
-- [ ] 6-pillar calibration engine: score pairs by historical hit rate, regime fit, setup quality, reward/drawdown asymmetry, whipsaw penalty, and turnaround efficiency.
-- [ ] Minimum calibrated confidence threshold: "Protect 100% Cash" ($0 spend) if no setup clears cutoff.
-- [ ] Adaptive earned capital access ceilings based on out-of-sample performance.
-- [ ] Opportunity-driven duration pool routing: 1–3 days to Short-Term pool, 4+ days to Long-Term pool.
-- [ ] Calibrated spend sizing scaling with daily confidence up to specialist ceiling.
-- [ ] Daily Confidence Matrix UI on Home and Research Lab tabs.
-
-### Phase H — Autonomous Entertainment & Events Relationship Researcher
-*Target: 3–4 credits*
-- [ ] Strict research-only isolation: hypotheses and graphs only; zero authority over live trading or orders.
-- [ ] $0 source registry adapters (sports, concerts, films, SEC EDGAR/Wikidata) with automatic health failovers.
-- [ ] Living time-scoped entity graph (`entity_a`, `entity_b`, `relationship_type`, `valid_from`, `valid_to`).
-- [ ] Multi-source corroboration without exclusive reliance on single sources or SEC 8-Ks.
-- [ ] Entertainment Hypothesis Ledger UI showing discovered events, relationship paths, and historical comparable outcomes.
-- [ ] Embed searched ticker's SEC event filings directly on the Analyze tab.
-
-### Phase I — Grand Codebase Cleanup & Dead-Code Purge
-*Target: 2–3 credits*
-- [ ] Comprehensive 4-category inventory (KEEP, MERGE, REVIEW, DELETE).
-- [ ] Consolidate redundant modules into canonical sources after all features are verified.
-- [ ] Zero database schema changes, zero behavior modifications, full clean typecheck.
----
-
-## Phase B.1 & Phase 2g — True Daily Mark-to-Market Curves & Stock-Specific Discovery
-
-### 1–2. Mark-to-market curves & chart calibration [SUPERSEDED — done via saved researcher ledger, see Phase B]
-
-### 3. Phase 2g — BYOB Stock-Specific Discovery & Dynamic Horizon Engine
-*Full spec: `docs/06-byob-researcher-spec.md`*
-*Goal: Evolve from static universal scoring to stock-specific quantitative modeling across the seed universe (NVDA, AMD, MU, DELL, LRCX, SHOP, AVGO, ASML, ANET, etc.).*
-- [x] **Stock-Specific Formula Exploration**: Independent momentum-breakout, trend-pullback and mean-reversion parameter discovery, with recorded trial counts.
-- [x] **Empirical Holding Horizon Calibration**: Validation selects from the approved 11 horizons spanning 1–90 trading days; holdout never selects a model.
-- [x] **Corrected Out-of-Sample Validation**: 10/5/5 trades, >=0.50% holdout expectancy, positive PF, two positive known holdout-only regimes, <=25% marked drawdown and verified source evidence. Legacy qualification superseded; no corrected active models yet.
-- [x] **Analyze Desk Integration**: Separate paper-only advisory BYOB section, independent score/quality/confidence, chronological metrics, saved outcomes and model history; standard specialists and execution unchanged. See `docs/phase-2g-byob.md` for limits.
-
-## Open setup items
-- [ ] Vercel site uses its own database: run `bun scripts/backfill-research-ledger.ts` there to get the same Lab history.
+## Phase E / Step 5: Grand Codebase Cleanup & System Sign-Off (Former Phase I)
+- [ ] Inventory the full system as KEEP, MERGE, REVIEW or DELETE, reconciling implemented features and remaining prerequisites against the system manual and earlier certification notes.
+- [ ] Consolidate redundant prototypes, temporary scripts and superseded builders only after their replacements are verified; preserve behavior, historical records and audit evidence. No database purge or schema change is authorized by cleanup.
+- [ ] Resolve remaining production evidence gaps: actual scheduled audit firing, paper-session settlement/readback, historical source/corporate-action evidence and untouched BYOB holdout qualification. Unavailable evidence remains explicitly blocked, not marked complete.
+- [ ] Confirm ASTR operates using only GitHub as canonical source, Vercel as production host, the existing database and the AI provider, with no Lovable/Replit/Base44/Bolt runtime dependency and no paid integrations.
+- [ ] Complete clean typechecking, automated rule/regression tests, production runtime checks and desktop/iPhone verification for all critical workflows.
+- [ ] Keep any real-money end-to-end exercise separate and blocked unless explicitly authorized; never use live orders merely to certify research or Engineer features.
+- [ ] Publish final certification documenting verified results, deployed revision, scheduled-run evidence and any unresolved external blockers. Mark ASTR complete only when all agreed scope is verified or an exception is explicitly accepted.
