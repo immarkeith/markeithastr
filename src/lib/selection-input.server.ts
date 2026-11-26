@@ -5,7 +5,10 @@ export async function distinctCachedTickers(): Promise<string[]> {
   // Walk each alphabetical segment in parallel: one sequential walk over
   // thousands of cached tickers takes longer than the nightly time budget.
   const bounds = ['', ...'BCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
-  const segments = await Promise.all(bounds.map(async (start, i) => {
+  const segments: string[][] = [];
+  for (let batchStart = 0; batchStart < bounds.length; batchStart += 6) {
+    const batch = await Promise.all(bounds.slice(batchStart, batchStart + 6).map(async (start, localIndex) => {
+    const i = batchStart + localIndex;
     const end = bounds[i + 1];
     const found: string[] = [];
     let cursor = start;
@@ -20,7 +23,9 @@ export async function distinctCachedTickers(): Promise<string[]> {
       found.push(ticker); cursor = ticker;
     }
     return found;
-  }));
+    }));
+    segments.push(...batch);
+  }
   return segments.flat();
 }
 
@@ -28,8 +33,8 @@ export async function distinctCachedTickers(): Promise<string[]> {
 export async function loadSelectionInput(): Promise<SelectionInput[]> {
   const tickers = await distinctCachedTickers();
   const out: SelectionInput[] = [];
-  for (let i = 0; i < tickers.length; i += 16) {
-    const batch = await Promise.all(tickers.slice(i, i + 16).map(async ticker => {
+  for (let i = 0; i < tickers.length; i += 6) {
+    const batch = await Promise.all(tickers.slice(i, i + 6).map(async ticker => {
       const bars: SelectionInput['bars'] = [];
       for (let offset = 0; ; offset += 1000) {
         const { data, error } = await supabaseAdmin.from('daily_bars')

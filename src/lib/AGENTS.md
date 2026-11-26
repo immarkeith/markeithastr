@@ -7,3 +7,5 @@
 - Historical selection charts use versioned `lab_history` snapshots from immutable picks and paginated horizon-1 outcomes after nightly replay, not the legacy prototype; ordinary strategy curves retain their ledger — why: selection accuracy must never impersonate trading-book performance.
 
 - The saved Lab snapshot (`rebuildLabGraph` / intraday refresh) stores ledger curves via `mergeLedgerCurves`, and the ledger reads `scan_input` in pages — why: one long read hits the statement timeout and trade reconstruction is row-capped.
+- Resume researcher books only from complete cash/position/settlement checkpoints matching saved rows and configuration; validate rounded daily-return continuity before any append — why: a retrospective replay can otherwise splice a different book onto preserved history.
+- Research pipeline receipts store stage timings/failures; ledger failure blocks downstream snapshots, and evidence-only refresh preserves the previous generation timestamp — why: warnings must not impersonate successful nightly research.

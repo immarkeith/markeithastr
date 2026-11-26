@@ -25,14 +25,27 @@ export interface LedgerPoint {
 
 const r4 = (n: number) => Math.round(n * 10000) / 10000;
 
-export function simulateLane(days: LedgerDay[], holdDays: number, base: number, settlementFrom?: string): LedgerPoint[] {
-  let cash = base;
-  let pos: { ticker: string; shares: number; mark: number; held: number; tranche: Tranche | null } | null = null;
-  const pending: { amount: number; available: string; tranche: Tranche | null }[] = [];
-  const pools = { A: base / 2, B: base / 2 };
-  let last: Tranche | null = null;
-  let activated = false;
-  let prevEquity = base;
+export interface LedgerCheckpoint {
+  date: string | null;
+  cash: number;
+  pos: { ticker: string; shares: number; mark: number; held: number; tranche: Tranche | null } | null;
+  pending: { amount: number; available: string; tranche: Tranche | null }[];
+  pools: { A: number; B: number };
+  last: Tranche | null;
+  activated: boolean;
+  prevEquity: number;
+}
+
+/** Complete settlement/position state is required; equity alone cannot resume a book. */
+export function simulateLaneRun(days: LedgerDay[], holdDays: number, base: number, settlementFrom?: string, checkpoint?: LedgerCheckpoint): { points: LedgerPoint[]; checkpoint: LedgerCheckpoint } {
+  if (checkpoint?.date && days.some(day => day.date <= (checkpoint.date ?? ""))) throw new Error("Ledger resume sessions must follow the checkpoint");
+  let cash = checkpoint?.cash ?? base;
+  let pos = checkpoint?.pos ? { ...checkpoint.pos } : null;
+  const pending = checkpoint?.pending.map(item => ({ ...item })) ?? [];
+  const pools = checkpoint ? { ...checkpoint.pools } : { A: base / 2, B: base / 2 };
+  let last: Tranche | null = checkpoint?.last ?? null;
+  let activated = checkpoint?.activated ?? false;
+  let prevEquity = checkpoint?.prevEquity ?? base;
   const out: LedgerPoint[] = [];
   for (const day of days) {
     const actions: string[] = [];
@@ -94,5 +107,9 @@ export function simulateLane(days: LedgerDay[], holdDays: number, base: number, 
     });
     prevEquity = equity;
   }
-  return out;
+  return { points: out, checkpoint: { date: days.at(-1)?.date ?? checkpoint?.date ?? null, cash, pos, pending, pools, last, activated, prevEquity } };
+}
+
+export function simulateLane(days: LedgerDay[], holdDays: number, base: number, settlementFrom?: string): LedgerPoint[] {
+  return simulateLaneRun(days, holdDays, base, settlementFrom).points;
 }

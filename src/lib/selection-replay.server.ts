@@ -11,6 +11,7 @@ import { loadSettings, volumeShare } from "./scan.server";
 import { historyCoverage } from "./history-coverage";
 import { EVAL_HORIZONS, eligibleAt, evaluate, type Bar } from "./selection-replay";
 import { loadSelectionInput } from './selection-input.server';
+import { completedResearchSession, selectionTimestamp } from './research-session';
 
 export const SELECTION_ENGINE_VERSION = "sel-v1";
 const UNIVERSE_BASIS = "cached-cohort-survivors-unverified-membership";
@@ -24,7 +25,8 @@ async function loadRaw(): Promise<Raw[]> {
 async function pagedKeys(table: "research_daily_selections" | "research_selection_evaluations", cols: string, filter?: (q: any) => any) {
   const rows: any[] = [];
   for (let f = 0; ; f += 1000) {
-    let q = supabaseAdmin.from(table).select(cols).range(f, f + 999);
+    let q = supabaseAdmin.from(table).select(cols).order('lane').order('session_date').range(f, f + 999);
+    if (table === 'research_selection_evaluations') q = q.order('horizon_sessions');
     if (filter) q = filter(q);
     const { data, error } = await q;
     if (error) throw new Error(error.message);
@@ -46,7 +48,8 @@ export async function runSelectionReplay(): Promise<{ sessions: number; selectio
     bars.set(proxy, (data ?? []).map((b) => ({ date: b.bar_date, open: Number(b.open), close: Number(b.close), volume: Number(b.volume) })));
   }
   const spyBars = bars.get(proxy) ?? [];
-  const sessions = spyBars.map((b) => b.date);
+  const sessions = spyBars.map((b) => b.date).filter(date => completedResearchSession(date));
+  if (!sessions.length) return { sessions: 0, selections: 0, matured: 0, first_session: null };
   const spy = new Map(spyBars.map((b) => [b.date, b]));
   const byTicker = new Map([...bars].map(([t, list]) => [t, { list, map: new Map(list.map((b) => [b.date, b])), idx: new Map(list.map((b, i) => [b.date, i])) }]));
 
@@ -65,7 +68,14 @@ export async function runSelectionReplay(): Promise<{ sessions: number; selectio
   // 80% rule: start at the earliest passing session; skip any later session below the gate.
   const replayDates = sessions.filter((d) => historyCoverage(Math.min(eligibleOn.get(d)!.size, todaySize), todaySize).passes);
 
-  const panel = await buildPanel(1000, s.market_proxy, HISTORY_DAYS, raw as never);
+  const existingRows = await pagedKeys("research_daily_selections", "lane, session_date");
+  const allLanes = [...LANES.map(lane => lane.lane), 'lead'];
+  const knownKeys = new Set(existingRows.map(row => `${row.lane}|${row.session_date}`));
+  // Include historical holes, not just dates after the latest row in a lane.
+  const firstMissing = replayDates.find(date => allLanes.some(lane => !knownKeys.has(`${lane}|${date}`)));
+  const previous = firstMissing ? new Date(`${firstMissing}T00:00:00Z`) : null;
+  previous?.setUTCDate(previous.getUTCDate() - 1);
+  const panel = firstMissing ? await buildPanel(1000, s.market_proxy, HISTORY_DAYS, raw as never, previous?.toISOString().slice(0, 10)) : { rows: [] };
   const rowsByDate = new Map<string, PanelRow[]>();
   for (const r of panel.rows) (rowsByDate.get(r.date) ?? rowsByDate.set(r.date, []).get(r.date)!).push(r);
 
@@ -81,7 +91,7 @@ export async function runSelectionReplay(): Promise<{ sessions: number; selectio
   });
   lanes.push({ lane: "lead", params: master, bands: master.bands });
 
-  const existing = new Set((await pagedKeys("research_daily_selections", "lane, session_date")).map((r) => `${r.lane}|${r.session_date}`));
+  const existing = new Set(existingRows.map((r) => `${r.lane}|${r.session_date}`));
   const newSel: any[] = [];
   for (const l of lanes) {
     for (const d of replayDates) {
@@ -93,7 +103,7 @@ export async function runSelectionReplay(): Promise<{ sessions: number; selectio
         .filter((x) => x.score >= l.params.min_score_to_trade)
         .sort((a, b) => b.score - a.score || a.ticker.localeCompare(b.ticker));
       newSel.push({
-        lane: l.lane, session_date: d, selected_at: `${d}T21:05:00Z`, ticker: ranked[0]?.ticker ?? null, score: ranked[0]?.score ?? null,
+        lane: l.lane, session_date: d, selected_at: selectionTimestamp(d), ticker: ranked[0]?.ticker ?? null, score: ranked[0]?.score ?? null,
         selection_close: ranked[0]?.close ?? null, eligible_universe: eligible.size, comparable_universe: todaySize, ranked_count: ranked.length,
         runners_up: ranked.slice(1, 5).map(({ ticker, score }) => ({ ticker, score })), universe_basis: UNIVERSE_BASIS, engine_version: SELECTION_ENGINE_VERSION,
       });

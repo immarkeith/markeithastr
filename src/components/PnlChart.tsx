@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { money } from "@/lib/queries";
 import { marketStatus } from "@/lib/market-calendar";
-import { ledgerSeries, ledgerWindow } from "@/lib/ledger-chart";
+import { ledgerSeries, ledgerWindow, recordedLedger } from "@/lib/ledger-chart";
 import { Button } from "@/components/ui/button";
 
 export interface PnlRange {
@@ -101,7 +101,7 @@ export function PnlChart({
   secondaryLabel,
   liveTicker,
   activeTicker,
-  equity,
+  equity: providedEquity,
   ledgerOnly = false,
 }: {
   rows: { exit_date: string | null; profit: number }[];
@@ -149,12 +149,15 @@ export function PnlChart({
    * to the selected window so the line starts at zero.
    */
   equity?: {
+    source?: string;
+    coverage_note?: string;
     points: { date: string; equity: number }[];
     coverage_from: string | null;
     coverage_to: string | null;
     has_gaps: boolean;
   } | null;
 }) {
+  const equity = ledgerOnly ? recordedLedger(providedEquity) : providedEquity;
   const [range, setRange] = useState(initialRange ?? ranges[0]?.key ?? "month");
   const [marketOpen, setMarketOpen] = useState(() => {
     const state = marketStatus().state;
@@ -677,7 +680,12 @@ export function PnlChart({
           {!ledgerOnly && equity.coverage_to && equity.coverage_to < isoDaysAgo(0)
             ? " — no newer bars cached yet, later dates show no movement"
             : ""}
-          {equity.has_gaps ? " — incomplete price coverage" : ""}
+          {equity.has_gaps ? " — research evidence gaps" : ""}
+        </p>
+      ) : null}
+      {ledgerOnly && equity ? (
+        <p className="text-[10px] text-muted-foreground">
+          {equity.coverage_note ?? "Cached research cohort; historical membership and corporate-action coverage are not independently verified."}
         </p>
       ) : null}
 

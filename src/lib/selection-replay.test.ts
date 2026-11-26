@@ -28,6 +28,10 @@ describe('historical replay rules', () => {
   });
   test('a missing exit bar is never filled in', () => {
     const s = ['a', 'b', 'c'];
-    expect(evaluate(s, 0, 2, new Map([['b', bar('b', 1, 1)]]), new Map()).status).toBe('missing_bar');
+    expect(evaluate(s, 0, 2, new Map([['b', bar('b', 1, 1)]]), new Map())).toEqual({ status: 'pending', entry_date: 'b', exit_date: 'c' });
+  });
+  test('an invalid exit price cannot manufacture a settled loss', () => {
+    const m = new Map([['b', bar('b', 10, 0)]]);
+    expect(evaluate(['a', 'b'], 0, 1, m, m).status).toBe('pending');
   });
 });

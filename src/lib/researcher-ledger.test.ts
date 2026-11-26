@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { simulateLane } from "./researcher-ledger";
+import { simulateLane, simulateLaneRun } from "./researcher-ledger";
 
 const day = (date: string, closes: Record<string, number>, pick: string | null) => ({
   date,
@@ -9,6 +9,28 @@ const day = (date: string, closes: Record<string, number>, pick: string | null) 
 });
 
 describe("researcher ledger simulator", () => {
+  test("resuming preserves position age, marks, cash and unsettled proceeds exactly", () => {
+    const days = [
+      day("2026-11-12", { A: 10 }, "A"),
+      day("2026-11-13", { A: 12, B: 10 }, "B"),
+      day("2026-11-16", { A: 13, B: 11 }, "A"),
+      day("2026-11-17", { A: 14, B: 12 }, "B"),
+    ];
+    for (const hold of [0, 1, 2, 5]) {
+      const full = simulateLaneRun(days, hold, 100);
+      for (let split = 1; split < days.length; split++) {
+        const first = simulateLaneRun(days.slice(0, split), hold, 100);
+        const saved = JSON.parse(JSON.stringify(first.checkpoint));
+        const resumed = simulateLaneRun(days.slice(split), hold, 100, undefined, saved);
+        expect([...first.points, ...resumed.points]).toEqual(full.points);
+        expect(resumed.checkpoint).toEqual(full.checkpoint);
+      }
+    }
+  });
+  test("resume rejects already-recorded sessions", () => {
+    const first = simulateLaneRun([day("2026-11-12", { A: 10 }, "A")], 1, 100);
+    expect(() => simulateLaneRun([day("2026-11-12", { A: 11 }, "A")], 1, 100, undefined, first.checkpoint)).toThrow("must follow");
+  });
   test("records one point per session, marked to close, and sells after hold days", () => {
     const pts = simulateLane(
       [

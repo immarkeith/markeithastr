@@ -6,6 +6,7 @@
 import { supabaseAdmin } from '../src/integrations/supabase/client.server';
 import { alpacaBars } from '../src/lib/market-data.server';
 import { validDailyBar } from '../src/lib/market-data-validation';
+import { distinctCachedTickers } from '../src/lib/selection-input.server';
 
 const option = (name: string, fallback: string) => process.argv.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const from = option('from', '2020-07-27');
@@ -18,9 +19,7 @@ if (manifest) {
   if (!Array.isArray(saved.symbols) || !saved.symbols.every(s => typeof s === 'string' && /^[A-Z]{1,5}$/.test(s))) throw new Error('Invalid cohort manifest');
   cohort = saved.symbols as string[];
 } else {
-  const { data, error } = await supabaseAdmin.rpc('scan_input', { p_days: 180, p_limit: 20000, p_offset: 0 });
-  if (error) throw new Error(error.message);
-  cohort = (data ?? []).map(r => r.ticker);
+  cohort = await distinctCachedTickers();
 }
 const symbols = [...new Set([...cohort, 'SPY'])].sort();
 if (symbols.length < 300) throw new Error('Established research cohort is incomplete');

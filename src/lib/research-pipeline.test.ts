@@ -21,3 +21,14 @@ test('failed saved-history verification stops graph refresh', async () => {
   expect(result.ok).toBe(false); expect(graphs).toBe(0);
   expect(result.stages.map(s => s.status)).toEqual(['completed', 'failed', 'skipped']);
 });
+test('a ledger failure prevents selection and snapshot writes', async () => {
+  let downstreamWrites = 0;
+  const result = await executeResearchPipeline([
+    { name: 'researcher_ledger', run: async () => { throw new Error('ledger unavailable'); } },
+    { name: 'selection_replay', run: async () => { downstreamWrites++; } },
+    { name: 'lab_graph', run: async () => { downstreamWrites++; } },
+  ]);
+  expect(result.ok).toBe(false);
+  expect(downstreamWrites).toBe(0);
+  expect(result.stages.map(stage => stage.status)).toEqual(['failed', 'skipped', 'skipped']);
+});

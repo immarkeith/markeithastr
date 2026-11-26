@@ -111,7 +111,7 @@ function toBars(raw: RawBars): Bar[] {
 
 // ---------------------------------------------------------------- the panel
 
-export async function buildPanel(universe: number, proxyTicker: string, days: number = HISTORY_DAYS, preloaded?: { ticker: string; bars: RawBars }[]) {
+export async function buildPanel(universe: number, proxyTicker: string, days: number = HISTORY_DAYS, preloaded?: { ticker: string; bars: RawBars }[], afterDate?: string) {
   let data: unknown = preloaded;
   if (!preloaded) {
     const res = await supabaseAdmin.rpc("scan_input", { p_days: days, p_limit: universe, p_offset: 0 });
@@ -159,6 +159,9 @@ export async function buildPanel(universe: number, proxyTicker: string, days: nu
     if (bars.length < 62) continue;
     for (let i = 60; i < bars.length; i++) {
       const date = bars[i]!.date;
+      // Research append callers retain the full indicator window but compute
+      // features only for unsaved sessions. Existing department behavior is unchanged.
+      if (afterDate && date <= afterDate) continue;
       const window = bars.slice(0, i + 1);
       const snap = snapshot(window);
       if (!snap) continue;

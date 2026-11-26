@@ -240,6 +240,16 @@ export async function readLabGraph(): Promise<LabGraphSnapshot | null> {
   return { rowId: String(data.id), payload: parsed.payload, guards: parsed.guards };
 }
 
+/** Refresh ledger evidence without claiming a failed nightly pipeline succeeded. */
+export async function refreshLabLedgerEvidence(): Promise<boolean> {
+  const existing = await readLabGraph();
+  if (!existing) return false;
+  const payload = { ...existing.payload, equity_curves: await ledgerBackedCurves(existing.payload.equity_curves) };
+  const { error } = await supabaseAdmin.from('research_runs').update({ summary: { payload, guards: existing.guards } as unknown as Json }).eq('id', existing.rowId);
+  if (error) throw new Error(error.message);
+  return true;
+}
+
 // ------------------------------------------------------------ incremental ----
 
 interface PricedPosition {

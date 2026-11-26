@@ -24,7 +24,7 @@ export function eligibleAt(history: Bar[], minPrice: number, minDollarVolume: nu
 }
 
 export type Evaluation =
-  | { status: "pending" }
+  | { status: "pending"; entry_date?: string; exit_date?: string }
   | { status: "missing_bar"; entry_date: string; exit_date: string }
   | { status: "matured"; entry_date: string; entry_price: number; exit_date: string; exit_price: number; return_pct: number; benchmark_return_pct: number | null; excess_return_pct: number | null };
 
@@ -37,7 +37,7 @@ export function evaluate(sessions: string[], t: number, horizon: number, bars: M
   if (!entryDate || !exitDate) return { status: "pending" };
   const entry = bars.get(entryDate);
   const exit = bars.get(exitDate);
-  if (!entry || !exit || !(entry.open > 0)) return { status: "missing_bar", entry_date: entryDate, exit_date: exitDate };
+  if (!entry || !exit || !Number.isFinite(entry.open) || !Number.isFinite(exit.close) || entry.open <= 0 || exit.close <= 0) return { status: "pending", entry_date: entryDate, exit_date: exitDate };
   const ret = ((exit.close - entry.open) / entry.open) * 100;
   const be = benchmark.get(entryDate), bx = benchmark.get(exitDate);
   const bench = be && bx && be.open > 0 ? ((bx.close - be.open) / be.open) * 100 : null;
