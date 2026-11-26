@@ -168,6 +168,16 @@ async function buildCurveGuards(equityCurves: ResearcherEquityCurve[]): Promise<
  * that runs the full historical rebuild; the scheduled hooks call it at end of
  * day, and the page calls it only when no valid snapshot exists.
  */
+/**
+ * The saved snapshot plots the researchers' recorded daily ledger, never the
+ * capped trade reconstruction; lanes without ledger rows keep their fallback.
+ */
+async function ledgerBackedCurves(fallback: ResearcherEquityCurve[]): Promise<ResearcherEquityCurve[]> {
+  const { readLedgerCurves } = await import("./researcher-ledger.server");
+  const { mergeLedgerCurves } = await import("./ledger-curves");
+  return mergeLedgerCurves(fallback, await readLedgerCurves());
+}
+
 export async function rebuildLabGraph(): Promise<{
   payload: LabGraphPayload;
   guards: LabGraphGuards;
@@ -190,7 +200,7 @@ export async function rebuildLabGraph(): Promise<{
     days_running: standings.days_running,
     min_days: standings.min_days,
     suggestion: standings.suggestion,
-    equity_curves: standings.equity_curves,
+    equity_curves: await ledgerBackedCurves(standings.equity_curves),
     strategies: strategies ?? [],
     long_term_win_rates: winRates,
     capital_analysis: capital,
@@ -530,6 +540,7 @@ export async function refreshLabGraphIntraday(): Promise<{
     return { ...built, mode: "rebuilt" };
   }
   await markQuotes(appended.payload);
+  appended.payload.equity_curves = await ledgerBackedCurves(appended.payload.equity_curves);
   const { selectionEvaluationWinRates } = await import("./selection-evaluations.server");
   appended.payload.long_term_win_rates = await selectionEvaluationWinRates();
   appended.guards.generated_at = new Date().toISOString();

@@ -1,10 +1,10 @@
 # ASTR Master Completion Roadmap
 
-Status: Planned only. This roadmap replaces the previous task list; no phase implementation has started in this update.
+Status: Phase A in progress (researcher logic & graphs are the current priority).
 
 ## Phase A / Step 1: Research Lab Snapshot & Continuous Ledger Unification
-- [ ] Connect the saved Lab snapshot and all seven researcher cards to the canonical `researcher_daily_ledger`, rather than the legacy trade-reconstruction curves.
-- [ ] Verify the recorded 661-session history per researcher, then append missing completed sessions through the latest available market day on the production database. Treat dates and row counts as verification inputs, not proof of current coverage.
+- [x] Connect the saved Lab snapshot and all seven researcher cards to the canonical `researcher_daily_ledger`, rather than the legacy trade-reconstruction curves. (Nov 26: snapshot now stores 668 ledger sessions per researcher, 2024-03-28 → 2026-11-24.)
+- [x] (This project's database: ledger read paged to avoid timeouts; 7 new sessions appended through Nov 24. Production database still to do.) Verify the recorded 661-session history per researcher, then append missing completed sessions through the latest available market day on the production database. Treat dates and row counts as verification inputs, not proof of current coverage.
 - [ ] Reconcile displayed dates, returns and every plotted point with the saved ledger. Preserve the existing daily/weekly intervals, range rebasing and graph designs.
 - [ ] Replace misleading legacy coverage messages with ledger-based coverage checks; remove warnings only when verified coverage supports it, and retain genuine evidence-gap disclosures.
 - [ ] Verify full tracked-universe ingestion, including SPY, using paginated/distinct ticker discovery and non-destructive bar upserts. Missing exact-session marks remain pending without invented P&L.
@@ -13,7 +13,11 @@ Status: Planned only. This roadmap replaces the previous task list; no phase imp
 - [ ] Verify point-in-time eligibility, historical IPO dates and delisted/inactive symbols against free source evidence. Apply the shared 80% comparable-universe start gate; do not present a cached shortlist as the full market or claim survivorship-free coverage without evidence.
 - [ ] Confirm GitHub's canonical revision reaches Vercel and verify production curves, metrics, latest session and the first scheduled refresh on desktop and iPhone.
 
+- [ ] Audit each researcher's scoring filters so picks stay distinct and philosophy-aligned, and confirm multi-horizon outcomes feed the cards.
+
 ## Phase B / Step 2: AI Engineer Perfection & Queue Management
+- [ ] Keep every Engineer reply for a request inside the same conversation thread.
+- [ ] Make review cards explain why Approve is disabled (e.g. scope authorization pending) and offer one-tap approval once checks pass.
 - [ ] Diagnose the reported Engineer errors using task logs, configuration, runner dispatch and provider responses before deciding repairs.
 - [ ] Add a **Delete** button to queued task cards, with confirmation, so accidental or stuck queued requests can be cleared. Preserve audit history; active tasks must be safely cancelled before dismissal, never silently deleted while running.
 - [ ] Show clear GitHub runner connection/dispatch status, including queue-only mode and actionable failure reasons.

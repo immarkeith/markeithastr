@@ -34,12 +34,21 @@ export const LEDGER_ENGINE_VERSION = "v2-t1";
 export const LEDGER_BASE_EQUITY = 100;
 const LEDGER_UNIVERSE = 300;
 const LEDGER_HISTORY_DAYS = 2000;
+const LEDGER_PAGE = 25;
 
 /** Stage 2 + 3: replay every researcher across stored history and save the rows. */
 export async function runResearcherLedger(): Promise<{ lanes: number; rows: number; sessions: number }> {
   const s = await loadSettings();
   const share = await volumeShare(s);
-  const panel = await buildPanel(LEDGER_UNIVERSE, s.market_proxy, LEDGER_HISTORY_DAYS);
+  // Same 300-ticker universe as before, fetched in pages so the long history
+  // read stays under the database statement timeout.
+  const raw: { ticker: string; bars: unknown }[] = [];
+  for (let offset = 0; offset < LEDGER_UNIVERSE; offset += LEDGER_PAGE) {
+    const res = await supabaseAdmin.rpc("scan_input", { p_days: LEDGER_HISTORY_DAYS, p_limit: LEDGER_PAGE, p_offset: offset });
+    if (res.error) throw new Error(res.error.message);
+    raw.push(...((res.data ?? []) as typeof raw));
+  }
+  const panel = await buildPanel(LEDGER_UNIVERSE, s.market_proxy, LEDGER_HISTORY_DAYS, raw as never);
 
   // Only sessions with real coverage — a half-downloaded day is not a session.
   const byDate = new Map<string, PanelRow[]>();
