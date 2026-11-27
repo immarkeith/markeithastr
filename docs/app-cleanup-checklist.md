@@ -39,7 +39,7 @@ Leave a line as `[ ]` if you are unsure — it will be left alone. Add notes aft
 - [ ] H10 — "Live profit / loss" graph with Today / 1W / 1M / All buttons
 - [ ] H11 — Stock lookup search box
 - [ ] H12 — "Loading the desk…" text
-- [ ] H13 — Footer explanation text at the bottom
+- [M] H13 — Footer explanation text at the bottom
 - [ ] H14 — Long-term review popup
 - [ ] H15 — Long-term sell popup
 
@@ -56,7 +56,7 @@ Leave a line as `[ ]` if you are unsure — it will be left alone. Add notes aft
 - [ ] L10 — "Saved researcher sessions" date badge
 - [ ] L11 — Selection results (picks and how they turned out)
 - [ ] L12 — Researcher detail cards (win rate, explanation text)
-- [ ] L13 — Explanation / help text on the page
+- [M] L13 — Explanation / help text on the page
 
 ## 4. Analyze Strategy (`/analyze`)
 - [ ] A1 — "Analyze a stock" title and description
