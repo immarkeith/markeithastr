@@ -222,7 +222,7 @@ function LabPage() {
             <p className="font-semibold text-primary">
               {d.suggestion.name} is ahead of the live strategy by {money(d.suggestion.edge)}
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p hidden className="text-sm text-muted-foreground">
               After {d.days_running} days on the same stake. Nothing switches automatically — you
               decide from the{" "}
               <Link to="/strategy" className="text-primary hover:underline">
@@ -264,10 +264,12 @@ function LabPage() {
       <section>
         <p className="flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
           Best formula
-          <InfoDot title="Best formula">
-            A validated formula from the assistant researchers. The Lead Researcher evaluates and
-            combines findings, so the Lead itself is never the Best Formula.
-          </InfoDot>
+          <span hidden>
+            <InfoDot title="Best formula">
+              A validated formula from the assistant researchers. The Lead Researcher evaluates and
+              combines findings, so the Lead itself is never the Best Formula.
+            </InfoDot>
+          </span>
         </p>
         <p className="mt-1 text-2xl font-semibold text-primary">{best ? best.name : "—"}</p>
       </section>
@@ -308,7 +310,8 @@ function LabPage() {
 
       <ResearchBoundary name="Model tests"><ResearchDepartment /></ResearchBoundary>
 
-      <footer className="space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+      {/* Checklist L13: hide page help only; research and detail cards stay active. */}
+      <footer hidden className="space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
         <p>
           The Lead and every assistant researcher always use simulated money, completely separate
           from live trading. Each short-term result shows what a same-day sale would have made.

@@ -1,5 +1,8 @@
 # ASTR Master Completion Roadmap
 
+## Nov 27 — Marked app cleanup
+- [x] Apply H13 and L13 marked M: hide Home footer and Lab page help without changing trading, research, saved data, graphs or unmarked items. Verified hidden text and retained controls behind the existing passcode on phone and desktop; build OK.
+
 Status: Phase A in progress (researcher logic & graphs are the current priority).
 Current work: finish Phase A only; stop for operator review before Phase B. Production evidence and unresolved historical-source gaps must remain unchecked until verified.
 Nov 26 verification: 4,676 saved points match the accessible ledger, but each lane has an unreconciled Nov 16 engine-transition return. Historical ledger rows are preserved; unverified appends are blocked. Vercel renders seven cards but still serves Oct 19 records. Phase A is **not certified complete**.

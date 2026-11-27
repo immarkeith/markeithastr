@@ -214,8 +214,8 @@ function HomePage() {
 
       {dash.isLoading ? <p className="text-sm text-muted-foreground">Loading the desk…</p> : null}
 
-      {/* Explanations last. */}
-      <footer className="space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+      {/* Checklist H13: retain explanations in the background without changing trading. */}
+      <footer hidden className="space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
         <p>
           {d?.mode === "live"
             ? "Live account — real orders. Start and Stop control live trading only; the Research Lab keeps paper testing either way."
