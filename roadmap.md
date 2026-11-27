@@ -1,6 +1,7 @@
 # ASTR Master Completion Roadmap
 
 ## Nov 27 — Marked app cleanup
+- [x] Hide all three screenshot sections (researcher agreements/disagreements, future capital planning, market regime matrix) without stopping research or changing graphs. Existing views remain mounted; hidden sections and retained Lab controls verified on phone and desktop; build OK.
 - [x] Apply H13 and L13 marked M: hide Home footer and Lab page help without changing trading, research, saved data, graphs or unmarked items. Verified hidden text and retained controls behind the existing passcode on phone and desktop; build OK.
 
 Status: Phase A in progress (researcher logic & graphs are the current priority).

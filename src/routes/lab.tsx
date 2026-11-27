@@ -238,13 +238,17 @@ function LabPage() {
         )}
       </section>
 
-      {/* Findings that agree or conflict sit directly under the Lead's suggestions. */}
-      <ResearchBoundary name="Researcher findings"><ResearchDisagreements /></ResearchBoundary>
+      {/* Screenshot cleanup: keep these research views mounted but out of sight. */}
+      <div hidden>
+        <ResearchBoundary name="Researcher findings"><ResearchDisagreements /></ResearchBoundary>
+      </div>
 
-      {d?.capital_analysis ? <ResearchBoundary name="Capital analysis"><FutureCapitalAnalysis analysis={d.capital_analysis} /></ResearchBoundary> : null}
+      <div hidden>
+        {d?.capital_analysis ? <ResearchBoundary name="Capital analysis"><FutureCapitalAnalysis analysis={d.capital_analysis} /></ResearchBoundary> : null}
+      </div>
 
       {/* Phase C — how each formula behaves across the 9 market regimes. */}
-      <section className="space-y-3">
+      <section hidden className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
             Market regime matrix

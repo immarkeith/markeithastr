@@ -57,6 +57,9 @@ Leave a line as `[ ]` if you are unsure — it will be left alone. Add notes aft
 - [ ] L11 — Selection results (picks and how they turned out)
 - [ ] L12 — Researcher detail cards (win rate, explanation text)
 - [M] L13 — Explanation / help text on the page
+- [M] L14 — "Where researchers agree & disagree" findings —note: Screenshot follow-up; keep research active, hide the entire section.
+- [M] L15 — "Future Capital Requirement" planning, progress, controls, evidence and limitations —note: Screenshot follow-up; keep analysis active, hide the entire section.
+- [M] L16 — "Market regime matrix", analysis button, researcher selectors, grid and notes —note: Screenshot follow-up; keep analysis active, hide the entire section.
 
 ## 4. Analyze Strategy (`/analyze`)
 - [ ] A1 — "Analyze a stock" title and description
