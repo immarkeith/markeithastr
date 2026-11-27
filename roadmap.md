@@ -1,5 +1,9 @@
 # ASTR Master Completion Roadmap
 
+## Nov 27 — Logic and operations audit
+- [ ] Inspect existing operations, formulas, researchers, execution, schedules and dependencies without running or changing them; generate `docs/astr-logic-checklist.md` with source evidence and verification limits.
+- [ ] Use blank = keep, C = change, and R or D = delete; leave every decision blank and require discussion plus explicit authorization before any rebuild or operational change.
+
 ## Nov 27 — Marked app cleanup
 - [x] Hide all three screenshot sections (researcher agreements/disagreements, future capital planning, market regime matrix) without stopping research or changing graphs. Existing views remain mounted; hidden sections and retained Lab controls verified on phone and desktop; build OK.
 - [x] Apply H13 and L13 marked M: hide Home footer and Lab page help without changing trading, research, saved data, graphs or unmarked items. Verified hidden text and retained controls behind the existing passcode on phone and desktop; build OK.
