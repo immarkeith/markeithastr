@@ -1,8 +1,8 @@
 # ASTR Master Completion Roadmap
 
 ## Nov 27 — Logic and operations audit
-- [ ] Inspect existing operations, formulas, researchers, execution, schedules and dependencies without running or changing them; generate `docs/astr-logic-checklist.md` with source evidence and verification limits.
-- [ ] Use blank = keep, C = change, and R or D = delete; leave every decision blank and require discussion plus explicit authorization before any rebuild or operational change.
+- [x] Inspect existing operations, formulas, researchers, execution, schedules and dependencies without running or changing them; generated `docs/astr-logic-checklist.md` with 472 unique items, 12 categories, 25 named conflict findings, source evidence and verification limits.
+- [x] Use blank = keep, C = change, and R or D = delete; all decision fields verified blank. Discussion plus explicit authorization is required before any rebuild or operational change; no application, data or job changes made.
 
 ## Nov 27 — Marked app cleanup
 - [x] Hide all three screenshot sections (researcher agreements/disagreements, future capital planning, market regime matrix) without stopping research or changing graphs. Existing views remain mounted; hidden sections and retained Lab controls verified on phone and desktop; build OK.
