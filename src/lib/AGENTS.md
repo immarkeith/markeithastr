@@ -15,3 +15,6 @@
 - Scheduled market hooks read the exchange calendar/clock and fail closed if unavailable; manual functions remain separate — why: static holiday lists cannot detect unexpected exchange changes.
 - Opens and selection receipts use the same New York date-offset converter — why: fixed UTC cutoffs misclassify winter selections.
 - Intraday snapshot refresh compares payloads before saving; continuous bounded monitoring is separate from heavy audits/repairs — why: unchanged data and frequent checks must not trigger repeated rebuilds.
+- Keep the formula evolution registry private and disconnected from operational scoring, broker paths and schedules; why: storing or promoting research candidates must not activate trading.
+- Use a separate champion pointer to immutable V0 and serialize version allocation/promotion per lane; why: benchmarks cannot change status and concurrent comparisons must not create competing champions.
+- Seed formula benchmarks only in migrations and label original seeds separately from evolved parameters; why: initialization/read paths cannot rewrite evidence or claim new benchmarks existed historically.

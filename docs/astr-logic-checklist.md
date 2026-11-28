@@ -2,6 +2,19 @@
 
 **Inspection date:** November 27, 2026 (UTC).
 
+## Approved formula evolution — Phase 1 completion supplement
+
+This supplement records the separately approved foundation; original audit findings below remain historical observations.
+
+- [x] Store seven permanent original-seed V0 benchmarks and independent current-best references without changing operational research formulas.
+- [x] Preserve candidate definitions, failed/paused experiment evidence and seasonal context; retirement is not permanent defectiveness.
+- [x] Validate lifecycle transitions, serialize per-lane champion replacement, retain V0 and reject stale comparisons.
+- [x] Prepare chronological multi-metric validation contracts and a 30-evaluated-session review rule; immature outcomes do not imply failure.
+- [ ] Production installation/readback: separate Vercel database is not yet verified.
+- [ ] Phase 2: independent discovery, protected walk-forward evaluation, genuine historical benchmark performance and continuous improvement have not started.
+
+Implementation and verification details: `docs/formula-evolution-phase-one.md`. No historical books, picks, graphs or trading settings were changed.
+
 ## Decision key
 
 - Leave `[ ]` empty to keep the current behavior / take no action.

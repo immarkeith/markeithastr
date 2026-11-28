@@ -1,5 +1,12 @@
 # ASTR Master Completion Roadmap
 
+## Nov 28 — Formula evolution Phase 1 (approved)
+- [x] Inspect and preserve authentic seed formulas for all seven independent paper lanes; optional experiment gates and illustrative holding lengths are not mislabeled as seed defaults.
+- [x] Add immutable benchmarks, separate champion pointers, candidate/archive evidence and seasonal evidence storage with private access and atomic lifecycle safeguards.
+- [x] Add validated domain contracts and server-only lifecycle helpers; keep discovery, promotion automation, schedules and existing research/trading disconnected.
+- [x] Verify database lifecycle invariants with rolled-back candidates/promotions; 230 rule/regression tests pass, seven benchmark/champion reads pass, automatic build OK.
+- [ ] Separate Vercel production installation/readback awaits access to that database; deployment instructions and the combined migration are prepared. Phase 2 discovery and actual formula-performance evidence are not started.
+
 ## Nov 28 — Approved X01–X08 answer key (X09 held)
 - [x] Align paper assignment choices with operating lanes; preserve live-buy permissions and legacy records.
 - [x] Add 180-session evaluations and additive historical outcome catch-up without rewriting picks or final outcomes.

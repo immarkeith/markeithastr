@@ -113,6 +113,27 @@
       "when": 1795688936587,
       "tag": "0015_faster_scan_input",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795858481365,
+      "tag": "0016_researcher_formula_evolution_phase_one",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795858583121,
+      "tag": "0017_formula_evolution_validation_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795858743039,
+      "tag": "0018_formula_private_access_and_verification",
+      "breakpoints": true
     }
   ]
 }

@@ -2090,6 +2090,195 @@ export type Database = {
         }
         Relationships: []
       }
+      researcher_formula_champions: {
+        Row: {
+          formula_id: string
+          lane: string
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          formula_id: string
+          lane: string
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          formula_id?: string
+          lane?: string
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "researcher_formula_champions_lane_formula_id_fkey"
+            columns: ["lane", "formula_id"]
+            isOneToOne: false
+            referencedRelation: "researcher_formula_versions"
+            referencedColumns: ["lane", "id"]
+          },
+        ]
+      }
+      researcher_formula_experiments: {
+        Row: {
+          created_at: string
+          evaluated_sessions: number
+          formula_id: string
+          formula_spec: Json
+          hypothesis_name: string
+          id: string
+          lane: string
+          metrics_achieved: Json
+          opportunities: number
+          regime_context: Json
+          rejection_reason: string
+          resurrectable: boolean
+          seasonal_niche: string | null
+          target_holding_days: number
+        }
+        Insert: {
+          created_at?: string
+          evaluated_sessions: number
+          formula_id: string
+          formula_spec: Json
+          hypothesis_name: string
+          id?: string
+          lane: string
+          metrics_achieved: Json
+          opportunities: number
+          regime_context: Json
+          rejection_reason: string
+          resurrectable?: boolean
+          seasonal_niche?: string | null
+          target_holding_days: number
+        }
+        Update: {
+          created_at?: string
+          evaluated_sessions?: number
+          formula_id?: string
+          formula_spec?: Json
+          hypothesis_name?: string
+          id?: string
+          lane?: string
+          metrics_achieved?: Json
+          opportunities?: number
+          regime_context?: Json
+          rejection_reason?: string
+          resurrectable?: boolean
+          seasonal_niche?: string | null
+          target_holding_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "researcher_formula_experiments_lane_formula_id_fkey"
+            columns: ["lane", "formula_id"]
+            isOneToOne: false
+            referencedRelation: "researcher_formula_versions"
+            referencedColumns: ["lane", "id"]
+          },
+        ]
+      }
+      researcher_formula_versions: {
+        Row: {
+          created_at: string
+          evaluation_start: string | null
+          formula_spec: Json
+          id: string
+          in_sample_metrics: Json
+          lane: string
+          out_of_sample_metrics: Json
+          promoted_at: string | null
+          promotion_policy: Json | null
+          retired_at: string | null
+          review_after_sessions: number
+          skeptic_stress_score: number | null
+          status: string
+          target_holding_days: number
+          validation_evidence: Json | null
+          version_number: number
+          version_tag: string
+        }
+        Insert: {
+          created_at?: string
+          evaluation_start?: string | null
+          formula_spec: Json
+          id?: string
+          in_sample_metrics?: Json
+          lane: string
+          out_of_sample_metrics?: Json
+          promoted_at?: string | null
+          promotion_policy?: Json | null
+          retired_at?: string | null
+          review_after_sessions?: number
+          skeptic_stress_score?: number | null
+          status: string
+          target_holding_days: number
+          validation_evidence?: Json | null
+          version_number: number
+          version_tag: string
+        }
+        Update: {
+          created_at?: string
+          evaluation_start?: string | null
+          formula_spec?: Json
+          id?: string
+          in_sample_metrics?: Json
+          lane?: string
+          out_of_sample_metrics?: Json
+          promoted_at?: string | null
+          promotion_policy?: Json | null
+          retired_at?: string | null
+          review_after_sessions?: number
+          skeptic_stress_score?: number | null
+          status?: string
+          target_holding_days?: number
+          validation_evidence?: Json | null
+          version_number?: number
+          version_tag?: string
+        }
+        Relationships: []
+      }
+      researcher_seasonality_patterns: {
+        Row: {
+          created_at: string
+          evidence: Json
+          evidence_summary: string
+          id: string
+          identifier: string
+          lane: string
+          pattern_type: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          evidence: Json
+          evidence_summary: string
+          id?: string
+          identifier: string
+          lane: string
+          pattern_type: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json
+          evidence_summary?: string
+          id?: string
+          identifier?: string
+          lane?: string
+          pattern_type?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "researcher_seasonality_patterns_lane_fkey"
+            columns: ["lane"]
+            isOneToOne: false
+            referencedRelation: "researcher_formula_champions"
+            referencedColumns: ["lane"]
+          },
+        ]
+      }
       researchers: {
         Row: {
           best_edge: number | null
@@ -2569,6 +2758,63 @@ export type Database = {
           to: "engineer_tasks"
           isOneToOne: false
           isSetofReturn: true
+        }
+      }
+      formula_archive_candidate: {
+        Args: {
+          p_id: string
+          p_metrics: Json
+          p_niche?: string
+          p_opportunities: number
+          p_reason: string
+          p_regime: Json
+          p_resurrectable?: boolean
+          p_sessions: number
+        }
+        Returns: string
+      }
+      formula_assert_promotion: {
+        Args: { p_evidence: Json; p_policy: Json }
+        Returns: undefined
+      }
+      formula_assert_spec: { Args: { p_spec: Json }; Returns: undefined }
+      formula_promote_candidate: {
+        Args: { p_evidence: Json; p_expected_champion: string; p_id: string }
+        Returns: string
+      }
+      formula_register_candidate: {
+        Args: {
+          p_holding: number
+          p_lane: string
+          p_name: string
+          p_policy: Json
+          p_spec: Json
+          p_start: string
+        }
+        Returns: {
+          created_at: string
+          evaluation_start: string | null
+          formula_spec: Json
+          id: string
+          in_sample_metrics: Json
+          lane: string
+          out_of_sample_metrics: Json
+          promoted_at: string | null
+          promotion_policy: Json | null
+          retired_at: string | null
+          review_after_sessions: number
+          skeptic_stress_score: number | null
+          status: string
+          target_holding_days: number
+          validation_evidence: Json | null
+          version_number: number
+          version_tag: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "researcher_formula_versions"
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
       heartbeat_engineer_task: {
