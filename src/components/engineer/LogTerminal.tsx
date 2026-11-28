@@ -4,6 +4,7 @@ import { ChevronDown, Terminal } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import type { EngineerLogRow } from "@/lib/engineer/types";
+import { LocalTimestamp } from '@/components/LocalTimestamp';
 
 interface Props {
   logs: EngineerLogRow[];
@@ -51,7 +52,7 @@ export function LogTerminal({ logs, live }: Props) {
                 )}
               >
                 <span className="text-muted-foreground">
-                  {new Date(log.created_at).toLocaleTimeString("en-US", { hour12: false })}{" "}
+                  <LocalTimestamp value={log.created_at} />{" "}
                 </span>
                 <span className="text-primary/80">[{log.step_name}]</span> {log.log_text}
               </div>

@@ -10,3 +10,8 @@
 - Resume researcher books only from complete cash/position/settlement checkpoints matching saved rows and configuration; validate rounded daily-return continuity before any append — why: a retrospective replay can otherwise splice a different book onto preserved history.
 - Research pipeline receipts store stage timings/failures; ledger failure blocks downstream snapshots, and evidence-only refresh preserves the previous generation timestamp — why: warnings must not impersonate successful nightly research.
 - Researcher ledger covers the full cached universe from `LEDGER_START_DATE`, loads bars per ticker (`loadSelectionInput`), and nightly resumes read only the indicator window — why: the aggregate `scan_input` RPC times out on the full multi-year cache.
+- Paper assignment roster is client-safe and separate from existing live-buy authorization — why: removing non-operating paper labels must not expand broker permissions.
+- Ledger and selection replay share completed benchmark-session foundations while retaining per-lane eligibility/formulas — why: current universe size cannot erase authentic earlier sessions.
+- Scheduled market hooks read the exchange calendar/clock and fail closed if unavailable; manual functions remain separate — why: static holiday lists cannot detect unexpected exchange changes.
+- Opens and selection receipts use the same New York date-offset converter — why: fixed UTC cutoffs misclassify winter selections.
+- Intraday snapshot refresh compares payloads before saving; continuous bounded monitoring is separate from heavy audits/repairs — why: unchanged data and frequent checks must not trigger repeated rebuilds.

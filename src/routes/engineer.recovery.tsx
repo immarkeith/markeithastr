@@ -6,6 +6,7 @@ import { AlertTriangle, History, RotateCcw, ShieldCheck, Tag } from "lucide-reac
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { LocalTimestamp } from '@/components/LocalTimestamp';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -159,10 +160,7 @@ function EngineerRecoveryPage() {
                     {checkpoint.verified ? "verified" : checkpoint.trigger}
                   </span>
                   <span className="ml-auto text-[10px] text-muted-foreground">
-                    {new Date(checkpoint.created_at).toLocaleString("en-US", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })}
+                    <LocalTimestamp value={checkpoint.created_at} />
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-foreground">{checkpoint.summary}</p>

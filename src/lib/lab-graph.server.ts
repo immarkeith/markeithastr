@@ -38,6 +38,7 @@ import type { Json } from "@/integrations/supabase/types";
 import type { CapitalAnalysisResult } from "./capital-analysis";
 import type { SelectionRate } from "./selection-evaluations";
 import type { EquityPoint, RaceEntrant, ResearcherEquityCurve } from "./race.server";
+import { graphPayloadChanged } from './maintenance-rules';
 
 /** research_runs.kind value for Research Lab graph snapshots. */
 export const LAB_GRAPH_KIND = "lab_graph";
@@ -95,7 +96,7 @@ async function computeFingerprint(): Promise<string> {
   return createHash("sha256")
     .update(
       JSON.stringify({
-        selection_metrics_version: 1,
+        selection_metrics_version: 2,
         slots: slots.map((s) => [s.id, s.strategy_id, s.enabled, s.position_dollars, s.started_on]),
         strategies: strategies ?? [],
         active: settings.active_strategy_id ?? null,
@@ -496,13 +497,14 @@ async function markQuotes(payload: LabGraphPayload): Promise<boolean> {
   try {
     const { alpacaLatestPrices } = await import("./market-data.server");
     const live = await alpacaLatestPrices(tickers);
+    if (!live.size) return false;
     const day = nyParts().date;
     for (const entrant of payload.entrants) {
       let unrealized = 0;
       let todays = 0;
       let atWork = 0;
       for (const h of entrant.holdings) {
-        const price = Number(live.get(h.ticker) ?? h.prev_close);
+        const price = Number(live.get(h.ticker) ?? h.price);
         h.price = Number(price.toFixed(4));
         h.pl = Number((h.dollars * (price / h.entry_price - 1)).toFixed(2));
         h.pl_pct = Number(((price / h.entry_price - 1) * 100).toFixed(2));
@@ -532,7 +534,7 @@ async function markQuotes(payload: LabGraphPayload): Promise<boolean> {
 export async function refreshLabGraphIntraday(): Promise<{
   payload: LabGraphPayload;
   guards: LabGraphGuards;
-  mode: "appended" | "rebuilt";
+  mode: "appended" | "rebuilt" | "unchanged";
 }> {
   const existing = await readLabGraph();
   if (!existing) {
@@ -544,6 +546,7 @@ export async function refreshLabGraphIntraday(): Promise<{
     const built = await rebuildLabGraph();
     return { ...built, mode: "rebuilt" };
   }
+  const previousPayload = JSON.parse(JSON.stringify(existing.payload)) as LabGraphPayload;
   const appended = await appendCurves(existing);
   if (!appended) {
     const built = await rebuildLabGraph();
@@ -553,6 +556,7 @@ export async function refreshLabGraphIntraday(): Promise<{
   appended.payload.equity_curves = await ledgerBackedCurves(appended.payload.equity_curves);
   const { selectionEvaluationWinRates } = await import("./selection-evaluations.server");
   appended.payload.long_term_win_rates = await selectionEvaluationWinRates();
+  if (!graphPayloadChanged(previousPayload, appended.payload)) return { payload: existing.payload, guards: existing.guards, mode: 'unchanged' };
   appended.guards.generated_at = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from("research_runs")

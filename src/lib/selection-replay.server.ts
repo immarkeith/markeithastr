@@ -8,22 +8,37 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { LANES, buildPanel, laneSeedParams, listResearchers, passesFilters, scoreWith, type LaneParams, type PanelRow } from "./department.server";
 import { assemble, bandBonus, type Band, type MasterRule } from "./master-formula.server";
 import { loadSettings, volumeShare } from "./scan.server";
-import { historyCoverage } from "./history-coverage";
 import { EVAL_HORIZONS, eligibleAt, evaluate, selectionReplaySince, type Bar } from "./selection-replay";
 import { loadSelectionInput } from './selection-input.server';
-import { completedResearchSession, selectionTimestamp } from './research-session';
+import { selectionTimestamp } from './research-session';
+import { researchFoundationDates, RESEARCH_START_DATE } from './research-foundation';
 
 export const SELECTION_ENGINE_VERSION = "sel-v1";
 const UNIVERSE_BASIS = "cached-cohort-survivors-unverified-membership";
 const HISTORY_DAYS = 2000;
 
 type Raw = { ticker: string; bars: [string, number, number, number, number, number][] };
-async function loadRaw(fullReplay: boolean): Promise<Raw[]> {
+async function loadRaw(fullReplay: boolean, evaluationsOnly: boolean, proxy: string): Promise<Raw[]> {
   // Once picks exist, nightly runs need only the 200-session eligibility window
   // before the newest pick; a historical bootstrap must ignore that watermark.
   const { data, error } = await supabaseAdmin.from("research_daily_selections").select("session_date").order("session_date", { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(error.message);
-  const since = selectionReplaySince(data?.session_date ?? null, fullReplay);
+  // A newly added horizon needs old picks' original prices, not only the
+  // latest-pick indicator window. Count keys without transferring all rows.
+  const [picks, longOutcomes, pending] = await Promise.all([
+    supabaseAdmin.from('research_daily_selections').select('lane', { count: 'exact', head: true }).not('ticker', 'is', null),
+    supabaseAdmin.from('research_selection_evaluations').select('lane', { count: 'exact', head: true }).eq('horizon_sessions', 180),
+    supabaseAdmin.from('research_selection_evaluations').select('session_date').eq('status', 'pending').order('session_date').limit(1).maybeSingle(),
+  ]);
+  for (const result of [picks, longOutcomes, pending]) if (result.error) throw new Error(result.error.message);
+  const catchUp = (longOutcomes.count ?? 0) < (picks.count ?? 0);
+  const earliest = [data?.session_date, pending.data?.session_date].filter((date): date is string => Boolean(date)).sort()[0];
+  const since = selectionReplaySince(earliest ?? null, fullReplay || catchUp);
+  if (evaluationsOnly) {
+    const selections = await pagedKeys('research_daily_selections', 'lane, session_date, ticker', q => q.not('ticker', 'is', null));
+    const tickers = [...new Set(selections.map(row => String(row.ticker))), proxy.toUpperCase()];
+    return loadSelectionInput(since, tickers);
+  }
   return loadSelectionInput(since);
 }
 
@@ -41,11 +56,11 @@ async function pagedKeys(table: "research_daily_selections" | "research_selectio
   return rows;
 }
 
-export async function runSelectionReplay(options: { fullReplay?: boolean } = {}): Promise<{ sessions: number; selections: number; matured: number; first_session: string | null }> {
+export async function runSelectionReplay(options: { fullReplay?: boolean; evaluationsOnly?: boolean } = {}): Promise<{ sessions: number; selections: number; matured: number; first_session: string | null }> {
   const s = await loadSettings();
   const share = await volumeShare(s);
   const minPrice = Number(s.min_price), minAdv = Number(s.min_avg_dollar_volume) * share;
-  const raw = await loadRaw(options.fullReplay === true);
+  const raw = await loadRaw(options.fullReplay === true, options.evaluationsOnly === true, s.market_proxy);
   const bars = new Map(raw.map((r) => [r.ticker, r.bars.map(([date, open, , , close, volume]) => ({ date, open: Number(open), close: Number(close), volume: Number(volume) }))]));
   const proxy = s.market_proxy.toUpperCase();
   if (!bars.has(proxy)) {
@@ -53,7 +68,7 @@ export async function runSelectionReplay(options: { fullReplay?: boolean } = {})
     bars.set(proxy, (data ?? []).map((b) => ({ date: b.bar_date, open: Number(b.open), close: Number(b.close), volume: Number(b.volume) })));
   }
   const spyBars = bars.get(proxy) ?? [];
-  const sessions = spyBars.map((b) => b.date).filter(date => completedResearchSession(date));
+  const sessions = researchFoundationDates(spyBars.map((b) => b.date), '0001-01-01');
   if (!sessions.length) return { sessions: 0, selections: 0, matured: 0, first_session: null };
   const spy = new Map(spyBars.map((b) => [b.date, b]));
   const byTicker = new Map([...bars].map(([t, list]) => [t, { list, map: new Map(list.map((b) => [b.date, b])), idx: new Map(list.map((b, i) => [b.date, i])) }]));
@@ -68,16 +83,15 @@ export async function runSelectionReplay(options: { fullReplay?: boolean } = {})
       if (i !== undefined && i >= 200 && eligibleAt(t.list.slice(i - 200, i + 1), minPrice, minAdv)) eligibleOn.get(d)!.add(ticker);
     }
   }
-  const today = sessions.at(-1)!;
-  const todaySize = eligibleOn.get(today)!.size;
-  // 80% rule: start at the earliest passing session; skip any later session below the gate.
-  const replayDates = sessions.filter((d) => historyCoverage(Math.min(eligibleOn.get(d)!.size, todaySize), todaySize).passes);
+  const today = sessions.at(-1);
+  const todaySize = today ? eligibleOn.get(today)?.size ?? 0 : 0;
+  const replayDates = sessions.filter(date => date >= RESEARCH_START_DATE);
 
   const existingRows = await pagedKeys("research_daily_selections", "lane, session_date");
   const allLanes = [...LANES.map(lane => lane.lane), 'lead'];
   const knownKeys = new Set(existingRows.map(row => `${row.lane}|${row.session_date}`));
   // Include historical holes, not just dates after the latest row in a lane.
-  const firstMissing = replayDates.find(date => allLanes.some(lane => !knownKeys.has(`${lane}|${date}`)));
+  const firstMissing = options.evaluationsOnly ? undefined : replayDates.find(date => allLanes.some(lane => !knownKeys.has(`${lane}|${date}`)));
   const previous = firstMissing ? new Date(`${firstMissing}T00:00:00Z`) : null;
   previous?.setUTCDate(previous.getUTCDate() - 1);
   const panel = firstMissing ? await buildPanel(1000, s.market_proxy, HISTORY_DAYS, raw as never, previous?.toISOString().slice(0, 10)) : { rows: [] };
@@ -100,6 +114,7 @@ export async function runSelectionReplay(options: { fullReplay?: boolean } = {})
   const newSel: any[] = [];
   for (const l of lanes) {
     for (const d of replayDates) {
+      if (options.evaluationsOnly) continue;
       if (existing.has(`${l.lane}|${d}`)) continue;
       const eligible = eligibleOn.get(d)!;
       const ranked = (rowsByDate.get(d) ?? [])

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import type { TradeHistoryRow } from "@/lib/data.functions";
 import { tradeHistoryQuery } from "@/lib/queries";
+import { formatDisplayTime } from '@/lib/device-time';
 
 export const Route = createFileRoute("/trade-history")({
   head: () => ({
@@ -32,27 +33,23 @@ function money(n: number | null | undefined) {
   return `${sign}$${Math.abs(n).toFixed(2)}`;
 }
 
-function stamp(iso: string | null, fallbackDate: string | null) {
+function stamp(iso: string | null, fallbackDate: string | null, zone?: string) {
   if (!iso) return fallbackDate ?? "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return fallbackDate ?? "—";
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatDisplayTime(iso, zone);
 }
 
-function timeOnly(iso: string | null) {
+function timeOnly(iso: string | null, zone?: string) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleTimeString(undefined, {
     hour: "numeric",
     minute: "2-digit",
-  });
+    timeZone: zone ?? 'America/New_York',
+    ...(zone ? { timeZoneName: 'short' as const } : {}),
+  }) + (zone ? '' : ' Eastern');
 }
 
 type ViewFilter = "today" | "72h" | "researcher";
@@ -83,6 +80,10 @@ function TradeHistoryPage() {
   const { data, isLoading } = useQuery(tradeHistoryQuery);
   const [view, setView] = useState<ViewFilter>("today");
   const [researcher, setResearcher] = useState("");
+  const [zone, setZone] = useState<string | undefined>();
+  useEffect(() => {
+    try { setZone(Intl.DateTimeFormat().resolvedOptions().timeZone); } catch { /* Eastern fallback */ }
+  }, []);
 
   const all = (data?.trades ?? []) as TradeHistoryRow[];
   // Exactly eight sources: the live bot, the Lead and the six assistants.
@@ -145,7 +146,7 @@ function TradeHistoryPage() {
                 <span className="font-semibold tabular-nums">{money(event.amount)}</span>
               </div>
               <div className="text-sm text-muted-foreground sm:text-right">
-                {view === "today" ? <p>{timeOnly(event.at)}</p> : <p>{stamp(event.at, null)}</p>}
+                {view === "today" ? <p>{timeOnly(event.at, zone)}</p> : <p>{stamp(event.at, null, zone)}</p>}
                 {view !== "researcher" ? <p>{event.source}</p> : null}
               </div>
               {event.note ? <p className="text-xs text-muted-foreground sm:col-span-2">{event.note}</p> : null}

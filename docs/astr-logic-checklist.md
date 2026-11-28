@@ -176,6 +176,28 @@ The production checker primarily probes selected tables/columns; it does not cer
 - **Evidence:** scripts/check-production-schema.ts:5–40
 - **Checklist references:** L374, L373
 
+## November 28 — Authorized X01–X08 implementation progress
+
+Your explanatory X01–X09 answer key replaces checkbox-only instructions. X09 remains on hold. The original November 27 inventory below is retained as audit evidence; dated resolution notes distinguish source changes, verified configured-backend outcomes and pending production activation. A checked leading box means this item's stated resolution was verified, not that all ASTR production operations are certified.
+
+| Finding | Progress | Remaining boundary |
+|---|---|---|
+| X01 | Paper roster aligned and verified with actual AAPL lookup | Legacy records and existing live-buy specialist permissions/ranking preserved |
+| X02 | 180-session producer implemented; 2,288 matured and 1,238 pending outcomes saved/read back | Production database identity/deployment not independently established; use outcomes-only workflow there |
+| X03 | Shared June 2021 benchmark foundation; removed fixed percentage exclusions | Existing books/picks remain intact; no retroactive book replay authorized or run |
+| X04 | Independent formulas/results preserved; isolation regressions passed | Distinct return models remain intentional, not interchangeable investment evidence |
+| X05 | Actual-session hook and unchanged-payload receipt verified | Production every-few-minutes schedule and actual open-session delivery pending |
+| X06 | Date-aware timestamps, exchange authority and device-local display implemented | Existing unmanaged job definitions preserved; deployed timing/actual delivery pending |
+| X07 | Authenticated bounded monitor healthy; optional existing-server runner prepared | Always-on server answer, completely free budget, measured safe cadence and production activation pending |
+| X08 | Winter/summer opening-cutoff regressions passed | Production deployment/selection chart refresh pending; original picks/outcomes not rewritten |
+| X09 | Held, no implementation | Await operator clarification |
+
+**Verification:** 212 tests passed (206 TypeScript rules plus six existing price-integrity checks); build OK. Actual AAPL paper dropdown contains exactly seven operating researchers. Phone/desktop Lab loaded saved June 2021 book dates without overflow or page errors. Current ticker followed a Los Angeles device zone. Configured backend outcome catch-up inserted no selections and changed no books, trades or live settings. Repeat Lab refresh returned `unchanged` and preserved generation time. Unauthorized monitor request returned 401; read-only bounded monitor returned healthy. Existing nine-month display sections remain hidden where prior UI cleanup hid them; saved metric readback, not hidden controls, verifies their data.
+
+**Conflict wording:** X01's old paper label list contradicted the operating lane roster; the dropdown mismatch is resolved. X02's old producer contradicted the 180-session consumer; producer and saved configured-backend evidence now agree. X03's 50%/80% gates contradicted the answer key's no-fixed-percentage foundation; those replay gates were removed without imposing 400 stocks. X05's old handler contradicted market-open refresh, now corrected in source, but the deployed hourly scheduler still contradicts every-few-minutes intent. X06's fixed UTC cutoff contradicted winter exchange time; shared conversion fixes that; deployed job metadata is not a delivery receipt. X07's weekend gap still contradicts 24/7 monitoring until the free runner/scheduler is activated. X04's different models do not contradict independent researcher logic; treating them as one result would. X09 remains unresolved.
+
+Deployment and next actions: `docs/x01-x08-implementation.md`. No migrations or scheduler mutations were performed. Existing callback credentials were preserved; no managed-platform runtime dependency introduced.
+
 ## Reviewable inventory
 
 ## 1. ASTR Overall Operations
@@ -217,16 +239,16 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **My instructions:**
 
 * [ ] **L004 — Market calendar and holidays**
-  * **Current behavior:** Market operations use New York trading dates and session-close minutes.
+  * **Current behavior:** Market scheduling now reads the current exchange calendar/clock for actual closures and early hours; standard historical/future holiday coverage extends beyond 2026–2027.
   * **How it works:** Market calendar gates weekends, listed holidays and early closes.
   * **Inputs and dependencies:** Date, America/New_York timezone and maintained holiday lists.
   * **Execution schedule:** Every guarded trading hook.
   * **Relevant formulas or rules:** Normal close 16:00 Eastern; early closes come from sessionCloseMinutes.
-  * **Current implementation status:** Implemented; main calendar explicitly covers 2026–2027, unlike historical paper settlement calendar.
-  * **Conflicts or contradictions:** X14: Historical paper settlement uses computed trading holidays, while the main market calendar explicitly lists 2026–2027. Ledger, paper and autonomous held-session counting also differ; a shared label does not guarantee the same exit date. Related items: L004, L362, L350, L279.
+  * **Current implementation status:** November 28 — X06 source and read-only provider calendar verified. Production schedule/delivery pending; X14 holding/settlement convention differences outside this scope remain unresolved.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X06 source and read-only provider calendar verified. Production schedule/delivery pending; X14 holding/settlement convention differences outside this scope remain unresolved.
   * **Source evidence:** src/lib/market-calendar.ts:7–38,176–186; src/lib/schedule-rules.ts
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X06 source and read-only provider calendar verified. Production schedule/delivery pending; X14 holding/settlement convention differences outside this scope remain unresolved.
 
 * [ ] **L005 — Independent and simultaneous processes**
   * **Current behavior:** Hooks, browsers, scripts and GitHub workflows can start independent work.
@@ -1036,17 +1058,17 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **Decision:** [ ]
   * **My instructions:**
 
-* [ ] **L072 — Assignment role mismatch**
-  * **Current behavior:** Assignment dropdown offers Momentum and Influence researchers but omits Skeptic; actual department has no separate Momentum or Influence lane. Assignments are stored as records, not dispatched into lane learning.
+* [x] **L072 — Assignment role mismatch**
+  * **Current behavior:** Paper assignments now offer Lead, Trend, Contrarian, Consistency, Growth, Risk and Skeptic from the operating roster. Legacy assignments and existing live-buy authorization/ranking remain unchanged.
   * **How it works:** Static source inspection; no execution or live calls.
   * **Inputs and dependencies:** Assignment form label and ticker.
   * **Execution schedule:** On manual assignment.
   * **Relevant formulas or rules:** Assignment labels=Lead,Trend,Momentum,Contrarian,Consistency,Growth,Risk,Influence; runtime lanes=trend,contrarian,consistency,growth,risk,skeptic plus lead.
-  * **Current implementation status:** Implemented mismatch; assignment storage is not lane execution.
-  * **Conflicts or contradictions:** Assignment labels include Momentum/Influence but omit Skeptic; labels do not match six actual runtime lanes.
+  * **Current implementation status:** November 28 — X01 resolved for the paper dropdown: actual AAPL lookup verified seven choices; assignment remains a saved research record, not a new execution or learning dispatcher.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X01 resolved for the paper dropdown: actual AAPL lookup verified seven choices; assignment remains a saved research record, not a new execution or learning dispatcher.
   * **Source evidence:** src/lib/assign.functions.ts:6-15; src/lib/assign.server.ts:61-81; src/lib/department.server.ts:422-504; src/lib/research-boards.server.ts:121-125
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X01 resolved for the paper dropdown: actual AAPL lookup verified seven choices; assignment remains a saved research record, not a new execution or learning dispatcher.
 
 * [ ] **L073 — Lead runtime role**
   * **Current behavior:** Lead uses assembled active Master Formula rules, not a seventh hardcoded specialist seed.
@@ -1185,76 +1207,76 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **My instructions:**
 
 * [ ] **L084 — Preclose hook execution windows**
-  * **Current behavior:** Timed exits have two windows relative to that date’s close.
+  * **Current behavior:** Preclose hook uses authoritative exchange close with existing close−15 and close−8 windows; live/paper exit logic and existing authentication are unchanged.
   * **How it works:** Guard uses sessionCloseMinutes, then paper exits precede autonomous and regular exits.
   * **Inputs and dependencies:** Hook token and date-specific market close.
   * **Execution schedule:** [close−15,close−10) and [close−8,close−3) Eastern.
   * **Relevant formulas or rules:** Connected cron: 45 16,17,19,20 * * 1-5; retry 52 16,17,19,20 * * 1-5 GMT.
-  * **Current implementation status:** Connected active dual-offset normal/half-day schedules; successful executions unverified.
-  * **Conflicts or contradictions:** X06: Single UTC-offset daily-cycle/key-check templates do not cover both summer and winter Eastern time. Connected definitions use multiple offsets; rejected wrong-offset invocations are an intentional guard, not proof of false alarms or failed orders. Normal/early-close preclose schedules likewise use extra candidate times deliberately. Related items: L085, L086, L084.
+  * **Current implementation status:** November 28 — X06 source/tests verified; existing unmanaged candidate-time jobs were not changed. Production delivery remains unverified.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X06 source/tests verified; existing unmanaged candidate-time jobs were not changed. Production delivery remains unverified.
   * **Source evidence:** src/lib/schedule-rules.ts:12–14; src/routes/api/public/hooks/preclose.ts:8–28; read-only cron metadata
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X06 source/tests verified; existing unmanaged candidate-time jobs were not changed. Production delivery remains unverified.
 
 * [ ] **L085 — After-close daily hook schedule**
-  * **Current behavior:** Main research and regular daily cycle are invoked after close.
+  * **Current behavior:** Daily-cycle hook uses authoritative trading-session eligibility and preserves the existing 17:30 Eastern after-close pipeline.
   * **How it works:** Guard accepts only a five-minute Eastern slot on trading days.
   * **Inputs and dependencies:** Hook token, trading calendar and research dependencies.
   * **Execution schedule:** 17:30–17:34 Eastern; connected cron 30 21,22 * * 1-5 GMT.
   * **Relevant formulas or rules:** Fresh SQL declares only 30 21 * * 1-5, so template alone misses winter offset.
-  * **Current implementation status:** Connected active schedule differs from fresh template; production delivery unverified.
-  * **Conflicts or contradictions:** X06: Single UTC-offset daily-cycle/key-check templates do not cover both summer and winter Eastern time. Connected definitions use multiple offsets; rejected wrong-offset invocations are an intentional guard, not proof of false alarms or failed orders. Normal/early-close preclose schedules likewise use extra candidate times deliberately. Related items: L085, L086, L084.
+  * **Current implementation status:** November 28 — X06 DST guard remains date-aware; production scheduler not changed. After-close processing of completed new data is retained, not an unnecessary offhours graph loop.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X06 DST guard remains date-aware; production scheduler not changed. After-close processing of completed new data is retained, not an unnecessary offhours graph loop.
   * **Source evidence:** src/lib/schedule-rules.ts; src/routes/api/public/hooks/daily-cycle.ts; migration/fresh/09-schedule.sql:14–55; read-only cron metadata
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X06 DST guard remains date-aware; production scheduler not changed. After-close processing of completed new data is retained, not an unnecessary offhours graph loop.
 
 * [ ] **L086 — Provider-key check schedule**
-  * **Current behavior:** A daily key check tests configured provider access.
+  * **Current behavior:** Existing 08:00 Eastern daily key check and credential handling are retained; bounded continuous monitor also checks exchange access independently.
   * **How it works:** Token and Eastern-time guard precede key checks.
   * **Inputs and dependencies:** Provider credentials; never copied into this checklist.
   * **Execution schedule:** 08:00–08:04 Eastern; connected cron 0 12,13 * * * GMT.
   * **Relevant formulas or rules:** Fresh template uses 0 12 * * * only.
-  * **Current implementation status:** Connected schedule active; actual credentials and provider responses not tested.
-  * **Conflicts or contradictions:** X06: Single UTC-offset daily-cycle/key-check templates do not cover both summer and winter Eastern time. Connected definitions use multiple offsets; rejected wrong-offset invocations are an intentional guard, not proof of false alarms or failed orders. Normal/early-close preclose schedules likewise use extra candidate times deliberately. Related items: L085, L086, L084.
+  * **Current implementation status:** November 28 — Existing dual-offset schedule preserved; single-offset template conflict and production delivery are not marked resolved by this build.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: Existing dual-offset schedule preserved; single-offset template conflict and production delivery are not marked resolved by this build.
   * **Source evidence:** src/routes/api/public/hooks/key-check.ts:23–27; src/lib/schedule-rules.ts; migration/fresh/14-key-check-schedule.sql
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. Existing dual-offset schedule preserved; single-offset template conflict and production delivery are not marked resolved by this build.
 
 * [ ] **L087 — Scheduled Lab refresh window**
-  * **Current behavior:** The Lab hook accepts weekday evening or Saturday morning refreshes, not all market-hour calls.
+  * **Current behavior:** Scheduled graph hook runs only inside actual exchange hours, separates deep audits, refuses expensive implicit history bootstrap, and retains snapshot timestamps when actual payloads are unchanged.
   * **How it works:** Guard then ledger initialization, pipeline and integrity check.
   * **Inputs and dependencies:** Saved research, hook token and market calendar.
   * **Execution schedule:** Weekdays 18:00–18:04 Eastern or Saturday 10:00–10:04; connected cron 0 14,15,22,23 * * * GMT.
   * **Relevant formulas or rules:** Fresh SQL */5 13-20 * * 1-5 cannot reach current accepted evening/Saturday windows.
-  * **Current implementation status:** Connected active schedule differs from template and can reach guard; target/delivery unverified.
-  * **Conflicts or contradictions:** X05: Fresh SQL requests every five minutes during UTC weekday market hours; the handler accepts weekday 18:00 Eastern or Saturday 10:00 Eastern five-minute windows. The template cannot reach these windows. Connected active cron is different and can reach them; production delivery remains unverified. Related items: L087.
+  * **Current implementation status:** November 28 — X05 hook/no-change behavior verified. Connected existing job remains hourly candidate invocations; every-few-minutes production activation awaits actual scheduler access and free-budget confirmation.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X05 hook/no-change behavior verified. Connected existing job remains hourly candidate invocations; every-few-minutes production activation awaits actual scheduler access and free-budget confirmation.
   * **Source evidence:** src/routes/api/public/hooks/lab-refresh.ts:12–31; src/lib/schedule-rules.ts; migration/fresh/15-lab-refresh-schedule.sql; read-only cron metadata
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X05 hook/no-change behavior verified. Connected existing job remains hourly candidate invocations; every-few-minutes production activation awaits actual scheduler access and free-budget confirmation.
 
 * [ ] **L088 — Market-window health schedule**
-  * **Current behavior:** Connected database defines health every fifteen minutes in a UTC weekday window.
+  * **Current behavior:** Prepared five-minute read-only authenticated monitoring and a sequential optional existing-server runner; expensive safe-repair health remains independently paced.
   * **How it works:** HTTP scheduler initiates health; health handler does not apply the same Eastern slot guard.
   * **Inputs and dependencies:** Hook token, provider, cache, trades and health_checks.
   * **Execution schedule:** */15 13-20 * * 1-5 GMT; optional fresh audit file replaces with */5.
   * **Relevant formulas or rules:** Source versions disagree about five versus fifteen minutes.
-  * **Current implementation status:** Connected 15-minute job active; production and actual delivery unverified.
-  * **Conflicts or contradictions:** X07: Connected market-window health is every 15 minutes, while the optional audit template defines five minutes. The complementary offhours expression excludes weekend 13–20 UTC even though market-window health is weekdays only. This is a schedule-definition gap, not a measured outage. Related items: L088, L089.
+  * **Current implementation status:** November 28 — X07 not activated: completely free hosting budget, safe measured cadence and production schedule are pending. Existing 15-minute job unchanged.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X07 not activated: completely free hosting budget, safe measured cadence and production schedule are pending. Existing 15-minute job unchanged.
   * **Source evidence:** migration/fresh/09-schedule.sql;16-autonomous-audit.sql:73–95; src/routes/api/public/hooks/health.ts; read-only cron metadata
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X07 not activated: completely free hosting budget, safe measured cadence and production schedule are pending. Existing 15-minute job unchanged.
 
 * [ ] **L089 — Offhours health schedule**
-  * **Current behavior:** Connected offhours health runs at minute seven in specified hours.
+  * **Current behavior:** Optional existing-server runner has no market-hours/weekend restriction for bounded checks; health and self-audits run independently of market calendar.
   * **How it works:** Complementary UTC-hour cron expression excludes 13–20 every day.
   * **Inputs and dependencies:** Health hook and token.
   * **Execution schedule:** 7 0-12,21-23 * * * GMT.
   * **Relevant formulas or rules:** Weekend hours 13–20 are uncovered because market-window job is weekday-only.
-  * **Current implementation status:** Schedule verified in connected backend; uncovered interval is a schedule-definition finding, not an observed outage.
-  * **Conflicts or contradictions:** X07: Connected market-window health is every 15 minutes, while the optional audit template defines five minutes. The complementary offhours expression excludes weekend 13–20 UTC even though market-window health is weekdays only. This is a schedule-definition gap, not a measured outage. Related items: L088, L089.
+  * **Current implementation status:** November 28 — X07 production weekend gap remains unresolved until runner/scheduler activation; no claim that five minutes is free or fastest without evidence.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X07 production weekend gap remains unresolved until runner/scheduler activation; no claim that five minutes is free or fastest without evidence.
   * **Source evidence:** migration/fresh/09-schedule.sql;16-autonomous-audit.sql:81–95; read-only cron metadata
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X07 production weekend gap remains unresolved until runner/scheduler activation; no claim that five minutes is free or fastest without evidence.
 
 * [ ] **L090 — Standalone daily integrity schedule**
   * **Current behavior:** Fresh audit SQL defines a daily integrity job in addition to the Lab hook’s integrity call.
@@ -1316,17 +1338,17 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **Decision:** [ ]
   * **My instructions:**
 
-* [ ] **L095 — Research completed-session timestamp**
-  * **Current behavior:** Picks use the date’s actual New York close plus five minutes.
+* [x] **L095 — Research completed-session timestamp**
+  * **Current behavior:** Selection receipts and validation opens use marketSessionTimestamp with the session date’s actual New York offset. Receipts remain close+5 minutes; historical timestamps are modeled evidence.
   * **How it works:** Convert America/New_York GMT offset to UTC; reject closed-market dates.
   * **Inputs and dependencies:** market-calendar holiday/early-close rules and Intl timezone data.
   * **Execution schedule:** Selection replay for each candidate date.
   * **Relevant formulas or rules:** selected_at = session close +5 minutes with actual date-specific UTC offset.
-  * **Current implementation status:** Implemented; timestamp is a modeled historical decision time, not proof someone actually ran a live prediction then.
-  * **Conflicts or contradictions:** X08: Selection curve validation uses entry-date 13:30 UTC while completed-session modeling is DST-aware. Those conventions are not universally equivalent; boundary effects need a separate approved reproduction. Related items: L293, L095.
+  * **Current implementation status:** November 28 — X08 converter verified across winter, summer, early closes and holidays; not proof of actual historical live prediction execution.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X08 converter verified across winter, summer, early closes and holidays; not proof of actual historical live prediction execution.
   * **Source evidence:** src/lib/research-session.ts:4–18
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X08 converter verified across winter, summer, early closes and holidays; not proof of actual historical live prediction execution.
 
 ## 6. Formulas, Scoring & Calculations
 
@@ -3458,17 +3480,17 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **Decision:** [ ]
   * **My instructions:**
 
-* [ ] **L273 — Ledger session-completeness filter**
-  * **Current behavior:** A date is simulated only if its panel row count is at least half the maximum count in the loaded panel.
+* [x] **L273 — Ledger session-completeness filter**
+  * **Current behavior:** The ledger uses completed benchmark sessions from the shared June 2021 foundation, without the former 50% peak-panel threshold. Valuation reads real cached closes independently of scoring eligibility.
   * **How it works:** Group panel by date, find maximum and filter dates after the start.
   * **Inputs and dependencies:** Panel row counts, not verified listing records.
   * **Execution schedule:** Every ledger build.
   * **Relevant formulas or rules:** count(date) >= 0.5 × max count across input dates.
-  * **Current implementation status:** Implemented; differs from the selection replay 80% rule; skipped dates retain their stored bars.
-  * **Conflicts or contradictions:** X03: The ledger accepts dates with at least 50% of the maximum loaded daily panel count. The shared historical comparable-universe start rule is 80%, and selection history has its own eligibility/coverage checks. These are not one unified gate; books and selection evidence can cover different dates. The previously described 400-stock/40% ledger rule is NOT the current source rule. Related items: L273, L287.
+  * **Current implementation status:** November 28 — X03 source gate resolved and regression tested; existing historical book rows remain append-only. Retrospective missing book rows were not invented or rewritten.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X03 source gate resolved and regression tested; existing historical book rows remain append-only. Retrospective missing book rows were not invented or rewritten.
   * **Source evidence:** src/lib/researcher-ledger.server.ts:101–110
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X03 source gate resolved and regression tested; existing historical book rows remain append-only. Retrospective missing book rows were not invented or rewritten.
 
 * [ ] **L274 — Saved-book continuity preflight**
   * **Current behavior:** The writer refuses to append to internally inconsistent saved books.
@@ -3528,7 +3550,7 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **Conflicts or contradictions:** X04: Ledger close-entry books, next-session-open forward outcomes, fixed-stake selection history, trade-table paper holdings and broker fills use different models. This is a comparability conflict if presented as the same performance; independent models are not automatically bugs. Paper due exits use exact target-session marks, not a blanket midpoint/VWAP rule. Related items: L278, L288, L294, L359.
   * **Source evidence:** src/lib/researcher-ledger.ts:80–97
   * **Decision:** [ ]
-  * **My instructions:**
+  * **My instructions:** X04 reviewed November 28: preserve this independent authentic-price return model; do not blend it with other researcher results or interpret it as a broker fill. Existing implementation unchanged; isolation tests passed.
 
 * [ ] **L279 — Historical ledger holding and sale rule**
   * **Current behavior:** The simulator increments held sessions and sells at a real close once the lane hold length is reached.
@@ -3626,29 +3648,29 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **Decision:** [ ]
   * **My instructions:**
 
-* [ ] **L287 — Forward-selection warm-up and liquidity eligibility**
-  * **Current behavior:** Layer 1 requires 200 preceding stored sessions plus the decision session, then applies historical price and dollar-volume gates.
+* [x] **L287 — Forward-selection warm-up and liquidity eligibility**
+  * **Current behavior:** Selections use the same completed benchmark foundation and June 2021 start without a fixed 80% gate. Each stock retains its genuine 200-session indicator warm-up and price/liquidity eligibility.
   * **How it works:** eligibleAt reads only the history supplied through decision date T.
   * **Inputs and dependencies:** History through T; min price and dollar-volume settings.
   * **Execution schedule:** Each selection-replay date/ticker.
   * **Relevant formulas or rules:** history.length>=201; close>=minPrice; mean(last20 close×volume)>=minDollarVolume.
-  * **Current implementation status:** Implemented; no independently verified IPO/delisting catalogue was established in this audit.
-  * **Conflicts or contradictions:** X03: The ledger accepts dates with at least 50% of the maximum loaded daily panel count. The shared historical comparable-universe start rule is 80%, and selection history has its own eligibility/coverage checks. These are not one unified gate; books and selection evidence can cover different dates. The previously described 400-stock/40% ledger rule is NOT the current source rule. Related items: L273, L287.
+  * **Current implementation status:** November 28 — X03 source gate resolved. Historic pick records remain immutable; no cutoff reduction or fabricated missing prices.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X03 source gate resolved. Historic pick records remain immutable; no cutoff reduction or fabricated missing prices.
   * **Source evidence:** src/lib/selection-replay.ts:5–30
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X03 source gate resolved. Historic pick records remain immutable; no cutoff reduction or fabricated missing prices.
 
-* [ ] **L288 — Forward evaluation entry and exit convention**
-  * **Current behavior:** Selections made at T close are evaluated using T+1 open and T+H close.
+* [x] **L288 — Forward evaluation entry and exit convention**
+  * **Current behavior:** Forward evaluation retains next-session open entry and T+H close exit; includes 180 sessions alongside 1,5,10,20,60.
   * **How it works:** Use shared session calendar with exact ticker bars, without trade-table fills.
   * **Inputs and dependencies:** Immutable pick, bars, calendar and horizon.
   * **Execution schedule:** Selection replay and later pending-outcome maturity.
   * **Relevant formulas or rules:** H in [1,5,10,20,60]; H=1 is entry-day close.
-  * **Current implementation status:** Implemented; separate outcome model from the close-entry ledger.
-  * **Conflicts or contradictions:** X02: The 9M metric consumer requests 180-session evaluations, but selection replay produces only 1, 5, 10, 20 and 60. These directly conflict; no 180-session producer was verified. Related items: L292, L288. X04: Ledger close-entry books, next-session-open forward outcomes, fixed-stake selection history, trade-table paper holdings and broker fills use different models. This is a comparability conflict if presented as the same performance; independent models are not automatically bugs. Paper due exits use exact target-session marks, not a blanket midpoint/VWAP rule. Related items: L278, L288, L294, L359.
+  * **Current implementation status:** November 28 — X02 producer implemented and configured-backend readback verified: 2,288 matured 180-session outcomes and 1,238 pending. No picks or books changed; production deployment separate.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X02 producer implemented and configured-backend readback verified: 2,288 matured 180-session outcomes and 1,238 pending. No picks or books changed; production deployment separate.
   * **Source evidence:** src/lib/selection-replay.ts:1–6,40–55
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X02 producer implemented and configured-backend readback verified: 2,288 matured 180-session outcomes and 1,238 pending. No picks or books changed; production deployment separate.
 
 * [ ] **L289 — Missing forward outcome prices**
   * **Current behavior:** Outcomes stay pending until both exact-session entry open and exit close exist and are positive finite values.
@@ -3686,29 +3708,29 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **Decision:** [ ]
   * **My instructions:**
 
-* [ ] **L292 — Displayed horizon availability**
-  * **Current behavior:** Metric labels map 1M to 20, 3M to 60, 9M to 180 sessions.
+* [x] **L292 — Displayed horizon availability**
+  * **Current behavior:** 9M consumer now has a 180-session producer; saved metrics count authentic matured outcomes and leave future/missing marks pending.
   * **How it works:** Aggregate matching evaluation cohorts; availability means at least one row exists.
   * **Inputs and dependencies:** Layer 2 evaluation rows.
   * **Execution schedule:** Lab evidence aggregation.
   * **Relevant formulas or rules:** Replay currently creates 1,5,10,20,60 horizons, not 180.
-  * **Current implementation status:** Implemented mismatch: 9M is unavailable without an additional producer; not automatically pending.
-  * **Conflicts or contradictions:** X02: The 9M metric consumer requests 180-session evaluations, but selection replay produces only 1, 5, 10, 20 and 60. These directly conflict; no 180-session producer was verified. Related items: L292, L288. X25: Selection cards use 20/60/180 sessions for 1M/3M/9M while Influence assignment outcomes use 21/63/189. Labels therefore do not imply identical comparison windows. Influence outcomes are separate and do not supply the missing Layer 2 180-session results. Related items: L292, L248, L249, L250.
+  * **Current implementation status:** November 28 — X02 configured-backend evidence verified; production catch-up remains separately required. Prior hidden UI choices remain unchanged.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X02 configured-backend evidence verified; production catch-up remains separately required. Prior hidden UI choices remain unchanged.
   * **Source evidence:** src/lib/selection-evaluations.ts:2,29–49; src/lib/selection-replay.ts:6
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X02 configured-backend evidence verified; production catch-up remains separately required. Prior hidden UI choices remain unchanged.
 
-* [ ] **L293 — Same-day selection chart eligibility**
-  * **Current behavior:** Selection history includes only validated horizon-1 results for immutable picks.
+* [x] **L293 — Same-day selection chart eligibility**
+  * **Current behavior:** Same-day chart validation uses the shared date-aware New York opening timestamp, not fixed 13:30 UTC. All identity, maturity and actual-price checks remain.
   * **How it works:** Reject duplicate lane/date picks/outcomes; require next calendar-session entry, same-day exit, timestamp and price-return agreement.
   * **Inputs and dependencies:** Selections, horizon-1 evaluations, calendar and as-of timestamp.
   * **Execution schedule:** rebuildLabHistory.
   * **Relevant formulas or rules:** Timestamp guard uses entry-date 13:30 UTC; outcome return tolerance 0.00011.
-  * **Current implementation status:** Implemented; fixed-UTC cutoff differs from DST-aware research session timestamps and is flagged for review.
-  * **Conflicts or contradictions:** X08: Selection curve validation uses entry-date 13:30 UTC while completed-session modeling is DST-aware. Those conventions are not universally equivalent; boundary effects need a separate approved reproduction. Related items: L293, L095.
+  * **Current implementation status:** November 28 — X08 resolved in source/tests: winter 09:15 ET accepted; winter/summer opening bell and late records excluded. Historical final outcomes untouched.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: X08 resolved in source/tests: winter 09:15 ET accepted; winter/summer opening bell and late records excluded. Historical final outcomes untouched.
   * **Source evidence:** src/lib/selection-curve.ts:18–44
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. X08 resolved in source/tests: winter 09:15 ET accepted; winter/summer opening bell and late records excluded. Historical final outcomes untouched.
 
 * [ ] **L294 — Same-day selection chart P&L model**
   * **Current behavior:** Selection history sums fixed-stake outcome profits by exit date.
@@ -3720,7 +3742,7 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **Conflicts or contradictions:** X04: Ledger close-entry books, next-session-open forward outcomes, fixed-stake selection history, trade-table paper holdings and broker fills use different models. This is a comparability conflict if presented as the same performance; independent models are not automatically bugs. Paper due exits use exact target-session marks, not a blanket midpoint/VWAP rule. Related items: L278, L288, L294, L359.
   * **Source evidence:** src/lib/selection-curve.ts:44–53; src/lib/history-reconstruction.ts
   * **Decision:** [ ]
-  * **My instructions:**
+  * **My instructions:** X04 reviewed November 28: preserve this independent authentic-price return model; do not blend it with other researcher results or interpret it as a broker fill. Existing implementation unchanged; isolation tests passed.
 
 * [ ] **L295 — Saved selection history schema**
   * **Current behavior:** Historical selection snapshots require all seven unique lanes, ordered dates and internally consistent point counts.
@@ -4502,7 +4524,7 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **Conflicts or contradictions:** X04: Ledger close-entry books, next-session-open forward outcomes, fixed-stake selection history, trade-table paper holdings and broker fills use different models. This is a comparability conflict if presented as the same performance; independent models are not automatically bugs. Paper due exits use exact target-session marks, not a blanket midpoint/VWAP rule. Related items: L278, L288, L294, L359.
   * **Source evidence:** src/lib/race.server.ts:616–655,767–820
   * **Decision:** [ ]
-  * **My instructions:**
+  * **My instructions:** X04 reviewed November 28: preserve this independent authentic-price return model; do not blend it with other researcher results or interpret it as a broker fill. Existing implementation unchanged; isolation tests passed.
 
 * [ ] **L360 — Paper close claim and cash writes**
   * **Current behavior:** Only one competing closer can claim open->closed, but ledger completion is a separate write.
@@ -5687,16 +5709,16 @@ The production checker primarily probes selected tables/columns; it does not cer
   * **My instructions:**
 
 * [ ] **L458 — Health check persistence and alerts**
-  * **Current behavior:** Checks are saved and unresolved issues can notify the owner.
+  * **Current behavior:** Existing health persistence/notifications are preserved. New bounded monitoring reports read-only failures; runner prints safe status summaries and never response account evidence.
   * **How it works:** Read saved evidence, apply stated condition, record/report the result.
   * **Inputs and dependencies:** health_checks, cache, settings and relevant trade/ledger evidence.
   * **Execution schedule:** Health invocation; cooldowns as stated.
   * **Relevant formulas or rules:** Notification key uses first issue’s first60 characters and New York date.
-  * **Current implementation status:** Implemented in source; production configuration and successful execution not independently verified.
-  * **Conflicts or contradictions:** No direct contradiction established for this item; distinct model behavior and deployment uncertainty are retained in its status. Dependency removal is not approved.
+  * **Current implementation status:** November 28 — Bounded monitor healthy and unauthorized HTTP request rejected (401). Full persistence, alerts and production scheduled delivery still require actual activated-run verification.
+  * **Conflicts or contradictions:** Original finding retained in register; November 28 resolution: Bounded monitor healthy and unauthorized HTTP request rejected (401). Full persistence, alerts and production scheduled delivery still require actual activated-run verification.
   * **Source evidence:** src/lib/health.server.ts:300–322
-  * **Decision:** [ ]
-  * **My instructions:**
+  * **Decision:** [C]
+  * **My instructions:** Apply authoritative X01–X08 answer key; preserve independent formulas, history and live safeguards. Bounded monitor healthy and unauthorized HTTP request rejected (401). Full persistence, alerts and production scheduled delivery still require actual activated-run verification.
 
 * [ ] **L459 — Safe-repair logging**
   * **Current behavior:** Allowlisted repairs attempt to save post-repair verification status without interrupting the caller.

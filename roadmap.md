@@ -1,5 +1,14 @@
 # ASTR Master Completion Roadmap
 
+## Nov 28 — Approved X01–X08 answer key (X09 held)
+- [x] Align paper assignment choices with operating lanes; preserve live-buy permissions and legacy records.
+- [x] Add 180-session evaluations and additive historical outcome catch-up without rewriting picks or final outcomes.
+- [x] Share authentic session foundations without percentage gates; preserve independent formulas, warm-up and books.
+- [ ] Source/tests complete: actual exchange-hour hook and unchanged snapshot verified; production every-five-minute schedule/delivery awaits scheduler access and confirmed free budget.
+- [ ] Source/tests/UI complete: shared DST timestamps, authoritative calendar and local displays; independent production deployment/open-session delivery unverified.
+- [ ] Bounded authenticated monitoring and optional sequential server runner prepared/read-only verified; activation blocked by always-on-server answer, free budget and production scheduler access.
+- [x] Run targeted rules/regressions, verify the accessible UI, and annotate exact checklist completion and blockers.
+
 ## Nov 27 — Logic and operations audit
 - [x] Inspect existing operations, formulas, researchers, execution, schedules and dependencies without running or changing them; generated `docs/astr-logic-checklist.md` with 472 unique items, 12 categories, 25 named conflict findings, source evidence and verification limits.
 - [x] Use blank = keep, C = change, and R or D = delete; all decision fields verified blank. Discussion plus explicit authorization is required before any rebuild or operational change; no application, data or job changes made.

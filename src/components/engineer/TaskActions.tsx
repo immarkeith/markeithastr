@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ACTIVE_STATUSES, type EngineerTask } from "@/lib/engineer/types";
+import { LocalTimestamp } from '@/components/LocalTimestamp';
 
 interface TaskActionsProps {
   task: EngineerTask;
@@ -149,7 +150,7 @@ export function TaskActions({
         <p className="text-xs text-muted-foreground">
           {task.status === "rejected"
             ? "Rejected and archived. The diff stays in the thread above."
-            : `Completed${task.approved_at ? ` ${new Date(task.approved_at).toLocaleString("en-US")}` : ""}.`}
+            : <>Completed{task.approved_at ? <> <LocalTimestamp value={task.approved_at} /></> : null}.</>}
         </p>
       )}
 

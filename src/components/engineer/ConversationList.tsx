@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { LocalTimestamp } from '@/components/LocalTimestamp';
 import { ACTIVE_STATUSES, type EngineerTask, type EngineerTaskStatus } from "@/lib/engineer/types";
 
 export const STATUS_TONE: Record<string, string> = {
@@ -95,13 +96,8 @@ export function ConversationList({ tasks, selectedId, onSelect, loading }: Conve
                   >
                     {task.prompt}
                   </span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
-                    {new Date(task.updated_at).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                  <span className="min-w-0 max-w-[45%] text-right text-[10px] text-muted-foreground">
+                    <LocalTimestamp value={task.updated_at} />
                   </span>
                 </span>
                 <span className="mt-0.5 flex items-center gap-2">

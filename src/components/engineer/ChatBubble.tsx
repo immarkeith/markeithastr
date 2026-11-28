@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { LocalTimestamp } from '@/components/LocalTimestamp';
 
 interface ChatBubbleProps {
   /** "out" = the operator's message (right), "in" = ASTR's reply (left). */
@@ -49,10 +50,7 @@ export function ChatBubble({ direction, sender, timestamp, children, className }
               outgoing && "text-right",
             )}
           >
-            {new Date(timestamp).toLocaleString("en-US", {
-              dateStyle: "short",
-              timeStyle: "short",
-            })}
+            <LocalTimestamp value={timestamp} />
           </p>
         )}
       </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { LocalTimestamp } from '@/components/LocalTimestamp';
 import { healthQuery, notificationsQuery, settingsQuery, themeSignalsQuery } from "@/lib/queries";
 import {
   getPushKey,
@@ -296,7 +297,7 @@ function NotificationsPage() {
                   {lastHealth.ok ? "Healthy" : "Problems found"}
                 </span>{" "}
                 <span className="text-xs text-muted-foreground">
-                  {new Date(lastHealth.checked_at).toLocaleString()} · {lastHealth.note}
+                  <LocalTimestamp value={lastHealth.checked_at} /> · {lastHealth.note}
                 </span>
               </p>
               {(lastHealth.issues ?? []).map((i, idx) => (
@@ -318,12 +319,7 @@ function NotificationsPage() {
                 {(health ?? []).map((row) => (
                   <li key={row.id} className="flex items-baseline justify-between gap-3 text-xs">
                     <span className="text-muted-foreground">
-                      {new Date(row.checked_at).toLocaleString([], {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
+                      <LocalTimestamp value={row.checked_at} />
                     </span>
                     <span className={row.ok ? "text-success" : "text-destructive"}>
                       {row.ok
@@ -361,7 +357,7 @@ function NotificationsPage() {
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-semibold">{n.title}</span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(n.created_at).toLocaleString()}
+                    <LocalTimestamp value={n.created_at} />
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>

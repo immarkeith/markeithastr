@@ -1,5 +1,6 @@
 /** Same-day Layer 2 replay only; no strategy books, trade rows, or invented marks. */
 import { STAKE, type HistoryCurve } from './history-reconstruction';
+import { marketOpenUtcMs } from './research-session';
 export const SELECTION_LANES = ['lead', 'trend', 'contrarian', 'consistency', 'growth', 'risk', 'skeptic'] as const;
 export interface SelectionRecord {
   lane: string; session_date: string; selected_at: string; ticker: string | null;
@@ -35,7 +36,7 @@ export function buildSelectionHistoryCurve(lane: string, selections: readonly Se
     const entry = r.entry_price, exit = r.exit_price;
     const valid = r.status === 'matured' && r.ticker === s.ticker && r.entry_date === next.get(s.session_date)
       && r.entry_date !== null && r.exit_date === r.entry_date && r.exit_date <= asOf.slice(0, 10)
-      && Number.isFinite(Date.parse(s.selected_at)) && Date.parse(s.selected_at) < Date.parse(`${r.entry_date}T13:30:00Z`)
+      && Number.isFinite(Date.parse(s.selected_at)) && Date.parse(s.selected_at) < marketOpenUtcMs(r.entry_date)
       && r.matured_at !== null && Number.isFinite(Date.parse(r.matured_at)) && Date.parse(r.matured_at) <= Date.parse(asOf)
       && entry !== null && exit !== null && Number.isFinite(entry) && Number.isFinite(exit) && entry > 0 && exit > 0
       && r.return_pct !== null && Number.isFinite(r.return_pct)

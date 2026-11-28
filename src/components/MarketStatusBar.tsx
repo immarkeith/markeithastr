@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { marketStatus, type MarketStatus } from "@/lib/market-calendar";
+import { formatDisplayTime } from '@/lib/device-time';
 
 const toneFor = (status: MarketStatus) => {
   switch (status.state) {
@@ -16,9 +17,18 @@ const toneFor = (status: MarketStatus) => {
 
 export function MarketStatusBar({ paperMode }: { paperMode?: boolean }) {
   const [status, setStatus] = useState<MarketStatus>(() => marketStatus());
+  const [deviceTime, setDeviceTime] = useState<string | null>(null);
 
   useEffect(() => {
-    const id = setInterval(() => setStatus(marketStatus()), 30_000);
+    const update = () => {
+      const now = new Date();
+      setStatus(marketStatus(now));
+      let zone: string | undefined;
+      try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* Eastern fallback */ }
+      setDeviceTime(formatDisplayTime(now.toISOString(), zone));
+    };
+    update();
+    const id = setInterval(update, 30_000);
     return () => clearInterval(id);
   }, []);
 
@@ -36,7 +46,7 @@ export function MarketStatusBar({ paperMode }: { paperMode?: boolean }) {
         Market {status.label}
       </span>
       <span className="text-muted-foreground">
-        {status.nyDate} · {status.nyTime}
+        {deviceTime ?? `${status.nyDate} · ${status.nyTime} (Eastern)`}
       </span>
       <span className="text-muted-foreground">{status.detail}</span>
       {paperMode ? (

@@ -4,7 +4,7 @@
  * Entry = open of session T+1; exit = close of session T+H (H=1 is same-day).
  */
 export const WARMUP_SESSIONS = 200;
-export const EVAL_HORIZONS = [1, 5, 10, 20, 60] as const;
+export const EVAL_HORIZONS = [1, 5, 10, 20, 60, 180] as const;
 
 /** Historical bootstraps ignore the nightly incremental input watermark. */
 export function selectionReplaySince(latestPick: string | null, fullReplay: boolean): string | undefined {

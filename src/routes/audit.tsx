@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ShieldCheck, AlertTriangle, XCircle, RefreshCw, Wrench, Clock } from "lucide-react";
 
 import { StatTile } from "@/components/StatTile";
+import { LocalTimestamp } from '@/components/LocalTimestamp';
 import { Button } from "@/components/ui/button";
 import {
   getLeadAudit,
@@ -121,7 +122,7 @@ function AuditDeskPage() {
           <div className={`text-lg font-bold tracking-wide ${cfg.color}`}>{report ? cfg.label : error ? "AUDIT UNAVAILABLE" : "CHECKING AUDIT EVIDENCE…"}</div>
           <div className="text-xs text-muted-foreground">
             Last checked:{" "}
-            {report?.timestamp ? new Date(report.timestamp).toLocaleString() : "Running check…"}
+            {report?.timestamp ? <LocalTimestamp value={report.timestamp} /> : "Running check…"}
           </div>
         </div>
       </div>
@@ -228,7 +229,7 @@ function AuditDeskPage() {
                 {repairLogs.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/20">
                     <td className="p-3 text-muted-foreground whitespace-nowrap">
-                      {new Date(r.checked_at).toLocaleString()}
+                      <LocalTimestamp value={r.checked_at} />
                     </td>
                     <td className="p-3 font-medium">{r.repair_type.replace(/_/g, " ")}</td>
                     <td className="p-3 font-mono text-muted-foreground">{r.target ?? "—"}</td>
@@ -273,7 +274,7 @@ function AuditDeskPage() {
                 {integrityHistory.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/20">
                     <td className="p-3 text-muted-foreground whitespace-nowrap">
-                      {new Date(r.checked_at).toLocaleString()}
+                      <LocalTimestamp value={r.checked_at} />
                     </td>
                     <td className="p-3 font-medium uppercase">{r.cadence}</td>
                     <td className="p-3">

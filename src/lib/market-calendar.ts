@@ -71,14 +71,59 @@ export const OPEN_MINUTES = 9 * 60 + 30; // 09:30 ET
 export const CLOSE_MINUTES = 16 * 60; // 16:00 ET
 export const EARLY_CLOSE_MINUTES = 13 * 60; // 13:00 ET
 
+function observed(year: number, month: number, day: number): string {
+  const d = new Date(Date.UTC(year, month - 1, day, 12));
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+  else if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+function nthWeekday(year: number, month: number, weekday: number, nth: number): string {
+  const d = new Date(Date.UTC(year, month - 1, 1, 12));
+  d.setUTCDate(1 + (weekday - d.getUTCDay() + 7) % 7 + 7 * (nth - 1));
+  return d.toISOString().slice(0, 10);
+}
+const holidayCache = new Map<number, Set<string>>();
+/** Standard NYSE closures; unexpected schedule changes use the server's exchange calendar. */
+function standardHolidays(year: number): Set<string> {
+  const cached = holidayCache.get(year);
+  if (cached) return cached;
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+  const h = (19 * a + b - Math.floor(b / 4) - Math.floor((b - Math.floor((b + 8) / 25) + 1) / 3) + 15) % 30;
+  const l = (32 + 2 * (b % 4) + 2 * Math.floor(c / 4) - h - c % 4) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const easter = h + l - 7 * m + 114;
+  const goodFriday = new Date(Date.UTC(year, Math.floor(easter / 31) - 1, easter % 31 + 1 - 2, 12));
+  const memorial = new Date(Date.UTC(year, 4, 31, 12));
+  memorial.setUTCDate(31 - (memorial.getUTCDay() - 1 + 7) % 7);
+  const set = new Set([
+    nthWeekday(year, 2, 1, 3), goodFriday.toISOString().slice(0, 10), memorial.toISOString().slice(0, 10),
+    observed(year, 7, 4), nthWeekday(year, 9, 1, 1), nthWeekday(year, 11, 4, 4), observed(year, 12, 25),
+  ]);
+  // NYSE does not observe Saturday New Year on the previous Friday.
+  const jan1 = new Date(Date.UTC(year, 0, 1, 12));
+  if (jan1.getUTCDay() !== 6) set.add(observed(year, 1, 1));
+  if (year >= 1998) set.add(nthWeekday(year, 1, 1, 3));
+  if (year >= 2022) set.add(observed(year, 6, 19));
+  holidayCache.set(year, set);
+  return set;
+}
+const EXTRA_CLOSURES = new Set(['2001-09-11', '2001-09-12', '2001-09-13', '2001-09-14', '2004-06-11', '2007-01-02', '2012-10-29', '2012-10-30', '2018-12-05', '2025-01-09']);
+
 export function isTradingDay(date: string, weekday?: number): boolean {
-  if (MARKET_HOLIDAYS.has(date)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || MARKET_HOLIDAYS.has(date) || EXTRA_CLOSURES.has(date) || standardHolidays(Number(date.slice(0, 4))).has(date)) return false;
   const dow = weekday ?? new Date(`${date}T12:00:00Z`).getUTCDay();
   return dow !== 0 && dow !== 6;
 }
 
 export function sessionCloseMinutes(date: string): number {
-  return HALF_DAYS.has(date) ? EARLY_CLOSE_MINUTES : CLOSE_MINUTES;
+  const year = Number(date.slice(0, 4));
+  const thanksgiving = new Date(`${nthWeekday(year, 11, 4, 4)}T12:00:00Z`);
+  thanksgiving.setUTCDate(thanksgiving.getUTCDate() + 1);
+  const dow = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const standardHalfDay = date === thanksgiving.toISOString().slice(0, 10)
+    || (date === `${year}-12-24` && dow >= 1 && dow <= 4)
+    || (date === `${year}-07-03` && dow >= 1 && dow <= 4);
+  return HALF_DAYS.has(date) || standardHalfDay ? EARLY_CLOSE_MINUTES : CLOSE_MINUTES;
 }
 
 export type MarketState = "pre-open" | "open" | "closing" | "after-hours" | "closed";
@@ -121,7 +166,7 @@ export function marketStatus(now: Date = new Date()): MarketStatus {
   const { date, minutes, weekday } = nyParts(now);
   const tradingDay = isTradingDay(date, weekday);
   const close = sessionCloseMinutes(date);
-  const earlyClose = HALF_DAYS.has(date);
+  const earlyClose = close === EARLY_CLOSE_MINUTES;
   const nyTime = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")} ET`;
   const next = nextTradingDay(date);
 

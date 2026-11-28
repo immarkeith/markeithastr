@@ -31,6 +31,16 @@ test('look-ahead, wrong horizon, and late selections are excluded', () => {
   expect(build([{ ...pick, selected_at: '2026-11-17T16:00:00Z' }]).excluded).toBe(1);
   expect(build([pick], [{ ...result, horizon_sessions: 20 }]).missing_evaluations).toBe(1);
 });
+test('X08 winter selections at 9:15 Eastern are valid but the opening bell is too late', () => {
+  expect(build([{ ...pick, selected_at: '2026-11-17T14:15:00Z' }]).trades).toBe(1);
+  expect(build([{ ...pick, selected_at: '2026-11-17T14:30:00Z' }]).excluded).toBe(1);
+});
+test('X08 summer uses the 13:30 UTC opening bell', () => {
+  const p = { ...pick, session_date: '2026-07-06', selected_at: '2026-07-07T13:15:00Z' };
+  const r = { ...result, session_date: p.session_date, entry_date: '2026-07-07', exit_date: '2026-07-07', matured_at: '2026-07-07T21:00:00Z' };
+  expect(buildSelectionHistoryCurve('lead', [p], [r], ['2026-07-06', '2026-07-07'], asOf).trades).toBe(1);
+  expect(buildSelectionHistoryCurve('lead', [{ ...p, selected_at: '2026-07-07T13:30:00Z' }], [r], ['2026-07-06', '2026-07-07'], asOf).excluded).toBe(1);
+});
 test('invalid prices or inconsistent recorded return are excluded', () => {
   for (const r of [{ ...result, entry_price: 0 }, { ...result, exit_price: NaN }, { ...result, return_pct: 99 }]) expect(build([pick], [r]).excluded).toBe(1);
 });

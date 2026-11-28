@@ -3,7 +3,11 @@ import { z } from "zod";
 
 import { requireGate } from "./gate-middleware";
 
-export const RESEARCHERS = [
+import { RESEARCHERS } from './research-roster';
+export { RESEARCHERS } from './research-roster';
+
+// Existing live-buy permissions are a separate boundary, unchanged by paper roster cleanup.
+const LIVE_BUY_RESEARCHERS = [
   "Lead Researcher",
   "Trend Researcher",
   "Momentum Researcher",
@@ -41,7 +45,7 @@ export const researcherLiveBuy = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z.object({
       ticker: z.string().trim().min(1).max(10).regex(/^[A-Za-z.\-]+$/),
-      researcher: z.enum(RESEARCHERS).refine((r) => r !== "Influence Researcher"),
+      researcher: z.enum(LIVE_BUY_RESEARCHERS).refine((r) => r !== "Influence Researcher"),
       hold_days: z.number().int().min(0).max(252),
       dollars: z.number().min(1).max(1_000_000),
       estimated_price: z.number().positive(),

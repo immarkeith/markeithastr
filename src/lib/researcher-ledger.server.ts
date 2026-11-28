@@ -33,13 +33,14 @@ import { z } from "zod";
 import { loadSelectionInput } from "./selection-input.server";
 import type { Json } from "@/integrations/supabase/types";
 import { ledgerReturnMatches } from './research-certification';
+import { researchFoundationDates, RESEARCH_START_DATE } from './research-foundation';
 
 export const LEDGER_ENGINE_VERSION = "v2-t1";
 export const LEDGER_BASE_EQUITY = 100;
 /** Full cached research universe (backfilled to July 2020). */
 const LEDGER_UNIVERSE = 2600;
 /** First recorded session; earlier bars are indicator warm-up only. */
-export const LEDGER_START_DATE = "2021-06-01";
+export const LEDGER_START_DATE = RESEARCH_START_DATE;
 const LEDGER_RESUME_DAYS = 320;
 const LEDGER_HISTORY_DAYS = 2000;
 const checkpointSchema = z.object({
@@ -91,24 +92,30 @@ export async function runResearcherLedger(options: { fullReplay?: boolean } = {}
   const resumeAll = !options.fullReplay && laneNames.every(lane => checkpoints.has(lane));
   const historyDays = resumeAll ? LEDGER_RESUME_DAYS : LEDGER_HISTORY_DAYS;
   const resumeFrom = resumeAll ? [...checkpoints.values()].map(c => c.state.date ?? "").sort()[0] : undefined;
-  // Same 300-ticker universe as before, fetched in pages so the long history
-  // read stays under the database statement timeout.
   // Walk the ticker/date key per symbol; the aggregate RPC times out at this size.
   const since = resumeFrom ? new Date(Date.parse(`${resumeFrom}T00:00:00Z`) - LEDGER_RESUME_DAYS * 1.6 * 86400000).toISOString().slice(0, 10) : undefined;
   const raw = await loadSelectionInput(since);
   const panel = await buildPanel(LEDGER_UNIVERSE, s.market_proxy, historyDays, raw as never, resumeFrom || undefined);
 
-  // Only sessions with real coverage — a half-downloaded day is not a session.
+  // Every researcher uses the same authentic benchmark sessions. A thinner
+  // historical universe is not rejected relative to today's larger panel.
   const byDate = new Map<string, PanelRow[]>();
   for (const r of panel.rows) {
     const list = byDate.get(r.date);
     if (list) list.push(r);
     else byDate.set(r.date, [r]);
   }
-  const best = Math.max(0, ...[...byDate.values()].map((l) => l.length));
-  const sessions = [...byDate.keys()]
-    .filter((d) => d >= LEDGER_START_DATE && (byDate.get(d)?.length ?? 0) >= best * 0.5)
-    .sort();
+  const benchmark = raw.find(row => row.ticker === s.market_proxy.toUpperCase());
+  if (!benchmark) throw new Error('Shared research benchmark history is unavailable; no ledger append permitted');
+  const sessions = researchFoundationDates(benchmark.bars.map(bar => bar[0]), LEDGER_START_DATE);
+  // Valuation uses stored actual closes even when a ticker has no eligible
+  // scoring/indicator row that day. Ranking eligibility must not erase prices.
+  const closesByDate = new Map<string, Map<string, number>>();
+  for (const stock of raw) for (const [date, , , , close] of stock.bars) {
+    const prices = closesByDate.get(date) ?? new Map<string, number>();
+    prices.set(stock.ticker, close);
+    closesByDate.set(date, prices);
+  }
 
   const researchers = await listResearchers();
   const slots = await loadSlots();
@@ -149,8 +156,7 @@ export async function runResearcherLedger(options: { fullReplay?: boolean } = {}
     const resume = !options.fullReplay && checkpoint?.fingerprint === fingerprint ? checkpoint : undefined;
     const days = sessions.filter(date => !resume?.state.date || date > resume.state.date).map((date) => {
       const rows = byDate.get(date) ?? [];
-      const closes = new Map<string, number>();
-      for (const r of rows) closes.set(r.ticker, r.close);
+      const closes = closesByDate.get(date) ?? new Map<string, number>();
       // Point-in-time ranking: only the features computed from bars up to `date`.
       const ranked = rows
         .filter((r) => passesFilters(r, l.params, s, share))

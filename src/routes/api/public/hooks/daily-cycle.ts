@@ -11,8 +11,9 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
         const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
         const denied = await rejectUnauthorizedHook(request);
         if (denied) return denied;
-        const { scheduledPassDue } = await import('@/lib/schedule-rules');
-        if (!scheduledPassDue('daily-cycle')) return Response.json({ ran: false, reason: 'Outside the Eastern daily window.' });
+        const { scheduledPassStatus } = await import('@/lib/exchange-calendar.server');
+        const pass = await scheduledPassStatus('daily-cycle');
+        if (!pass.due) return Response.json({ ran: false, reason: pass.reason }, { status: pass.available ? 200 : 503 });
         try {
           const { runDailyCycle, loadSettings } = await import("@/lib/scan.server");
           // Paper testing is independent of the live switch (see preopen hook).
@@ -64,8 +65,7 @@ export const Route = createFileRoute("/api/public/hooks/daily-cycle")({
           // refresh the display and report success after a failed ledger append.
           const { runSelectionGraphPipeline } = await import("@/lib/research-pipeline.server");
           const research = await runSelectionGraphPipeline();
-          // The independent saved-Lab callback audits at 6 PM Eastern after this
-          // cycle; do not create a second daily report or duplicate alert here.
+          // Continuous integrity monitoring is separate from graph refresh.
 
           const settings = await loadSettings();
           if (!(settings as unknown as { auto_run: boolean }).auto_run) {

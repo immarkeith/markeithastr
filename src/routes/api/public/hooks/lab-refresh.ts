@@ -12,23 +12,20 @@ export const Route = createFileRoute("/api/public/hooks/lab-refresh")({
         const { rejectUnauthorizedHook } = await import("@/lib/hooks.server");
         const denied = await rejectUnauthorizedHook(request);
         if (denied) return denied;
-        const { scheduledPassDue } = await import('@/lib/schedule-rules');
-        if (!scheduledPassDue('lab-refresh')) return Response.json({ ran: false, reason: 'Outside the Eastern research window.' });
+        const { scheduledPassStatus } = await import('@/lib/exchange-calendar.server');
+        const pass = await scheduledPassStatus('lab-refresh');
+        if (!pass.due) return Response.json({ ran: false, reason: pass.reason }, { status: pass.available ? 200 : 503 });
         try {
-          const { latestLedgerDate, runResearcherLedger } = await import(
+          const { latestLedgerDate } = await import(
             "@/lib/researcher-ledger.server"
           );
-          if (!(await latestLedgerDate())) await runResearcherLedger();
+          if (!(await latestLedgerDate())) throw new Error('Saved researcher history is missing; run the explicit research bootstrap first');
           const { refreshLabGraphIntraday } = await import("@/lib/lab-graph.server");
           const result = await refreshLabGraphIntraday();
-          const { nyParts } = await import('@/lib/market-calendar');
-          const { runIntegrityCheck } = await import('@/lib/integrity.server');
-          const integrity = await runIntegrityCheck(nyParts().weekday === 6 ? 'weekly' : 'daily');
           return Response.json({
             mode: result.mode,
             generated_at: result.guards.generated_at,
             curves: result.payload.equity_curves.length,
-            integrity: { verdict: integrity.verdict, stored: integrity.stored },
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : "lab refresh failed";

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
+import { validDailyBar } from './market-data-validation';
 export type SelectionInput = { ticker: string; bars: [string, number, number, number, number, number][] };
 /** Every distinct cached ticker, walked through the primary key (no row cap). */
 export async function distinctCachedTickers(): Promise<string[]> {
@@ -30,8 +31,8 @@ export async function distinctCachedTickers(): Promise<string[]> {
 }
 
 /** Walk the ticker/date primary key, not repeated full-cache GROUP BY queries. */
-export async function loadSelectionInput(since?: string): Promise<SelectionInput[]> {
-  const tickers = await distinctCachedTickers();
+export async function loadSelectionInput(since?: string, requiredTickers?: readonly string[]): Promise<SelectionInput[]> {
+  const tickers = requiredTickers ? [...new Set(requiredTickers)].sort() : await distinctCachedTickers();
   const out: SelectionInput[] = [];
   for (let i = 0; i < tickers.length; i += 6) {
     const batch = await Promise.all(tickers.slice(i, i + 6).map(async ticker => {
@@ -43,7 +44,10 @@ export async function loadSelectionInput(since?: string): Promise<SelectionInput
         const { data, error } = await q
           .order('bar_date', { ascending: false }).range(offset, offset + 999);
         if (error) throw new Error(`Selection prices unavailable: ${error.message}`);
-        for (const row of data ?? []) bars.push([row.bar_date, Number(row.open), Number(row.high), Number(row.low), Number(row.close), Number(row.volume)]);
+        for (const row of data ?? []) {
+          const bar = { ticker, bar_date: row.bar_date, open: Number(row.open), high: Number(row.high), low: Number(row.low), close: Number(row.close), volume: Number(row.volume) };
+          if (validDailyBar(bar)) bars.push([bar.bar_date, bar.open, bar.high, bar.low, bar.close, bar.volume]);
+        }
         if ((data ?? []).length < 1000) break;
       }
       bars.reverse();

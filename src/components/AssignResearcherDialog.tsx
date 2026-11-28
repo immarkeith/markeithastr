@@ -5,7 +5,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RESEARCHERS, assignToResearcher } from "@/lib/assign.functions";
 
@@ -13,18 +12,11 @@ import { RESEARCHERS, assignToResearcher } from "@/lib/assign.functions";
 export function AssignResearcherDialog({ ticker }: { ticker: string }) {
   const [open, setOpen] = useState(false);
   const [researcher, setResearcher] = useState<(typeof RESEARCHERS)[number]>("Lead Researcher");
-  const [tipDate, setTipDate] = useState(new Date().toISOString().slice(0, 10));
-  const [horizon, setHorizon] = useState<"1M" | "3M" | "9M" | "1Y+">("3M");
-  const [source, setSource] = useState("");
-  const [notes, setNotes] = useState("");
-  const influence = researcher === "Influence Researcher";
   const qc = useQueryClient();
   const run = useServerFn(assignToResearcher);
   const m = useMutation({
     mutationFn: () =>
-      run({ data: influence
-        ? { ticker, researcher, tip_date: tipDate, horizon, source: source || undefined, notes: notes || undefined }
-        : { ticker, researcher } }),
+      run({ data: { ticker, researcher } }),
     onSuccess: async () => {
       toast.success(`${ticker} assigned to ${researcher} for research.`);
       setOpen(false);
@@ -50,30 +42,6 @@ export function AssignResearcherDialog({ ticker }: { ticker: string }) {
                 {RESEARCHERS.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
-            {influence ? (
-              <>
-                <div className="space-y-2">
-                  <Label>Date the tip was made</Label>
-                  <Input type="date" value={tipDate} onChange={(e) => setTipDate(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Intended hold</Label>
-                  <select className={sel} value={horizon} onChange={(e) => setHorizon(e.target.value as typeof horizon)}>
-                    {["1M", "3M", "9M", "1Y+"].map((h) => <option key={h}>{h}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Source / person (optional)</Label>
-                  <Input value={source} onChange={(e) => setSource(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Notes (optional)</Label>
-                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-                </div>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">Saves today's date and a snapshot of the stock's current numbers.</p>
-            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

@@ -30,6 +30,11 @@ on:
         required: false
         default: false
         type: boolean
+      outcomes_only:
+        description: 'Only fill missing evaluation horizons and refresh the view; preserve all picks and books'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -57,7 +62,7 @@ jobs:
 
       - name: Preflight required Actions secrets
         env:
-          NEEDS_MARKET_DATA: ${{ !inputs.skip_backfill }}
+          NEEDS_MARKET_DATA: ${{ !inputs.skip_backfill && !inputs.outcomes_only }}
           DATABASE_SET: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
           MARKET_DATA_SET: ${{ secrets.ALPACA_LIVE_KEY_ID != '' && secrets.ALPACA_LIVE_SECRET_KEY != '' }}
         run: |
@@ -114,7 +119,7 @@ jobs:
         run: bun run scripts/check-production-schema.ts --strict
 
       - name: Backfill research market data (restartable, upsert only)
-        if: ${{ !inputs.skip_backfill }}
+        if: ${{ !inputs.skip_backfill && !inputs.outcomes_only }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -127,7 +132,7 @@ jobs:
           --symbols-file=scripts/research-universe-2026-11-26.json
 
       - name: Archive and continuously replay all researcher books
-        if: ${{ !inputs.skip_ledger_rebuild }}
+        if: ${{ !inputs.skip_ledger_rebuild && !inputs.outcomes_only }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -137,10 +142,18 @@ jobs:
           --archive-file=replay-artifacts/pre-replay-ledger.json
 
       - name: Refresh selections, outcomes and saved Lab graphs
+        if: ${{ !inputs.outcomes_only }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: bun run scripts/refresh-research-graphs.ts
+
+      - name: Fill missing outcomes without replaying picks or books
+        if: ${{ inputs.outcomes_only }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: bun run scripts/refresh-selection-outcomes.ts
 
       - name: Certify saved rows and graph readback
         env:
